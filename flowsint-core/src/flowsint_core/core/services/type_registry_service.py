@@ -264,6 +264,19 @@ class TypeRegistryService(BaseService):
             },
             {
                 "id": uuid4(),
+                "type": "aviation_category",
+                "key": "aviation",
+                "icon": "aircraft",
+                "label": "Aviation",
+                "fields": [],
+                "children": [
+                    ("Aircraft", "identifier", "aircraft"),
+                    ("AircraftPosition", "observation_id", "aircraftposition"),
+                    ("Flight", "flight_id", "flight"),
+                ],
+            },
+            {
+                "id": uuid4(),
                 "type": "person",
                 "key": "person_category",
                 "icon": "individual",

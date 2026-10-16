@@ -1323,5 +1323,10 @@
   "Zoom In": "Zoom In",
   "Zoom in (over 2x) to see all labels, icons, and edges": "Zoom in (over 2x) to see all labels, icons, and edges",
   "Zoom Out": "Zoom Out",
-  "Zoom to Selection": "Zoom to Selection"
+  "Zoom to Selection": "Zoom to Selection",
+  "Aircraft": "Aircraft",
+  "AircraftPosition": "AircraftPosition",
+  "Aviation": "Aviation",
+  "Maximum position age in seconds (1–3600); stale positions are skipped": "Maximum position age in seconds (1–3600); stale positions are skipped",
+  "Flight": "Flight"
 }

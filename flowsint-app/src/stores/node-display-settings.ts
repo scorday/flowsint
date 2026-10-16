@@ -3,6 +3,9 @@ import { persist } from 'zustand/middleware'
 import type * as LucideIcons from 'lucide-react'
 
 export type ItemType =
+  | 'aircraft'
+  | 'aircraftposition'
+  | 'flight'
   | 'domain'
   | 'email'
   | 'ip'
@@ -45,6 +48,9 @@ export type ItemType =
   | 'custom'
 
 export const ITEM_TYPES: ItemType[] = [
+  'aircraft',
+  'aircraftposition',
+  'flight',
   'domain',
   'email',
   'ip',
@@ -89,6 +95,9 @@ export const ITEM_TYPES: ItemType[] = [
 
 // Icon mapping for each item type (Lucide icons)
 export const TYPE_TO_ICON: Record<string, keyof typeof LucideIcons> = {
+  aircraft: 'Plane',
+  aircraftposition: 'MapPinned',
+  flight: 'Route',
   domain: 'Globe',
   email: 'Mail',
   ip: 'Network',
@@ -133,6 +142,9 @@ export const TYPE_TO_ICON: Record<string, keyof typeof LucideIcons> = {
 }
 
 const DEFAULT_COLORS: Record<ItemType, string> = {
+  aircraft: '#5AA1C8',
+  aircraftposition: '#E57373',
+  flight: '#80BF80',
   domain: '#66A892', // vert sauge
   email: '#8E7CC3', // violet pastel
   ip: '#5AA1C8', // orange chaud

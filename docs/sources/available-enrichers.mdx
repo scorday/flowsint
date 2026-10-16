@@ -9,6 +9,109 @@ version: "1.2.8"
 last_updated_at: "2026-05-15"
 ---
 
+### Aviation
+
+**aircraft_to_details**: Registration or ICAO hex → aircraft model, manufacturer
+and reported registered owner via the public [adsbdb aircraft API](https://github.com/mrjackwills/adsbdb).
+No API key. Does not call the separately restricted flight-route endpoints.
+
+**aircraft_to_position**: Aircraft → fresh, dated position observations via
+[ADSB.lol](https://api.adsb.lol/docs). No API key. Coordinates, barometric altitude
+in feet, ground speed in knots, track in degrees and callsign are included when available.
+
+**aircraft_to_flights**: Aircraft → observed flight history from free
+[ADSB.lol daily traces](https://www.adsb.lol/docs/open-data/historical/).
+Accepts ICAO hex directly. For a registration, uses the input's ICAO hex when
+present, otherwise resolves the current mapping through adsbdb. Registrations
+and ICAO addresses can be reassigned: this mapping does not prove that the same
+registration belonged to the aircraft at the historical date.
+
+Launch from an **Aircraft** node. Leave both date fields blank for the last seven
+completed UTC days, or set `start_date` and `end_date` as `YYYY-MM-DD` (inclusive).
+The maximum range is 31 days; today and future days are rejected. Archives may
+appear with a delay or be unavailable, and a missing day does not prove no flights.
+Only individual daily aircraft traces are fetched; no multi-gigabyte GitHub
+archive is downloaded.
+
+The enricher splits observed airborne segments at ground reports, readsb leg
+markers, or a coverage gap exceeding `gap_minutes` (default 30, range 5–180).
+At least two valid airborne observations are required. A flight continuing
+across UTC midnight is kept together when adjacent days are available and
+observations remain continuous. Isolated reports, ground-only activity and
+stale or malformed points do not become flights. A gap can split a real flight,
+and archive boundaries can truncate one: **first/last seen times and coordinates
+are observations, not confirmed takeoff, landing or airport records**.
+
+Results are **Flight** nodes with first/last seen times and coordinates,
+observed callsigns, point counts, boundary reasons, segmentation gap setting,
+source archive URLs and retrieval time. No flight number or airport is inferred
+from a callsign or endpoint coordinate. Graph connections are
+`Aircraft → HAS_OBSERVED_FLIGHT → Flight` and
+`Flight → HAS_POSITION_OBSERVATION → AircraftPosition`.
+Each sampled position also links to its Aircraft. Historical registration and
+type snapshots are stored on positions, preserving present-day aircraft metadata.
+
+`max_flights` keeps the newest segments per aircraft (default 50, range 1–100).
+`positions_per_flight` selects evenly spaced positions including both endpoints
+(default 20, range 2–200); the Flight retains the full observed point count.
+The stored position count describes samples selected by that run; previous
+observations can remain in the graph. A processing ceiling of 200,000 valid
+points per aircraft retains the newest available points and logs truncation.
+Processing is bounded to 8 MiB per HTTP response after HTTP decoding and 32 MiB
+after any remaining file-gzip decoding. Unavailable/invalid days are logged and
+other days continue; rate limiting stops further requests while retaining
+already retrieved results. These inferred segments are useful for investigation,
+but do not form a complete authoritative flight log.
+
+**location_to_aircraft**: Location with explicit latitude/longitude → nearest
+observed aircraft within `radius_nm` (default 25, range 0.1–250 nautical miles).
+`max_results` limits aircraft per location (default 100, range 1–500).
+The existing Location fields address, city, country and zip are still required;
+unknown address components can be empty strings. Coordinates alone are not geocoded.
+
+Create an **Aircraft** node from the Aviation menu and set `identifier` to a
+registration such as `G-EUUU` or a six-digit ICAO hex code such as `400942`.
+Run `aircraft_to_details`, `aircraft_to_position` or `aircraft_to_flights` from that node. To search
+an area, create a **Location** node with coordinates and run `location_to_aircraft`.
+
+Resolved Aircraft nodes use uppercase ICAO hex as their stable graph label;
+registration lookup nodes link to them with `RESOLVES_TO_AIRCRAFT`. The label
+does not change when descriptive metadata is updated. Identifiers can be
+reassigned, so these lookups do not establish immutable airframe identity.
+Registered-owner names are preserved verbatim as fields, with adsbdb source URL
+and retrieval time. They are not automatically classified as Organization or
+Individual, and do not establish the operator, beneficial owner or passengers.
+
+Every position is an **AircraftPosition** node connected by
+`Aircraft → HAS_POSITION_OBSERVATION → AircraftPosition`.
+Area searches also connect `Location → HAS_NEARBY_AIRCRAFT_OBSERVATION → AircraftPosition`.
+Observations retain the ADSB.lol source URL, retrieval time and position time
+(provider response time minus `seen_pos`). AircraftPosition identifiers include
+source, aircraft hex and observation time, preserving separate observations.
+An area's radius and limit apply to each search; all successful location
+associations are retained even when the same aircraft appears in multiple areas.
+
+Both position enrichers accept `max_age_seconds` (default 300, range 1–3600).
+Missing coordinates, unknown position age, future or stale positions and invalid
+records are skipped. Empty results mean **no fresh observation available**, not
+that the aircraft is absent. The receiver network does not provide complete
+global coverage. Historical traces use their own timestamps and do not apply
+the live-position age filter. Flight-route database lookups are not performed.
+
+Requests have a 15-second timeout and are paced at one request per second per
+provider and worker process, including across separate Celery job event loops.
+HTTP 429 stops that provider's current batch,
+honours numeric or HTTP-date `Retry-After` with a shared cooldown (60 seconds
+if unspecified), and preserves earlier successful results. Other failed inputs
+are logged and skipped; response bodies are not logged. Worker processes have
+independent pacing, so cap concurrent aviation jobs when deploying multiple workers.
+
+ADSB.lol data is licensed under **ODbL 1.0**: retain attribution and follow the
+license for redistribution/derived databases. Its API documentation asks
+production users to contact the provider; this implementation does not imply
+that such coordination has taken place. Review current
+[API terms](https://api.adsb.lol/docs) before production deployment.
+
 ### ASN
 **asn_to_cidrs**: Given an ASN, enumerate its announced CIDR ranges.
 Tools/Pivots: [asnmap](https://github.com/projectdiscovery/asnmap) (CLI), [jq](https://jqlang.github.io/jq/) (CLI)

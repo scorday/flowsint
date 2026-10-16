@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from .address import Location
 from .affiliation import Affiliation
+from .aircraft import Aircraft, AircraftPosition, Flight
 from .alias import Alias
 from .asn import ASN
 from .bank_account import BankAccount
@@ -57,6 +58,9 @@ __version__ = "0.1.0"
 __author__ = "dextmorgn <contact@flowsint.io>"
 
 __all__ = [
+    "Aircraft",
+    "AircraftPosition",
+    "Flight",
     "Location",
     "Affiliation",
     "Alias",
@@ -113,6 +117,9 @@ __all__ = [
 # Type Registry: mapping Neo4j node types to Pydantic model classes
 # Keys are lowercase to match Neo4j node type property
 TYPE_TO_MODEL: Dict[str, Type[BaseModel]] = {
+    "aircraft": Aircraft,
+    "aircraftposition": AircraftPosition,
+    "flight": Flight,
     "domain": Domain,
     "email": Email,
     "ip": Ip,
