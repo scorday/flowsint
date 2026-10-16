@@ -37,6 +37,13 @@ import IconPicker, { NodeIconTrigger } from '@/components/shared/icon-picker'
 import { ColorPicker } from '@/components/shared/color-picker'
 import { usePermissions } from '@/hooks/use-can'
 
+// Categories contain setting entries, so their display labels live separately.
+const CATEGORY_TITLES: Record<string, string> = {
+  information: 'Sketch information',
+  general: 'General',
+  graph: 'Graph'
+}
+
 // SettingItem Components
 interface SettingItemProps {
   label: string
@@ -345,10 +352,9 @@ interface DynamicSectionProps {
   categoryId: string
   category: any
   title: string
-  description: string
 }
 
-function DynamicSection({ categoryId, category, title, description }: DynamicSectionProps) {
+function DynamicSection({ categoryId, category, title }: DynamicSectionProps) {
   const { t } = useTranslation()
 
   const getPresets = useGraphSettingsStore((s) => s.getPresets)
@@ -361,7 +367,6 @@ function DynamicSection({ categoryId, category, title, description }: DynamicSec
       <div className="space-y-6">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold text-foreground">{t(title)}</h3>
-          <p className="text-sm text-muted-foreground">{t(description ?? '')}</p>
         </div>
         <div className="text-sm text-muted-foreground">
           {t('No settings available for category: ')}
@@ -382,7 +387,6 @@ function DynamicSection({ categoryId, category, title, description }: DynamicSec
     <div className="space-y-6">
       <div className="space-y-1">
         <h3 className="text-lg font-semibold text-foreground">{t(title)}</h3>
-        <p className="text-sm text-muted-foreground">{t(description ?? '')}</p>
       </div>
 
       {/* Special handling for force section */}
@@ -657,8 +661,7 @@ export default function GlobalSettings() {
         <DynamicSection
           categoryId={sectionId}
           category={category}
-          title={t(category.title)}
-          description={t(category.description)}
+          title={CATEGORY_TITLES[sectionId] ?? sectionId}
         />
       )
     }
@@ -685,7 +688,7 @@ export default function GlobalSettings() {
             <TabsList className="w-full h-auto flex">
               {Object.keys(settings).map((category: string) => (
                 <TabsTrigger key={category} value={category} className="capitalize h-9">
-                  {category}
+                  {t(CATEGORY_TITLES[category] ?? category)}
                 </TabsTrigger>
               ))}
               <TabsTrigger value="nodecolors" className="h-9">
