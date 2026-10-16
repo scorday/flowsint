@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .models import Key
+from .project_scope import ActorID, current_scope, owner_filter
 
 load_dotenv()
 
@@ -22,11 +23,15 @@ class VaultProtocol(Protocol):
 
 
 class Vault(VaultProtocol):
-    def __init__(self, db: Session, owner_id: uuid.UUID):
+    def __init__(self, db: Session, owner_id: ActorID):
         if not owner_id:
             raise ValueError("owner_id is required to use the vault.")
         self.db = db
         self.owner_id = owner_id
+        scope = current_scope()
+        self._encryption_context = (
+            f"project:{scope.project_id}" if scope else str(owner_id)
+        )
         self.version = "V1"
 
     def _get_master_key(self) -> bytes:
@@ -53,7 +58,7 @@ class Vault(VaultProtocol):
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            info=str(self.owner_id).encode("utf-8"),
+            info=self._encryption_context.encode("utf-8"),
         )
         master_key = self._get_master_key()
         return hkdf.derive(master_key)
@@ -73,7 +78,7 @@ class Vault(VaultProtocol):
         ciphertext = aesgcm.encrypt(
             iv,
             plaintext.encode("utf-8"),
-            str(self.owner_id).encode("utf-8"),  # AAD = links secret to user_id
+            self._encryption_context.encode("utf-8"),  # AAD = links secret to user_id
         )
 
         return {
@@ -93,7 +98,7 @@ class Vault(VaultProtocol):
         plaintext = aesgcm.decrypt(
             row.get("iv"),
             row.get("ciphertext"),
-            str(self.owner_id).encode("utf-8"),
+            self._encryption_context.encode("utf-8"),
         )
         return plaintext.decode("utf-8")
 
@@ -138,7 +143,7 @@ class Vault(VaultProtocol):
         except ValueError:
             stmt = select(Key).where(Key.name == vault_ref)
 
-        stmt = stmt.where(Key.owner_id == self.owner_id)
+        stmt = stmt.where(owner_filter(Key, self.owner_id))
         result = self.db.execute(stmt)
         row = result.scalars().first()
 

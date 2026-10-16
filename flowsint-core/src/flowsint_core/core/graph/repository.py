@@ -6,10 +6,30 @@ handling raw GraphDict object and operations with batching support.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .connection import Neo4jConnection
 from .types import GraphDict
+
+
+def _identifier(value: Any) -> str:
+    """Quote a Cypher label/type, rejecting escape sequences and delimiters."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or any(char in "`\\" or ord(char) < 32 for char in value)
+    ):
+        raise ValueError("Invalid graph identifier")
+    return f"`{value}`"
+
+
+def _scoped_properties(properties: GraphDict, sketch_id: str) -> GraphDict:
+    if str(properties.get("nodeType", "")).lower() == "avl4material":
+        raise ValueError("AVL4 snapshots can only be changed through card import")
+    return {
+        **{k: v for k, v in properties.items() if not k.startswith("avl4_")},
+        "sketch_id": sketch_id,
+    }
 
 
 class Neo4jGraphRepository:
@@ -106,11 +126,11 @@ class Neo4jGraphRepository:
         self, node_obj: GraphDict, sketch_id: str
     ) -> Tuple[str, Dict[str, Any]]:
         node_label = node_obj.get("nodeLabel")
-        node_type = node_obj.get("nodeType")
+        node_type = _identifier(node_obj.get("nodeType"))
 
         # paramètres Neo4j
         params = {
-            "props": node_obj,  # flat with keys containing "."
+            "props": _scoped_properties(node_obj, sketch_id),
             "node_label": node_label,
             "sketch_id": sketch_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -131,17 +151,17 @@ class Neo4jGraphRepository:
         rel_obj: GraphDict,
         sketch_id: str,
     ) -> Tuple[str, Dict[str, Any]]:
-        from_type = rel_obj["from_type"]
+        from_type = _identifier(rel_obj["from_type"])
         from_label = rel_obj["from_label"]
-        to_type = rel_obj["to_type"]
+        to_type = _identifier(rel_obj["to_type"])
         to_label = rel_obj["to_label"]
-        rel_label = rel_obj["rel_label"]
+        rel_label = _identifier(rel_obj["rel_label"])
 
         params = {
             "from_label": from_label,
             "to_label": to_label,
             "sketch_id": sketch_id,
-            "props": rel_obj,
+            "props": _scoped_properties(rel_obj, sketch_id),
         }
 
         query = f"""
@@ -340,7 +360,7 @@ class Neo4jGraphRepository:
             try:
                 from_element_id = edge.get("from_element_id")
                 to_element_id = edge.get("to_element_id")
-                rel_label = edge.get("rel_label", "RELATED_TO")
+                rel_label = _identifier(edge.get("rel_label", "RELATED_TO"))
 
                 if not from_element_id or not to_element_id:
                     errors.append(
@@ -348,28 +368,22 @@ class Neo4jGraphRepository:
                     )
                     continue
 
-                edge["sketch_id"] = sketch_id
-
-                # Build relationship properties string
-                props_str = ", ".join([f"{k}: ${k}_{idx}" for k in edge.keys()])
-                rel_props = (
-                    f"{{{props_str}}}" if props_str else "{sketch_id: $sketch_id}"
-                )
-
                 query = f"""
                 MATCH (from) WHERE elementId(from) = $from_id_{idx}
+                    AND from.sketch_id = $sketch_id AND from.deleted_at IS NULL
                 MATCH (to) WHERE elementId(to) = $to_id_{idx}
-                MERGE (from)-[r:`{rel_label}` {rel_props}]->(to)
+                    AND to.sketch_id = $sketch_id AND to.deleted_at IS NULL
+                MERGE (from)-[r:{rel_label} {{sketch_id: $sketch_id}}]->(to)
+                SET r += $props_{idx}, r.deleted_at = null
                 """
 
                 # Build params with unique keys for batch execution
                 params = {
                     f"from_id_{idx}": from_element_id,
                     f"to_id_{idx}": to_element_id,
+                    "sketch_id": sketch_id,
+                    f"props_{idx}": _scoped_properties(edge, sketch_id),
                 }
-                # Add serialized properties with index suffix
-                for k, v in edge.items():
-                    params[f"{k}_{idx}"] = v
 
                 batch_operations.append((query, params))
             except Exception as e:
@@ -400,6 +414,7 @@ class Neo4jGraphRepository:
         query = """
         MATCH (n)
         WHERE elementId(n) = $element_id AND n.sketch_id = $sketch_id AND n.deleted_at IS NULL
+            AND NOT n:avl4material
         SET n += $props
         RETURN elementId(n) AS id
         """
@@ -407,7 +422,7 @@ class Neo4jGraphRepository:
         params = {
             "element_id": element_id,
             "sketch_id": sketch_id,
-            "props": updates,
+            "props": _scoped_properties(updates, sketch_id),
         }
 
         result = self._connection.query(query, params)
@@ -552,11 +567,14 @@ class Neo4jGraphRepository:
         MATCH (a)-[r]->(b)
                 WHERE elementId(a) = nid
                     AND elementId(b) IN $node_ids
+                    AND r.sketch_id = $sketch_id
                     AND r.deleted_at IS NULL
         RETURN elementId(r) as id, type(r) as type, elementId(a) as source,
                elementId(b) as target, properties(r) as data
         """
-        rels_result = self._connection.query(rels_query, {"node_ids": node_ids})
+        rels_result = self._connection.query(
+            rels_query, {"node_ids": node_ids, "sketch_id": sketch_id}
+        )
         return {"nodes": nodes_result, "edges": rels_result or []}
 
     def update_relationship(
@@ -565,9 +583,11 @@ class Neo4jGraphRepository:
         if not self._connection:
             return None
 
+        rel_obj = dict(rel_obj)
         new_label = rel_obj.pop("label", None)
 
         if new_label:
+            new_label = _identifier(new_label)
             # Neo4j relationship types are immutable, so we need to
             # delete the old relationship and create a new one with the new type.
             query = f"""
@@ -575,7 +595,7 @@ class Neo4jGraphRepository:
             WHERE elementId(r) = $element_id AND r.sketch_id = $sketch_id AND r.deleted_at IS NULL
             WITH a, b, r, properties(r) AS old_props
             DELETE r
-            CREATE (a)-[r2:`{new_label}`]->(b)
+            CREATE (a)-[r2:{new_label}]->(b)
             SET r2 = old_props
             SET r2 += $props
             SET r2.deleted_at = null
@@ -598,7 +618,7 @@ class Neo4jGraphRepository:
         params = {
             "element_id": element_id,
             "sketch_id": sketch_id,
-            "props": rel_obj,
+            "props": _scoped_properties(rel_obj, sketch_id),
         }
 
         result = self._connection.query(query, params)
@@ -625,16 +645,14 @@ class Neo4jGraphRepository:
         """
         if not self._connection:
             return None
-        serialized_props = {}
-        serialized_props["sketch_id"] = sketch_id
-
-        props_str = ", ".join([f"{k}: ${k}" for k in serialized_props.keys()])
-        rel_props = f"{{{props_str}}}"
+        rel_label = _identifier(rel_label)
 
         query = f"""
         MATCH (a) WHERE elementId(a) = $from_id AND a.deleted_at IS NULL
+            AND a.sketch_id = $sketch_id
         MATCH (b) WHERE elementId(b) = $to_id AND b.deleted_at IS NULL
-        MERGE (a)-[r:`{rel_label}` {rel_props}]->(b)
+            AND b.sketch_id = $sketch_id
+        MERGE (a)-[r:{rel_label} {{sketch_id: $sketch_id}}]->(b)
         SET r.deleted_at = null
         RETURN properties(r) as rel
         """
@@ -746,17 +764,20 @@ class Neo4jGraphRepository:
         if not self._connection or not old_node_ids:
             return None
 
-        node_type = new_node_data.get("type", "Node")
+        if str(new_node_data.get("type", "")).lower() == "avl4material":
+            raise ValueError("AVL4 snapshots cannot be merge targets")
+        node_type = _identifier(new_node_data.get("type", "Node"))
         properties = {}
         properties["sketch_id"] = sketch_id
 
         is_reusing_node = new_node_id and new_node_id in old_node_ids
+        params: Dict[str, Any]
 
         if is_reusing_node:
             set_clause = ", ".join(f"n.{key} = ${key}" for key in properties.keys())
             create_query = f"""
             MATCH (n)
-            WHERE elementId(n) = $nodeId AND n.sketch_id = $sketch_id AND n.deleted_at IS NULL
+            WHERE elementId(n) = $nodeId AND n.sketch_id = $sketch_id AND n.deleted_at IS NULL AND NOT n:avl4material
             SET {set_clause}
             RETURN elementId(n) as newElementId
             """
@@ -764,7 +785,7 @@ class Neo4jGraphRepository:
         else:
             properties["created_at"] = datetime.now(timezone.utc).isoformat()
             create_query = f"""
-            CREATE (n:`{node_type}`)
+            CREATE (n:{node_type})
             SET n = $properties
             RETURN elementId(n) as newElementId
             """
@@ -774,13 +795,13 @@ class Neo4jGraphRepository:
         if not result:
             return None
 
-        new_node_element_id = result[0]["newElementId"]
+        new_node_element_id = cast(str, result[0]["newElementId"])
 
         copy_relationships_query = """
-        MATCH (new) WHERE elementId(new) = $newElementId
+        MATCH (new) WHERE elementId(new) = $newElementId AND new.sketch_id = $sketch_id
 
         UNWIND $oldNodeIds AS oldNodeId
-                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL
+                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4material
 
         WITH new, collect(old) as oldNodes
         UNWIND oldNodes as old
@@ -788,6 +809,7 @@ class Neo4jGraphRepository:
                 WHERE elementId(src) NOT IN $oldNodeIds
                     AND elementId(src) <> $newElementId
                     AND src.deleted_at IS NULL
+                    AND src.sketch_id = $sketch_id AND r.sketch_id = $sketch_id
                     AND r.deleted_at IS NULL
         WITH new, src, type(r) as relType, properties(r) as relProps, r
         MERGE (src)-[newRel:RELATED_TO {sketch_id: $sketch_id}]->(new)
@@ -796,12 +818,13 @@ class Neo4jGraphRepository:
 
         WITH new, $oldNodeIds as oldNodeIds
         UNWIND oldNodeIds AS oldNodeId
-                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL
+                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4material
 
         MATCH (old)-[r]->(dst)
                 WHERE elementId(dst) NOT IN oldNodeIds
                     AND elementId(dst) <> $newElementId
                     AND dst.deleted_at IS NULL
+                    AND dst.sketch_id = $sketch_id AND r.sketch_id = $sketch_id
                     AND r.deleted_at IS NULL
         WITH new, dst, type(r) as relType, properties(r) as relProps
         MERGE (new)-[newRel:RELATED_TO {sketch_id: $sketch_id}]->(dst)
@@ -823,7 +846,7 @@ class Neo4jGraphRepository:
             delete_query = """
             UNWIND $nodeIds AS nodeId
             MATCH (old)
-            WHERE elementId(old) = nodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL
+            WHERE elementId(old) = nodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4material
             OPTIONAL MATCH (old)-[r]-()
             WHERE r.sketch_id = $sketch_id AND r.deleted_at IS NULL
             SET old.deleted_at = $deleted_at
@@ -863,6 +886,7 @@ class Neo4jGraphRepository:
                 WHERE other.sketch_id = $sketch_id
                     AND other <> n
                     AND other.deleted_at IS NULL
+                    AND r.sketch_id = $sketch_id
                     AND r.deleted_at IS NULL
 
         RETURN
@@ -977,11 +1001,11 @@ class Neo4jGraphRepository:
             record = result.single()
             return record["total"] if record else 0
 
-    def __enter__(self):
+    def __enter__(self) -> "Neo4jGraphRepository":
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - auto-flush batch."""
         if exc_type is None:
             self.flush_batch()

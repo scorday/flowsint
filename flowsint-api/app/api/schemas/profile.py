@@ -11,10 +11,11 @@ class ProfileCreate(BaseModel):
 
 
 class ProfileRead(ORMBase):
-    id: UUID4
-    first_name: Optional[str]
-    last_name: Optional[str]
-    avatar_url: Optional[str]
+    id: UUID4 | str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    username: Optional[str] = None
     email: Optional[str] = None
 
 

@@ -46,6 +46,13 @@ export const useChat = () => {
     }
   })
 
+  useEffect(
+    () => () => {
+      void stop()
+    },
+    [stop]
+  )
+
   // Sync server-loaded messages when switching chats
   const prevChatIdRef = useRef(currentChatId)
   useEffect(() => {
@@ -139,9 +146,10 @@ export const useChat = () => {
       const { text, context } = queuedMessageRef.current
       queuedMessageRef.current = null
       const bodyOptions = context?.length ? { body: { context } } : undefined
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         sendMessage({ role: 'user', parts: [{ type: 'text', text }] }, bodyOptions)
       }, 50)
+      return () => clearTimeout(timer)
     }
   }, [currentChatId, transport, sendMessage])
 

@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from ..models import Flow, Sketch
+from ..project_scope import ActorID, current_scope
 from ..repositories import (
     CustomTypeRepository,
     FlowRepository,
@@ -40,7 +41,7 @@ class FlowService(BaseService):
         self._sketch_repo = sketch_repo
         self._investigation_repo = investigation_repo
 
-    def get_all_flows(self, category: Optional[str], user_id: UUID) -> List[Flow]:
+    def get_all_flows(self, category: Optional[str], user_id: ActorID) -> List[Flow]:
         if not category or category.lower() == "undefined":
             return self._flow_repo.get_all_with_optional_category(None, user_id)
 
@@ -54,11 +55,15 @@ class FlowService(BaseService):
 
         return self._flow_repo.get_all_with_optional_category(category, user_id)
 
-    def get_by_id(self, flow_id: UUID, user_id: UUID) -> Flow:
+    def get_by_id(self, flow_id: UUID, user_id: ActorID) -> Flow:
         flow = self._flow_repo.get_by_id(flow_id)
         if not flow:
             raise NotFoundError("Flow not found")
-        if flow.owner_id is not None and flow.owner_id != user_id:
+        if (
+            not current_scope()
+            and flow.owner_id is not None
+            and flow.owner_id != user_id
+        ):
             raise PermissionDeniedError("Forbidden")
         return flow
 
@@ -68,7 +73,7 @@ class FlowService(BaseService):
         description: Optional[str],
         category: List[str],
         flow_schema: Dict[str, Any],
-        owner_id: UUID,
+        owner_id: ActorID,
     ) -> Flow:
         new_flow = Flow(
             id=uuid4(),
@@ -85,11 +90,11 @@ class FlowService(BaseService):
         self._refresh(new_flow)
         return new_flow
 
-    def update(self, flow_id: UUID, user_id: UUID, updates: Dict[str, Any]) -> Flow:
+    def update(self, flow_id: UUID, user_id: ActorID, updates: Dict[str, Any]) -> Flow:
         flow = self._flow_repo.get_by_id(flow_id)
         if not flow:
             raise NotFoundError("Flow not found")
-        if flow.owner_id != user_id:
+        if not current_scope() and flow.owner_id != user_id:
             raise PermissionDeniedError("Forbidden")
 
         for key, value in updates.items():
@@ -103,17 +108,17 @@ class FlowService(BaseService):
         self._refresh(flow)
         return flow
 
-    def delete(self, flow_id: UUID, user_id: UUID) -> None:
+    def delete(self, flow_id: UUID, user_id: ActorID) -> None:
         flow = self._flow_repo.get_by_id(flow_id)
         if not flow:
             raise NotFoundError("Flow not found")
-        if flow.owner_id != user_id:
+        if not current_scope() and flow.owner_id != user_id:
             raise PermissionDeniedError("Forbidden")
 
         self._flow_repo.delete(flow)
         self._commit()
 
-    def get_sketch_for_launch(self, sketch_id: str, user_id: UUID) -> Sketch:
+    def get_sketch_for_launch(self, sketch_id: str, user_id: ActorID) -> Sketch:
         return resolve_sketch_for_launch(
             self._sketch_repo, self._check_permission, sketch_id, user_id
         )

@@ -3,11 +3,11 @@ Vault service — single entry point for secret management.
 """
 
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from ..models import Key
+from ..project_scope import ActorID
 from ..vault import Vault, VaultProtocol
 from .base import BaseService
 
@@ -19,13 +19,13 @@ class VaultService(BaseService):
     returns a VaultProtocol-compatible object for enrichers.
     """
 
-    def get_secret(self, owner_id: UUID, vault_ref: str) -> Optional[str]:
+    def get_secret(self, owner_id: ActorID, vault_ref: str) -> Optional[str]:
         return Vault(db=self._db, owner_id=owner_id).get_secret(vault_ref)
 
-    def set_secret(self, owner_id: UUID, vault_ref: str, plain_key: str) -> Key:
+    def set_secret(self, owner_id: ActorID, vault_ref: str, plain_key: str) -> Key:
         return Vault(db=self._db, owner_id=owner_id).set_secret(vault_ref, plain_key)
 
-    def for_user(self, owner_id: UUID) -> VaultProtocol:
+    def for_user(self, owner_id: ActorID) -> VaultProtocol:
         return Vault(db=self._db, owner_id=owner_id)
 
 

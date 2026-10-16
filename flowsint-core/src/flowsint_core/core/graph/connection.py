@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from neo4j import Driver, GraphDatabase
 
+from ..project_scope import revalidate_worker_scope
+
 load_dotenv()
 
 
@@ -104,6 +106,7 @@ class Neo4jConnection:
         Returns:
             List of result records as dictionaries
         """
+        revalidate_worker_scope()
         with self._driver.session() as session:
             cleaned_params = self._clean_parameters(parameters)
             result = session.run(query, cleaned_params)
@@ -130,6 +133,8 @@ class Neo4jConnection:
             List of result records as dictionaries
         """
 
+        revalidate_worker_scope()
+
         def _execute(tx):
             cleaned_params = self._clean_parameters(parameters)
             result = tx.run(query, cleaned_params)
@@ -150,6 +155,8 @@ class Neo4jConnection:
         Returns:
             List of results, one for each query
         """
+
+        revalidate_worker_scope()
 
         def _execute_batch(tx):
             results = []

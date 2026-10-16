@@ -122,7 +122,7 @@ class TestBuildNodeQuery:
         assert "domain" in query  # nodeType used as label
         assert params["node_label"] == "example.com"
         assert params["sketch_id"] == "sketch-1"
-        assert params["props"] == node_obj
+        assert params["props"] == {**node_obj, "sketch_id": "sketch-1"}
         assert "created_at" in params
 
 

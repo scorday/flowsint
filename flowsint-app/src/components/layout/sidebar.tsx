@@ -1,3 +1,4 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import { Home, Lock, type LucideIcon, PanelLeft, Workflow, Shapes, Puzzle } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useLayoutStore } from '@/stores/layout-store'
@@ -81,7 +82,7 @@ export const Sidebar = memo(() => {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <NavUser />
+        {!isAvl4 && <NavUser />}
       </div>
     </div>
   )

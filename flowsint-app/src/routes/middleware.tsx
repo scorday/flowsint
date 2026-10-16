@@ -1,3 +1,5 @@
+import { isAvl4 } from '@/platform/runtime-config'
+import { redirect } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { Outlet, useNavigate, createFileRoute } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
@@ -5,6 +7,9 @@ import { useAuthStore } from '@/stores/auth-store'
 const TOKEN_EXPIRY_MINUTES = 60
 
 export const Route = createFileRoute('/middleware')({
+  beforeLoad: () => {
+    if (isAvl4) throw redirect({ to: '/dashboard', hash: window.location.hash.slice(1) })
+  },
   component: AuthLayout
 })
 

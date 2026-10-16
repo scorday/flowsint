@@ -1,3 +1,4 @@
+import { isAvl4 } from '@/platform/runtime-config'
 // src/store/auth-store.ts
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
@@ -54,13 +55,19 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createCrossTabStorage()
+      storage: isAvl4
+        ? createJSONStorage(() => ({
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {}
+          }))
+        : createCrossTabStorage()
     }
   )
 )
 
 // Initialize auth state from session storage on app load
-if (typeof window !== 'undefined') {
+if (!isAvl4 && typeof window !== 'undefined') {
   const storedAuth = localStorage.getItem('auth-storage')
   if (storedAuth) {
     try {

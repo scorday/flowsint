@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import UUID4, BaseModel
 
@@ -12,7 +13,7 @@ class KeyCreate(BaseModel):
 
 class KeyRead(ORMBase):
     id: UUID4
-    owner_id: UUID4
+    owner_id: Optional[UUID4] = None
     name: str
     created_at: datetime | str
 

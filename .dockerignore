@@ -64,3 +64,7 @@ build/
 temp/
 tmp/
 Makefile
+
+# AVL4 builds consume local SDK packs, never a developer's registry credentials.
+.npmrc
+**/.npmrc

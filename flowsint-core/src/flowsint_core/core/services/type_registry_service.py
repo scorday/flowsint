@@ -3,7 +3,7 @@ Type registry service for managing flowsint types.
 """
 
 from typing import Any, Dict, List, Optional, Type
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, TypeAdapter, create_model
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from flowsint_types import FlowsintType
 
 from ..graph.serializer import TypeResolver
+from ..project_scope import ActorID
 from ..repositories import CustomTypeRepository
 from .base import BaseService
 
@@ -48,7 +49,9 @@ class TypeRegistryService(BaseService):
         super().__init__(db, **kwargs)
         self._custom_type_repo = custom_type_repo
 
-    def resolve_type(self, type_name: str, user_id: UUID) -> Type[FlowsintType] | None:
+    def resolve_type(
+        self, type_name: str, user_id: ActorID
+    ) -> Type[FlowsintType] | None:
         """Resolve a type name to a FlowsintType class.
 
         Checks the local TYPE_REGISTRY first, then falls back to custom types in DB.
@@ -66,7 +69,7 @@ class TypeRegistryService(BaseService):
             return None
         return _build_pydantic_model_from_schema(custom_type.name, custom_type.schema)
 
-    def build_type_resolver(self, user_id: UUID) -> TypeResolver:
+    def build_type_resolver(self, user_id: ActorID) -> TypeResolver:
         """Return a TypeResolver callable bound to a specific user.
 
         Usage:
@@ -79,7 +82,7 @@ class TypeRegistryService(BaseService):
 
         return resolver
 
-    def get_type(self, user_id: UUID, type_name: str) -> Dict[str, Any] | None:
+    def get_type(self, user_id: ActorID, type_name: str) -> Dict[str, Any] | None:
         from flowsint_types.registry import get_type as get_type_from_registry
 
         model = get_type_from_registry(type_name, case_sensitive=True)
@@ -158,7 +161,7 @@ class TypeRegistryService(BaseService):
             "fields": fields,
         }
 
-    def get_types_list(self, user_id: UUID) -> List[Dict[str, Any]]:
+    def get_types_list(self, user_id: ActorID) -> List[Dict[str, Any]]:
         from flowsint_types.registry import get_type
 
         category_definitions = self._get_category_definitions()

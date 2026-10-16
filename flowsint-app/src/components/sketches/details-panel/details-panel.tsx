@@ -44,6 +44,7 @@ import { TagsInput } from '@/components/ui/tags-input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { MinimalTiptapEditor } from '@/components/analyses/editor/minimal-tiptap'
 import type { Content } from '@tiptap/react'
+import { propertyUrl } from './property-url'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -580,63 +581,69 @@ const DetailsPanel = memo(() => {
         <TabsContent value="properties" className="flex-1 min-h-0 overflow-y-auto mt-0 pb-6">
           <CollapsibleSection label="Properties" defaultOpen noBorderTop>
             {propertiesFields.length > 0 ? (
-              propertiesFields.map(([key, value]) => (
-                <PropertyRow key={key} label={key} copyValue={copyField(value)}>
-                  {typeof value === 'boolean' ? (
-                    canEdit ? (
-                      <Switch
-                        checked={value}
-                        // handlePropertyBlur reads formDataRef.current, but only ever runs
-                        // from this onCheckedChange callback (a real event handler) — never
-                        // during render. The lint rule can't see that from here.
-                        // eslint-disable-next-line react-hooks/refs
-                        onCheckedChange={(checked) => handlePropertyBlur(key, checked)}
-                        className="scale-75"
+              propertiesFields.map(([key, value]) => {
+                const url = propertyUrl(value)
+                return (
+                  <PropertyRow key={key} label={key} copyValue={copyField(value)}>
+                    {typeof value === 'boolean' ? (
+                      canEdit ? (
+                        <Switch
+                          checked={value}
+                          // handlePropertyBlur reads formDataRef.current, but only ever runs
+                          // from this onCheckedChange callback (a real event handler) — never
+                          // during render. The lint rule can't see that from here.
+                          // eslint-disable-next-line react-hooks/refs
+                          onCheckedChange={(checked) => handlePropertyBlur(key, checked)}
+                          className="scale-75"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">{value ? 'Yes' : 'No'}</span>
+                      )
+                    ) : typeof value === 'number' ? (
+                      <StatusCodeBadge statusCode={value} />
+                    ) : url ? (
+                      <a
+                        href={url.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={key === 'monitoring_url' ? 'Open in Monitoring' : undefined}
+                        className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                      >
+                        <Link2 className="size-3 shrink-0" />
+                        <span className="truncate">
+                          {key === 'monitoring_url' ? 'Monitoring' : url.hostname}
+                        </span>
+                      </a>
+                    ) : value && typeof value === 'object' && value.constructor === Object ? (
+                      <PopoverProperty label={key} property={value as object} />
+                    ) : getNodePropertyType(key) === 'list' ? (
+                      canEdit ? (
+                        <TagsInput
+                          value={(value as string[] | undefined) || []}
+                          onChange={(tags) => handlePropertyBlur(key, tags)}
+                          orientation="vertical"
+                          placeholder={
+                            (value as string[] | undefined)?.length === 0
+                              ? 'Empty'
+                              : `Enter ${key.toLowerCase()}`
+                          }
+                        />
+                      ) : (
+                        <span className="text-muted-foreground truncate">
+                          {Array.isArray(value) ? value.join(', ') : formatValue(value)}
+                        </span>
+                      )
+                    ) : canEdit ? (
+                      <PropertyInput
+                        value={String(value || '')}
+                        onBlur={(val) => handlePropertyBlur(key, val)}
                       />
                     ) : (
-                      <span className="text-muted-foreground">{value ? 'Yes' : 'No'}</span>
-                    )
-                  ) : typeof value === 'number' ? (
-                    <StatusCodeBadge statusCode={value} />
-                  ) : typeof value === 'string' && value.startsWith('https://') ? (
-                    <a
-                      href={value}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                    >
-                      <Link2 className="size-3 shrink-0" />
-                      <span className="truncate">{new URL(value).hostname}</span>
-                    </a>
-                  ) : value && typeof value === 'object' && value.constructor === Object ? (
-                    <PopoverProperty label={key} property={value as object} />
-                  ) : getNodePropertyType(key) === 'list' ? (
-                    canEdit ? (
-                      <TagsInput
-                        value={(value as string[] | undefined) || []}
-                        onChange={(tags) => handlePropertyBlur(key, tags)}
-                        orientation="vertical"
-                        placeholder={
-                          (value as string[] | undefined)?.length === 0
-                            ? 'Empty'
-                            : `Enter ${key.toLowerCase()}`
-                        }
-                      />
-                    ) : (
-                      <span className="text-muted-foreground truncate">
-                        {Array.isArray(value) ? value.join(', ') : formatValue(value)}
-                      </span>
-                    )
-                  ) : canEdit ? (
-                    <PropertyInput
-                      value={String(value || '')}
-                      onBlur={(val) => handlePropertyBlur(key, val)}
-                    />
-                  ) : (
-                    <span className="text-muted-foreground truncate">{formatValue(value)}</span>
-                  )}
-                </PropertyRow>
-              ))
+                      <span className="text-muted-foreground truncate">{formatValue(value)}</span>
+                    )}
+                  </PropertyRow>
+                )
+              })
             ) : (
               <p className="px-6 py-2 text-sm text-muted-foreground/40">No properties</p>
             )}

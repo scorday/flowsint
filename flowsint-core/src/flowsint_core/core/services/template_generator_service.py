@@ -8,7 +8,6 @@ import json
 import os
 import re
 from typing import Any, Dict, Optional
-from uuid import UUID
 
 import yaml
 from sqlalchemy.orm import Session
@@ -16,6 +15,7 @@ from sqlalchemy.orm import Session
 from flowsint_core.templates.types import Template
 
 from ..llm import ChatMessage, MessageRole, create_llm_provider
+from ..project_scope import ActorID
 from .base import BaseService
 from .exceptions import ValidationError
 from .vault_service import VaultService
@@ -159,7 +159,7 @@ class TemplateGeneratorService(BaseService):
         super().__init__(db=db)
         self._vault_service = vault_service
 
-    def _get_llm_provider(self, owner_id: UUID):
+    def _get_llm_provider(self, owner_id: ActorID):
         provider_name = os.environ.get("LLM_PROVIDER", "mistral")
         vault_key = f"{provider_name.upper()}_API_KEY"
         api_key = self._vault_service.get_secret(owner_id, vault_key)
@@ -193,7 +193,7 @@ class TemplateGeneratorService(BaseService):
     async def generate(
         self,
         prompt: str,
-        owner_id: UUID,
+        owner_id: ActorID,
         input_type: Optional[str] = None,
         input_schema: Optional[Dict[str, Any]] = None,
         output_type: Optional[str] = None,

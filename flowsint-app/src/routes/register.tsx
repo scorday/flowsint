@@ -1,3 +1,5 @@
+import { isAvl4 } from '@/platform/runtime-config'
+import { redirect } from '@tanstack/react-router'
 // src/routes/register.tsx
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useRegister } from '@/hooks/use-auth'
@@ -8,6 +10,9 @@ import FormField from '@/components/shared/form-field'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/register')({
+  beforeLoad: () => {
+    if (isAvl4) throw redirect({ to: '/dashboard', hash: window.location.hash.slice(1) })
+  },
   component: Register
 })
 

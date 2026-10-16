@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..graph import GraphNode, create_graph_service
 from ..models import Sketch
+from ..project_scope import ActorID
 from ..repositories import InvestigationRepository, SketchRepository
 from .base import BaseService
 from .exceptions import (
@@ -42,7 +43,7 @@ class SketchService(BaseService):
         self._type_registry = type_registry_service
 
     def _get_sketch_with_permission(
-        self, sketch_id: UUID, user_id: UUID, actions: List[str]
+        self, sketch_id: UUID, user_id: ActorID, actions: List[str]
     ) -> Sketch:
         """Get sketch and verify user has permission."""
         sketch = self._sketch_repo.get_by_id(sketch_id)
@@ -51,11 +52,11 @@ class SketchService(BaseService):
         self._check_permission(user_id, sketch.investigation_id, actions)
         return sketch
 
-    def list_sketches(self, user_id: UUID) -> List[Sketch]:
+    def list_sketches(self, user_id: ActorID) -> List[Sketch]:
         """Get all sketches owned by a user."""
         return self._sketch_repo.get_by_owner(user_id)
 
-    def get_by_id(self, sketch_id: UUID, user_id: UUID) -> Sketch:
+    def get_by_id(self, sketch_id: UUID, user_id: ActorID) -> Sketch:
         """Get a sketch by ID with permission check."""
         return self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
@@ -64,7 +65,7 @@ class SketchService(BaseService):
         title: str,
         description: Optional[str],
         investigation_id: UUID,
-        owner_id: UUID,
+        owner_id: ActorID,
     ) -> Sketch:
         if not investigation_id:
             raise ValidationError("Investigation not found")
@@ -82,7 +83,9 @@ class SketchService(BaseService):
         self._refresh(sketch)
         return sketch
 
-    def update(self, sketch_id: UUID, user_id: UUID, updates: Dict[str, Any]) -> Sketch:
+    def update(
+        self, sketch_id: UUID, user_id: ActorID, updates: Dict[str, Any]
+    ) -> Sketch:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
         for key, value in updates.items():
@@ -93,7 +96,7 @@ class SketchService(BaseService):
         self._refresh(sketch)
         return sketch
 
-    def delete(self, sketch_id: UUID, user_id: UUID) -> None:
+    def delete(self, sketch_id: UUID, user_id: ActorID) -> None:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["delete"])
 
         try:
@@ -114,7 +117,7 @@ class SketchService(BaseService):
     # instead of the default {nds, rls}-shaped graph — same distinction the
     # frontend's sketchService.getGraphDataById overload encodes.
     def get_graph(
-        self, sketch_id: UUID, user_id: UUID, format: Optional[str] = None
+        self, sketch_id: UUID, user_id: ActorID, format: Optional[str] = None
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
@@ -139,7 +142,7 @@ class SketchService(BaseService):
         return {"nds": graph["nodes"], "rls": graph["edges"]}
 
     def add_node(
-        self, sketch_id: UUID, user_id: UUID, node: GraphNode
+        self, sketch_id: UUID, user_id: ActorID, node: GraphNode
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -161,7 +164,7 @@ class SketchService(BaseService):
     def add_relationship(
         self,
         sketch_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         source: str,
         target: str,
         label: str = "RELATED_TO",
@@ -187,7 +190,7 @@ class SketchService(BaseService):
         return {"status": "edge added", "edge": result}
 
     def update_node(
-        self, sketch_id: UUID, user_id: UUID, node_id: str, updates: Dict[str, Any]
+        self, sketch_id: UUID, user_id: ActorID, node_id: str, updates: Dict[str, Any]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -208,7 +211,7 @@ class SketchService(BaseService):
         return {"status": "node updated", "node": {"id": updated_element_id}}
 
     def update_node_positions(
-        self, sketch_id: UUID, user_id: UUID, positions: List[Dict[str, Any]]
+        self, sketch_id: UUID, user_id: ActorID, positions: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -227,7 +230,7 @@ class SketchService(BaseService):
         return {"status": "positions updated", "count": updated_count}
 
     def delete_nodes(
-        self, sketch_id: UUID, user_id: UUID, node_ids: List[str]
+        self, sketch_id: UUID, user_id: ActorID, node_ids: List[str]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -243,7 +246,7 @@ class SketchService(BaseService):
         return {"status": "nodes deleted", "count": deleted_count}
 
     def delete_relationships(
-        self, sketch_id: UUID, user_id: UUID, relationship_ids: List[str]
+        self, sketch_id: UUID, user_id: ActorID, relationship_ids: List[str]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
         try:
@@ -260,7 +263,7 @@ class SketchService(BaseService):
     def update_relationship(
         self,
         sketch_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         relationship_id: str,
         data: Dict[str, Any],
     ) -> Dict[str, Any]:
@@ -292,7 +295,7 @@ class SketchService(BaseService):
     def merge_nodes(
         self,
         sketch_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         old_node_ids: List[str],
         new_node_id: str,
         node_data: Dict[str, Any],
@@ -335,7 +338,7 @@ class SketchService(BaseService):
         }
 
     def get_neighbors(
-        self, sketch_id: UUID, user_id: UUID, node_id: str
+        self, sketch_id: UUID, user_id: ActorID, node_id: str
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
@@ -360,7 +363,7 @@ class SketchService(BaseService):
         return {"nds": result.nodes, "rls": result.edges}
 
     def export_sketch(
-        self, sketch_id: UUID, user_id: UUID, format: str = "json"
+        self, sketch_id: UUID, user_id: ActorID, format: str = "json"
     ) -> Dict[str, Any]:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 

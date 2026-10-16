@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from ..models import Key
+from ..project_scope import ActorID
 from ..repositories import KeyRepository
 from .base import BaseService
 from .exceptions import DatabaseError, NotFoundError
@@ -23,19 +24,19 @@ class keyService(BaseService):
         self._key_repo = key_repo
         self._vault_service = vault_service
 
-    def get_keys_for_user(self, user_id: UUID) -> List[Key]:
+    def get_keys_for_user(self, user_id: ActorID) -> List[Key]:
         return self._key_repo.get_by_owner(user_id)
 
-    def get_key_by_owner_and_name(self, user_id: UUID, name: str) -> Key | None:
+    def get_key_by_owner_and_name(self, user_id: ActorID, name: str) -> Key | None:
         return self._key_repo.get_by_name_and_owner(user_id, name)
 
-    def get_key_by_id(self, key_id: UUID, user_id: UUID) -> Key:
+    def get_key_by_id(self, key_id: UUID, user_id: ActorID) -> Key:
         key = self._key_repo.get_by_id_and_owner(key_id, user_id)
         if not key:
             raise NotFoundError("Key not found")
         return key
 
-    def create_key(self, name: str, key_value: str, user_id: UUID) -> Key:
+    def create_key(self, name: str, key_value: str, user_id: ActorID) -> Key:
         try:
             key = self._vault_service.set_secret(
                 user_id, vault_ref=name, plain_key=key_value
@@ -46,15 +47,15 @@ class keyService(BaseService):
         except Exception as e:
             raise DatabaseError(f"An error occurred creating the key: {e}")
 
-    def delete_key(self, key_id: UUID, user_id: UUID) -> None:
+    def delete_key(self, key_id: UUID, user_id: ActorID) -> None:
         key = self.get_key_by_id(key_id, user_id)
         self._key_repo.delete(key)
         self._commit()
 
-    def get_decrypted_key(self, name_or_id: str, user_id: UUID) -> Optional[str]:
+    def get_decrypted_key(self, name_or_id: str, user_id: ActorID) -> Optional[str]:
         return self._vault_service.get_secret(user_id, name_or_id)
 
-    def chat_key_exist(self, user_id: UUID) -> bool:
+    def chat_key_exist(self, user_id: ActorID) -> bool:
         return self._key_repo.chat_key_exist(user_id)
 
 

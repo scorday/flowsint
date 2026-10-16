@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from ..models import InvestigationUserRole
+from ..project_scope import ActorID, current_scope
 from ..types import Role
 
 T = TypeVar("T")
@@ -20,8 +21,12 @@ class BaseRepository(Generic[T]):
         self._db = db
 
     def _get_accessible_investigation_ids(
-        self, user_id: UUID, allowed_roles: Optional[List[Role]] = None
+        self, user_id: ActorID, allowed_roles: Optional[List[Role]] = None
     ) -> Set[UUID]:
+        if current_scope():
+            from ..models import Investigation
+
+            return {row.id for row in self._db.query(Investigation).all()}
         if allowed_roles is None:
             allowed_roles = [Role.OWNER, Role.ADMIN, Role.EDITOR, Role.VIEWER]
         role_entries = (

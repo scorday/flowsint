@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..llm import ChatMessage as LLMChatMessage
 from ..llm import LLMProvider, MessageRole, create_llm_provider
 from ..models import Chat, ChatMessage
+from ..project_scope import ActorID
 from ..repositories import ChatRepository
 from .base import BaseService
 from .exceptions import NotFoundError
@@ -36,7 +37,7 @@ class ChatService(BaseService):
         self._chat_repo = chat_repo
         self._vault_service = vault_service
 
-    def get_chats_for_user(self, user_id: UUID) -> List[Chat]:
+    def get_chats_for_user(self, user_id: ActorID) -> List[Chat]:
         chats = self._chat_repo.get_by_owner(user_id)
 
         for chat in chats:
@@ -44,7 +45,9 @@ class ChatService(BaseService):
 
         return chats
 
-    def get_by_investigation(self, investigation_id: UUID, user_id: UUID) -> List[Chat]:
+    def get_by_investigation(
+        self, investigation_id: UUID, user_id: ActorID
+    ) -> List[Chat]:
         chats = self._chat_repo.get_by_investigation_and_owner(
             investigation_id, user_id
         )
@@ -54,7 +57,7 @@ class ChatService(BaseService):
 
         return chats
 
-    def get_by_id(self, chat_id: UUID, user_id: UUID) -> Chat:
+    def get_by_id(self, chat_id: UUID, user_id: ActorID) -> Chat:
         chat = self._chat_repo.get_by_id_and_owner(chat_id, user_id)
         if not chat:
             raise NotFoundError("Chat not found")
@@ -67,7 +70,7 @@ class ChatService(BaseService):
         title: str,
         description: Optional[str],
         investigation_id: Optional[UUID],
-        owner_id: UUID,
+        owner_id: ActorID,
     ) -> Chat:
         new_chat = Chat(
             id=uuid4(),
@@ -83,7 +86,7 @@ class ChatService(BaseService):
         self._refresh(new_chat)
         return new_chat
 
-    def delete(self, chat_id: UUID, user_id: UUID) -> None:
+    def delete(self, chat_id: UUID, user_id: ActorID) -> None:
         chat = self._chat_repo.get_by_id_and_owner(chat_id, user_id)
         if not chat:
             raise NotFoundError("Chat not found")
@@ -94,7 +97,7 @@ class ChatService(BaseService):
     def add_user_message(
         self,
         chat_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         content: str,
         context: Optional[List[str]] = None,
     ) -> ChatMessage:
@@ -130,7 +133,7 @@ class ChatService(BaseService):
         self._refresh(chat_message)
         return chat_message
 
-    def get_chat_with_context(self, chat_id: UUID, user_id: UUID) -> Chat:
+    def get_chat_with_context(self, chat_id: UUID, user_id: ActorID) -> Chat:
         return self.get_by_id(chat_id, user_id)
 
     def prepare_ai_context(
@@ -192,7 +195,7 @@ class ChatService(BaseService):
 
         return messages
 
-    def get_llm_provider(self, owner_id: UUID) -> LLMProvider:
+    def get_llm_provider(self, owner_id: ActorID) -> LLMProvider:
         provider_name = os.environ.get("LLM_PROVIDER", "mistral")
         vault_key = f"{provider_name.upper()}_API_KEY"
         api_key = self._vault_service.get_secret(owner_id, vault_key)

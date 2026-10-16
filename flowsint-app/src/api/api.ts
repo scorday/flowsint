@@ -1,3 +1,5 @@
+import { isAvl4 } from '@/platform/runtime-config'
+import { getPlatformApp } from '@/platform/app'
 import { useAuthStore } from '@/stores/auth-store'
 
 const API_URL = import.meta.env.VITE_API_URL ?? ''
@@ -7,6 +9,20 @@ const API_URL = import.meta.env.VITE_API_URL ?? ''
 // structurally against it. A generic here would need an explicit type
 // argument at every call site across the whole app for no real gain.
 export async function fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
+  if (isAvl4) {
+    const headers = new Headers(options.headers)
+    if (!(options.body instanceof FormData) && !headers.has('Content-Type'))
+      headers.set('Content-Type', 'application/json')
+    return (
+      await getPlatformApp().http.request({
+        url: endpoint,
+        method: options.method ?? 'GET',
+        data: options.body,
+        headers: Object.fromEntries(headers.entries()),
+        signal: options.signal ?? undefined
+      })
+    ).data
+  }
   const token = useAuthStore.getState().token
 
   // Check if body is FormData - if so, don't set Content-Type (browser will set it with boundary)

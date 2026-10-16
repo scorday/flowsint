@@ -1,3 +1,4 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import { useEffect, useRef } from 'react'
 import { useGraphControls } from '@/stores/graph-controls-store'
 import { useAuthStore } from '@/stores/auth-store'
@@ -25,10 +26,10 @@ export function useGraphRefresh(sketch_id: string | undefined) {
   }, [refetchGraph, regenerateLayout, currentLayoutType])
 
   useEffect(() => {
-    if (!sketch_id || !token) return
+    if (!sketch_id || (!isAvl4 && !token)) return
 
     const dispose = connectSSE({
-      url: `${API_URL}/api/events/sketch/${sketch_id}/status/stream`,
+      url: `${isAvl4 ? '' : API_URL}/api/events/sketch/${sketch_id}/status/stream`,
       onMessage: (raw) => {
         // Only process status events
         if (raw.event !== 'status') return

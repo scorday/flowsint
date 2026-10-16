@@ -1,3 +1,4 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import { Command } from '../command'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import InvestigationSelector from './investigation-selector'
@@ -42,7 +43,7 @@ export const TopNavbar = memo(() => {
   const { data: collaborators = [] } = useQuery<Collaborator[]>({
     queryKey: queryKeys.investigations.collaborators(investigationId!),
     queryFn: () => investigationService.getCollaborators(investigationId!),
-    enabled: !!investigationId
+    enabled: !isAvl4 && !!investigationId
   })
 
   const handleToggleAnalysis = useCallback(() => toggleAnalysis(), [toggleAnalysis])

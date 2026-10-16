@@ -1,3 +1,5 @@
+import { isAvl4 } from '@/platform/runtime-config'
+import { redirect } from '@tanstack/react-router'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +14,9 @@ import { getDisplayName } from '@/lib/user-display'
 import { SESSION_QUERY_KEY } from '@/hooks/use-auth'
 
 export const Route = createFileRoute('/_auth/dashboard/profile')({
+  beforeLoad: () => {
+    if (isAvl4) throw redirect({ to: '/dashboard', hash: window.location.hash.slice(1) })
+  },
   component: ProfilePage
 })
 

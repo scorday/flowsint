@@ -3,13 +3,13 @@ Enricher service for managing enricher operations.
 """
 
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ...templates.types import TemplateSecret, params_schema_from_secrets
 from ..models import Sketch
+from ..project_scope import ActorID
 from ..repositories import (
     CustomTypeRepository,
     EnricherTemplateRepository,
@@ -59,7 +59,7 @@ class EnricherService(BaseService):
         self._sketch_repo = sketch_repo
         self._investigation_repo = investigation_repo
 
-    def get_sketch_for_launch(self, sketch_id: str, user_id: UUID) -> Sketch:
+    def get_sketch_for_launch(self, sketch_id: str, user_id: ActorID) -> Sketch:
         """Resolve the target sketch, denying anyone without update rights on
         its investigation. Launching an enricher writes nodes into the
         sketch, so it is an update."""
@@ -73,7 +73,7 @@ class EnricherService(BaseService):
     def get_enrichers(
         self,
         category: Optional[str],
-        user_id: UUID,
+        user_id: ActorID,
         enricher_registry: Any,
     ) -> List[Dict[str, Any]]:
         if not category or category.lower() == "undefined":
@@ -95,7 +95,7 @@ class EnricherService(BaseService):
         return by_input_type
 
     def get_all_enrichers(
-        self, category: Optional[str], user_id: UUID, enricher_registry: Any
+        self, category: Optional[str], user_id: ActorID, enricher_registry: Any
     ) -> list:
         base_enrichers = self.get_enrichers(category, user_id, enricher_registry)
         # Owner-or-public, matching what the launch path resolves a template

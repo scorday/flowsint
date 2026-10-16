@@ -16,6 +16,7 @@ from app.api.schemas.investigation import (
 from app.api.schemas.sketch import SketchRead
 from flowsint_core.core.models import Profile
 from flowsint_core.core.postgre_db import get_db
+from flowsint_core.core.project_scope import current_scope
 from flowsint_core.core.services import (
     ConflictError,
     DatabaseError,
@@ -31,6 +32,8 @@ router = APIRouter()
 def _inject_current_user_role(service, investigation, user_id) -> InvestigationRead:
     """Build InvestigationRead with the current user's role attached."""
     result = InvestigationRead.model_validate(investigation)
+    if current_scope():
+        return result
     role_entry = service.get_user_role_for_investigation(user_id, investigation.id)
     if role_entry and role_entry.roles:
         result.current_user_role = role_entry.roles[0].value

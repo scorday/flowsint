@@ -4,15 +4,16 @@ from typing import Callable, List
 from uuid import UUID
 
 from ..models import Sketch
+from ..project_scope import ActorID
 from ..repositories import SketchRepository
 from .exceptions import NotFoundError
 
 
 def resolve_sketch_for_launch(
     sketch_repo: SketchRepository,
-    check_permission: Callable[[UUID, UUID, List[str]], bool],
+    check_permission: Callable[[ActorID, UUID, List[str]], bool],
     sketch_id: str,
-    user_id: UUID,
+    user_id: ActorID,
 ) -> Sketch:
     """Resolve the sketch a launch will write into, denying anyone without
     update rights on its investigation.

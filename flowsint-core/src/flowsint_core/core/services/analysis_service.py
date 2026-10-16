@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from ..models import Analysis
+from ..project_scope import ActorID
 from ..repositories import AnalysisRepository, InvestigationRepository
 from .base import BaseService
 from .exceptions import NotFoundError
@@ -30,10 +31,10 @@ class AnalysisService(BaseService):
         self._analysis_repo = analysis_repo
         self._investigation_repo = investigation_repo
 
-    def get_accessible_analyses(self, user_id: UUID) -> List[Analysis]:
+    def get_accessible_analyses(self, user_id: ActorID) -> List[Analysis]:
         return self._analysis_repo.get_accessible_by_user(user_id)
 
-    def get_by_id(self, analysis_id: UUID, user_id: UUID) -> Analysis:
+    def get_by_id(self, analysis_id: UUID, user_id: ActorID) -> Analysis:
         analysis = self._analysis_repo.get_by_id(analysis_id)
         if not analysis:
             raise NotFoundError("Analysis not found")
@@ -42,7 +43,7 @@ class AnalysisService(BaseService):
         return analysis
 
     def get_by_investigation(
-        self, investigation_id: UUID, user_id: UUID
+        self, investigation_id: UUID, user_id: ActorID
     ) -> List[Analysis]:
         self._check_permission(user_id, investigation_id, ["read"])
         return self._analysis_repo.get_by_investigation(investigation_id)
@@ -53,7 +54,7 @@ class AnalysisService(BaseService):
         description: Optional[str],
         content: Optional[Dict[str, Any]],
         investigation_id: UUID,
-        owner_id: UUID,
+        owner_id: ActorID,
     ) -> Analysis:
         self._check_permission(owner_id, investigation_id, ["create"])
 
@@ -75,7 +76,7 @@ class AnalysisService(BaseService):
     def update(
         self,
         analysis_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         title: Optional[str] = None,
         description: Optional[str] = None,
         content: Optional[Dict[str, Any]] = None,
@@ -102,7 +103,7 @@ class AnalysisService(BaseService):
         self._refresh(analysis)
         return analysis
 
-    def delete(self, analysis_id: UUID, user_id: UUID) -> None:
+    def delete(self, analysis_id: UUID, user_id: ActorID) -> None:
         analysis = self._analysis_repo.get_by_id(analysis_id)
         if not analysis:
             raise NotFoundError("Analysis not found")

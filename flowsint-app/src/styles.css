@@ -971,3 +971,10 @@ body {
 .dark .maplibregl-ctrl button .maplibregl-ctrl-icon {
   filter: invert(1);
 }
+
+/* Keep the external AVL4 panel outside the protected application viewport. */
+html[data-platform='avl4'] body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+html[data-platform='avl4'] #main_panel { flex: 0 0 auto; z-index: 10000; }
+html[data-platform='avl4'] #root { flex: 1; min-height: 0; overflow: hidden; }
+html[data-platform='avl4'] #root .h-screen { height: 100%; }
+.platform-state { min-height: 12rem; display: grid; place-items: center; padding: 2rem; text-align: center; }

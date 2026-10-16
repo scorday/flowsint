@@ -1,3 +1,5 @@
+import { isAvl4 } from '@/platform/runtime-config'
+import { redirect } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { useLogin } from '@/hooks/use-auth'
 import { FormProvider, useForm } from 'react-hook-form'
@@ -7,6 +9,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: () => {
+    if (isAvl4) throw redirect({ to: '/dashboard', hash: window.location.hash.slice(1) })
+  },
   component: Login
 })
 

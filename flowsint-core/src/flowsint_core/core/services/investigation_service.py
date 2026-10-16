@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..graph import create_graph_service
 from ..models import Investigation, InvestigationUserRole, Sketch
+from ..project_scope import ActorID, current_scope
 from ..repositories import (
     AnalysisRepository,
     InvestigationRepository,
@@ -47,11 +48,11 @@ class InvestigationService(BaseService):
         self._profile_repo = profile_repo
 
     def get_accessible_investigations(
-        self, user_id: UUID, allowed_roles: Optional[List[Role]] = None
+        self, user_id: ActorID, allowed_roles: Optional[List[Role]] = None
     ) -> List[Investigation]:
         return self._investigation_repo.get_accessible_by_user(user_id, allowed_roles)
 
-    def get_by_id(self, investigation_id: UUID, user_id: UUID) -> Investigation:
+    def get_by_id(self, investigation_id: UUID, user_id: ActorID) -> Investigation:
         self._check_permission(user_id, investigation_id, actions=["read"])
 
         investigation = self._investigation_repo.get_with_relations(investigation_id)
@@ -59,16 +60,13 @@ class InvestigationService(BaseService):
             raise NotFoundError("Investigation not found")
         return investigation
 
-    def get_sketches(self, investigation_id: UUID, user_id: UUID) -> List[Sketch]:
+    def get_sketches(self, investigation_id: UUID, user_id: ActorID) -> List[Sketch]:
         self._check_permission(user_id, investigation_id, actions=["read"])
 
-        sketches = self._sketch_repo.get_by_investigation(investigation_id)
-        if not sketches:
-            raise NotFoundError("No sketches found for this investigation")
-        return sketches
+        return self._sketch_repo.get_by_investigation(investigation_id)
 
     def create(
-        self, name: str, description: Optional[str], owner_id: UUID
+        self, name: str, description: Optional[str], owner_id: ActorID
     ) -> Investigation:
         new_investigation = Investigation(
             id=uuid4(),
@@ -78,6 +76,11 @@ class InvestigationService(BaseService):
             status="active",
         )
         self._investigation_repo.add(new_investigation)
+
+        if current_scope():
+            self._commit()
+            self._refresh(new_investigation)
+            return new_investigation
 
         new_roles = InvestigationUserRole(
             id=uuid4(),
@@ -95,7 +98,7 @@ class InvestigationService(BaseService):
     def update(
         self,
         investigation_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         name: str,
         description: str,
         status: str,
@@ -115,7 +118,7 @@ class InvestigationService(BaseService):
         self._refresh(investigation)
         return investigation
 
-    def delete(self, investigation_id: UUID, user_id: UUID) -> None:
+    def delete(self, investigation_id: UUID, user_id: ActorID) -> None:
         self._check_permission(user_id, investigation_id, actions=["delete"])
 
         investigation = self._investigation_repo.get_by_id_and_owner(
@@ -150,12 +153,12 @@ class InvestigationService(BaseService):
     # ── Collaborator management ──────────────────────────────────────────
 
     def get_user_role_for_investigation(
-        self, user_id: UUID, investigation_id: UUID
+        self, user_id: ActorID, investigation_id: UUID
     ) -> Optional[InvestigationUserRole]:
         return self._investigation_repo.get_user_role(user_id, investigation_id)
 
     def get_collaborators(
-        self, investigation_id: UUID, user_id: UUID
+        self, investigation_id: UUID, user_id: ActorID
     ) -> List[InvestigationUserRole]:
         self._check_permission(user_id, investigation_id, actions=["read"])
         return self._investigation_repo.get_collaborators(investigation_id)
@@ -163,7 +166,7 @@ class InvestigationService(BaseService):
     def add_collaborator(
         self,
         investigation_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         target_email: str,
         role: Role,
     ) -> InvestigationUserRole:
@@ -204,7 +207,7 @@ class InvestigationService(BaseService):
     def update_collaborator_role(
         self,
         investigation_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         target_user_id: UUID,
         role: Role,
     ) -> InvestigationUserRole:
@@ -233,7 +236,7 @@ class InvestigationService(BaseService):
     def remove_collaborator(
         self,
         investigation_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         target_user_id: UUID,
     ) -> None:
         self._check_permission(user_id, investigation_id, actions=["manage"])

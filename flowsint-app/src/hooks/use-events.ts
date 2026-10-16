@@ -1,3 +1,4 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import { useEffect, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { logService } from '@/api/log-service'
@@ -32,10 +33,10 @@ export function useEvents(sketch_id: string | undefined) {
   }
 
   useEffect(() => {
-    if (!sketch_id || !token) return
+    if (!sketch_id || (!isAvl4 && !token)) return
 
     const dispose = connectSSE({
-      url: `${API_URL}/api/events/sketch/${sketch_id}/stream`,
+      url: `${isAvl4 ? '' : API_URL}/api/events/sketch/${sketch_id}/stream`,
       onMessage: (raw) => {
         // Only process log events
         if (raw.event !== 'log') return

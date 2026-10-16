@@ -1,8 +1,10 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import { useAuthStore } from '@/stores/auth-store'
 import { redirect } from '@tanstack/react-router'
 import type { User } from '@/stores/auth-store'
 
 export function requireAuth(locationHref: string) {
+  if (isAvl4) return
   const isAuth = useAuthStore.getState().isAuthenticated
   const token = useAuthStore.getState().token
 
@@ -17,6 +19,7 @@ export function requireAuth(locationHref: string) {
 }
 
 export function isAuthenticated(): boolean {
+  if (isAvl4) return false // Protected routes are admitted by the SDK boundary.
   const isAuth = useAuthStore.getState().isAuthenticated
   const token = useAuthStore.getState().token
   return Boolean(isAuth && token)

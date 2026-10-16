@@ -1,0 +1,33 @@
+{
+  "command": {
+    "version": 1,
+    "operation_id": "11111111-1111-4111-8111-111111111111",
+    "actor_id": "opaque-user",
+    "private_project_id": null,
+    "project_id": "project-a",
+    "investigation_id": "22222222-2222-4222-8222-222222222222",
+    "sketch_id": "33333333-3333-4333-8333-333333333333",
+    "snapshot": {
+      "card_type": "project",
+      "card_id": "card-a",
+      "source_project_id": "project-a",
+      "shared_id": "shared-original",
+      "title": "Одинаковый заголовок",
+      "markdown": "# Снимок\nТекст карточки",
+      "source_url": "https://source.test/article",
+      "monitoring_url": "https://monitoring.test/web/feed?cardId=card-a#pid=project-a",
+      "published_at": "2026-10-16T00:00:00Z",
+      "source_updated_at": "2026-10-16T01:00:00Z",
+      "captured_at": "2026-10-16T02:00:00Z"
+    },
+    "refresh": false,
+    "expected_snapshot_hash": null
+  },
+  "body": "{\"version\":1,\"operation_id\":\"11111111-1111-4111-8111-111111111111\",\"actor_id\":\"opaque-user\",\"private_project_id\":null,\"project_id\":\"project-a\",\"investigation_id\":\"22222222-2222-4222-8222-222222222222\",\"sketch_id\":\"33333333-3333-4333-8333-333333333333\",\"snapshot\":{\"card_type\":\"project\",\"card_id\":\"card-a\",\"source_project_id\":\"project-a\",\"shared_id\":\"shared-original\",\"title\":\"Одинаковый заголовок\",\"markdown\":\"# Снимок\\nТекст карточки\",\"source_url\":\"https://source.test/article\",\"monitoring_url\":\"https://monitoring.test/web/feed?cardId=card-a#pid=project-a\",\"published_at\":\"2026-10-16T00:00:00Z\",\"source_updated_at\":\"2026-10-16T01:00:00Z\",\"captured_at\":\"2026-10-16T02:00:00Z\"},\"refresh\":false,\"expected_snapshot_hash\":null}",
+  "timestamp": "1700000000",
+  "test_key": "golden-test-key-only-32-characters-minimum",
+  "signature": "f3b91ec9ff09154be97453cbae55ec3546714c69d1f950bbb5451d03bbe10d08",
+  "content_hash": "1b6519fa0dbcf25eeb896794c3030a598a7180dfeda3723fc763d3f738baf060",
+  "material_key": "1ec7d49cc9ba79a3e440fd574c7a443a29a510335a34dc713f7da35ee760ae3c",
+  "fingerprint": "f5c3609fdf22d1dd0b50c20dac3d6b59132ffba41efa3ab4fb95b9947f654f02"
+}

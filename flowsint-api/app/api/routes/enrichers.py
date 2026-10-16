@@ -18,6 +18,7 @@ from flowsint_core.core.services import (
 from flowsint_core.core.services.type_registry_service import (
     create_type_registry_service,
 )
+from flowsint_core.tasks.project import task_context_kwargs
 from flowsint_enrichers import ENRICHER_REGISTRY, load_all_enrichers
 
 load_all_enrichers()
@@ -110,7 +111,7 @@ async def launch_enricher(
             # a message already in flight still binds cleanly against the new
             # task. (Workers still have to roll out before the API either way —
             # a worker predating `params` rejects the keyword.)
-            kwargs={"params": payload.params or {}},
+            kwargs={"params": payload.params or {}, **task_context_kwargs()},
         )
         return {"id": task.id}
 

@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from ..project_scope import ActorID, current_scope
 from ..types import Role
 from .exceptions import DatabaseError, PermissionDeniedError
 
@@ -68,8 +69,12 @@ class BaseService:
         return False
 
     def _check_permission(
-        self, user_id: UUID, investigation_id: UUID, actions: List[str]
+        self, user_id: ActorID, investigation_id: UUID, actions: List[str]
     ) -> bool:
+        if current_scope():
+            if not self._investigation_repo.get_by_id(investigation_id):
+                raise PermissionDeniedError("Forbidden")
+            return True
         role_entry = self._investigation_repo.get_user_role(user_id, investigation_id)
 
         if not role_entry or not self._can_user(role_entry.roles, actions):

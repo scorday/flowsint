@@ -20,6 +20,7 @@ from flowsint_core.core.services.type_registry_service import (
     create_type_registry_service,
 )
 from flowsint_core.core.types import FlowBranch, FlowEdge, FlowNode, FlowStep
+from flowsint_core.tasks.project import task_context_kwargs
 from flowsint_core.utils import extract_input_schema_flow
 from flowsint_enrichers import ENRICHER_REGISTRY, load_all_enrichers
 from flowsint_types import (
@@ -245,6 +246,7 @@ async def launch_flow(
                 payload.sketch_id,
                 str(current_user.id),
             ],
+            kwargs=task_context_kwargs(),
         )
         return {"id": task.id}
 

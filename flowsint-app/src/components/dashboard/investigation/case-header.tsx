@@ -1,3 +1,4 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -75,7 +76,8 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
 
   const { data: collaborators = [] } = useQuery<Collaborator[]>({
     queryKey: queryKeys.investigations.collaborators(investigation.id),
-    queryFn: () => investigationService.getCollaborators(investigation.id)
+    queryFn: () => investigationService.getCollaborators(investigation.id),
+    enabled: !isAvl4
   })
 
   const handleDeleteInvestigation = async () => {
@@ -161,7 +163,7 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {canManage && (
+          {!isAvl4 && canManage && (
             <ShareDialog investigationId={investigation.id}>
               <Button variant="ghost" size="sm" className="text-muted-foreground h-8 px-2">
                 <Share className="w-4 h-4" />
@@ -187,19 +189,21 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
       </div>
 
       {/* Team */}
-      <div className="flex items-center gap-2">
-        <AvatarGroup users={collaborators.map((c) => c.user)} size="md" />
-        <span className="text-sm text-muted-foreground">
-          {collaborators.length} investigator{collaborators.length !== 1 ? 's' : ''}
-        </span>
-        {canManage && (
-          <ShareDialog investigationId={investigation.id}>
-            <button className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
-              + Invite
-            </button>
-          </ShareDialog>
-        )}
-      </div>
+      {!isAvl4 && (
+        <div className="flex items-center gap-2">
+          <AvatarGroup users={collaborators.map((c) => c.user)} size="md" />
+          <span className="text-sm text-muted-foreground">
+            {collaborators.length} investigator{collaborators.length !== 1 ? 's' : ''}
+          </span>
+          {!isAvl4 && canManage && (
+            <ShareDialog investigationId={investigation.id}>
+              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
+                + Invite
+              </button>
+            </ShareDialog>
+          )}
+        </div>
+      )}
     </div>
   )
 }

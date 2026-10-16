@@ -13,9 +13,11 @@ from ..core.enums import EventLevel
 from ..core.logger import Logger
 from ..core.models import Scan
 from ..core.postgre_db import SessionLocal, get_db
+from ..core.project_scope import current_scope
 from ..core.services import create_enricher_template_service, create_vault_service
 from ..core.template_enricher import TemplateEnricher
 from ..templates.types import Template
+from .project import Avl4ProjectTask
 
 # Auto-discover and register all enrichers
 load_all_enrichers()
@@ -23,7 +25,7 @@ load_all_enrichers()
 db: Session = next(get_db())
 
 
-@celery.task(name="run_enricher", bind=True)
+@celery.task(name="run_enricher", bind=True, base=Avl4ProjectTask)
 def run_enricher(
     self: Task,
     enricher_name: str,
@@ -49,7 +51,9 @@ def run_enricher(
         vault = None
         if owner_id:
             try:
-                vault = create_vault_service(session).for_user(uuid.UUID(owner_id))
+                vault = create_vault_service(session).for_user(
+                    (owner_id if current_scope() else uuid.UUID(owner_id))
+                )
             except Exception as e:
                 # Logger.error's signature omits None even though the column
                 # it writes is nullable and a sketch-less scan is legal here.
@@ -101,7 +105,7 @@ def run_enricher(
         session.close()
 
 
-@celery.task(name="run_template_enricher", bind=True)
+@celery.task(name="run_template_enricher", bind=True, base=Avl4ProjectTask)
 def run_template_enricher(
     self: Task,
     template_name: str,
@@ -127,7 +131,9 @@ def run_template_enricher(
         # Resolve vault for secrets
         vault = None
         try:
-            vault = create_vault_service(session).for_user(uuid.UUID(owner_id))
+            vault = create_vault_service(session).for_user(
+                (owner_id if current_scope() else uuid.UUID(owner_id))
+            )
         except Exception as e:
             Logger.error(
                 sketch_id,  # type: ignore[arg-type]
@@ -136,7 +142,9 @@ def run_template_enricher(
 
         # Load template from database
         template_service = create_enricher_template_service(session)
-        db_template = template_service.find_by_name(template_name, uuid.UUID(owner_id))
+        db_template = template_service.find_by_name(
+            template_name, (owner_id if current_scope() else uuid.UUID(owner_id))
+        )
         if not db_template:
             raise ValueError(
                 f"Template '{template_name}' not found for user {owner_id}"
