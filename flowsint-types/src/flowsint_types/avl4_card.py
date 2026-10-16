@@ -9,7 +9,9 @@ from .registry import flowsint_type
 
 
 @flowsint_type
-class Avl4Material(FlowsintType):
+class Avl4_Card(FlowsintType):
+    """Imported Cards snapshot; class name preserves the avl4_card registry key."""
+
     card_id: str = Field(json_schema_extra={"primary": True})
     card_type: Literal["shared", "project"]
     title: str

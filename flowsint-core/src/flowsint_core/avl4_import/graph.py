@@ -19,7 +19,7 @@ class Neo4jMaterialProjection:
         # Installation owns DDL. Refuse writes unless uniqueness is enforced.
         constraints = connection.query("""
             SHOW CONSTRAINTS YIELD labelsOrTypes, properties, type
-            WHERE labelsOrTypes = ['avl4material'] AND properties = ['avl4_import_key']
+            WHERE labelsOrTypes = ['avl4_card'] AND properties = ['avl4_import_key']
               AND type IN ['UNIQUENESS', 'NODE_PROPERTY_UNIQUENESS']
             RETURN count(*) AS total
         """)
@@ -33,7 +33,7 @@ class Neo4jMaterialProjection:
         props.update(
             {
                 "nodeProperties.snapshot_hash": material.snapshot_hash,
-                "nodeType": "avl4material",
+                "nodeType": "avl4_card",
                 "nodeLabel": snapshot.title,
                 "sketch_id": str(material.sketch_id),
                 "project_id": material.project_id,
@@ -45,7 +45,7 @@ class Neo4jMaterialProjection:
         )
         rows = connection.execute_write(
             """
-            MERGE (n:avl4material {avl4_import_key: $key})
+            MERGE (n:avl4_card {avl4_import_key: $key})
             ON CREATE SET n.`nodeMetadata.created_at` = $captured_at
             WITH n WHERE n.sketch_id IS NULL OR (n.sketch_id = $sketch AND n.project_id = $project)
             SET n += $props, n.deleted_at = null

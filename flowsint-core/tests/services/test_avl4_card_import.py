@@ -227,8 +227,10 @@ def test_projection_requires_constraint_and_uses_id_not_title(setup_import):
     assert projection.project(material) == "node"
     query, params = connection.execute_write.call_args.args
     assert "avl4_import_key: $key" in query
+    assert "MERGE (n:avl4_card" in query
     assert "nodeLabel:" not in query
     assert params["props"]["nodeLabel"] == "Same title"
+    assert params["props"]["nodeType"] == "avl4_card"
     parsed = GraphSerializer.neo4j_dict_to_graph_node(
         {
             "id": "node",
@@ -239,6 +241,11 @@ def test_projection_requires_constraint_and_uses_id_not_title(setup_import):
         }
     )
     assert parsed.nodeProperties.card_id == "card-a"
+    assert parsed.nodeType == "avl4_card"
+    assert (
+        GraphSerializer.flowsint_type_to_neo4j_dict(parsed.nodeProperties)["nodeType"]
+        == "avl4_card"
+    )
     assert parsed.nodeLabel == "Same title"
 
 
@@ -246,10 +253,10 @@ def test_generic_graph_writes_cannot_forge_or_edit_imports():
     connection = MagicMock()
     graph = Neo4jGraphRepository(connection)
     with pytest.raises(ValueError):
-        graph.create_node({"nodeType": "avl4material", "nodeLabel": "fake"}, "sketch")
+        graph.create_node({"nodeType": "avl4_card", "nodeLabel": "fake"}, "sketch")
     graph.update_node("node", {"title": "edit", "avl4_import_key": "forged"}, "sketch")
     query, params = connection.query.call_args.args
-    assert "NOT n:avl4material" in query
+    assert "NOT n:avl4_card" in query
     assert "avl4_import_key" not in params["props"]
 
 

@@ -12,8 +12,15 @@ from sqlalchemy import create_engine, text
 
 SQL_REVISION = "a6b7c8d9e0f1"
 
-CONSTRAINT = """CREATE CONSTRAINT avl4_material_identity IF NOT EXISTS
-FOR (n:avl4material) REQUIRE n.avl4_import_key IS UNIQUE"""
+CONSTRAINT = """CREATE CONSTRAINT avl4_card_identity IF NOT EXISTS
+FOR (n:avl4_card) REQUIRE n.avl4_import_key IS UNIQUE"""
+
+# Relabel in place so SQL node IDs, graph edges and saved links remain valid.
+MIGRATE_CARD_TYPE = """MATCH (n:avl4material)
+SET n:avl4_card, n.nodeType = 'avl4_card'
+REMOVE n:avl4material"""
+
+DROP_LEGACY_CONSTRAINT = "DROP CONSTRAINT avl4_material_identity IF EXISTS"
 
 
 def check_storage() -> None:
@@ -41,10 +48,17 @@ def check_storage() -> None:
         driver.session() as session,
     ):
         result = session.run(
-            "SHOW CONSTRAINTS YIELD name WHERE name = 'avl4_material_identity' RETURN count(*) AS total"
+            """SHOW CONSTRAINTS YIELD name, labelsOrTypes, properties, type
+            WHERE name = 'avl4_card_identity' AND labelsOrTypes = ['avl4_card']
+              AND properties = ['avl4_import_key']
+              AND type IN ['UNIQUENESS', 'NODE_PROPERTY_UNIQUENESS']
+            RETURN count(*) AS total"""
         ).single()
         if not result or result["total"] != 1:
             raise RuntimeError("Flowsint graph schema is not initialized")
+        legacy = session.run("MATCH (n:avl4material) RETURN count(n) AS total").single()
+        if not legacy or legacy["total"]:
+            raise RuntimeError("Flowsint card type migration is not complete")
     with Redis.from_url(
         os.environ["REDIS_URL"], socket_timeout=3, socket_connect_timeout=3
     ) as broker:
@@ -66,6 +80,8 @@ def initialize() -> None:
         driver.session() as session,
     ):
         session.run(CONSTRAINT).consume()
+        session.run(MIGRATE_CARD_TYPE).consume()
+        session.run(DROP_LEGACY_CONSTRAINT).consume()
     check_storage()
 
 

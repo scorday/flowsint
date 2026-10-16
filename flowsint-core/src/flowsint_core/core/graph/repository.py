@@ -24,7 +24,7 @@ def _identifier(value: Any) -> str:
 
 
 def _scoped_properties(properties: GraphDict, sketch_id: str) -> GraphDict:
-    if str(properties.get("nodeType", "")).lower() == "avl4material":
+    if str(properties.get("nodeType", "")).lower() == "avl4_card":
         raise ValueError("AVL4 snapshots can only be changed through card import")
     return {
         **{k: v for k, v in properties.items() if not k.startswith("avl4_")},
@@ -414,7 +414,7 @@ class Neo4jGraphRepository:
         query = """
         MATCH (n)
         WHERE elementId(n) = $element_id AND n.sketch_id = $sketch_id AND n.deleted_at IS NULL
-            AND NOT n:avl4material
+            AND NOT n:avl4_card
         SET n += $props
         RETURN elementId(n) AS id
         """
@@ -764,7 +764,7 @@ class Neo4jGraphRepository:
         if not self._connection or not old_node_ids:
             return None
 
-        if str(new_node_data.get("type", "")).lower() == "avl4material":
+        if str(new_node_data.get("type", "")).lower() == "avl4_card":
             raise ValueError("AVL4 snapshots cannot be merge targets")
         node_type = _identifier(new_node_data.get("type", "Node"))
         properties = {}
@@ -777,7 +777,7 @@ class Neo4jGraphRepository:
             set_clause = ", ".join(f"n.{key} = ${key}" for key in properties.keys())
             create_query = f"""
             MATCH (n)
-            WHERE elementId(n) = $nodeId AND n.sketch_id = $sketch_id AND n.deleted_at IS NULL AND NOT n:avl4material
+            WHERE elementId(n) = $nodeId AND n.sketch_id = $sketch_id AND n.deleted_at IS NULL AND NOT n:avl4_card
             SET {set_clause}
             RETURN elementId(n) as newElementId
             """
@@ -801,7 +801,7 @@ class Neo4jGraphRepository:
         MATCH (new) WHERE elementId(new) = $newElementId AND new.sketch_id = $sketch_id
 
         UNWIND $oldNodeIds AS oldNodeId
-                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4material
+                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4_card
 
         WITH new, collect(old) as oldNodes
         UNWIND oldNodes as old
@@ -818,7 +818,7 @@ class Neo4jGraphRepository:
 
         WITH new, $oldNodeIds as oldNodeIds
         UNWIND oldNodeIds AS oldNodeId
-                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4material
+                MATCH (old) WHERE elementId(old) = oldNodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4_card
 
         MATCH (old)-[r]->(dst)
                 WHERE elementId(dst) NOT IN oldNodeIds
@@ -846,7 +846,7 @@ class Neo4jGraphRepository:
             delete_query = """
             UNWIND $nodeIds AS nodeId
             MATCH (old)
-            WHERE elementId(old) = nodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4material
+            WHERE elementId(old) = nodeId AND old.sketch_id = $sketch_id AND old.deleted_at IS NULL AND NOT old:avl4_card
             OPTIONAL MATCH (old)-[r]-()
             WHERE r.sketch_id = $sketch_id AND r.deleted_at IS NULL
             SET old.deleted_at = $deleted_at
