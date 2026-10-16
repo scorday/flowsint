@@ -197,7 +197,7 @@ function VisibilityControl({ enricher }: { enricher: AdminEnricher }) {
 }
 
 export function EnricherAdministration() {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
 
   const access = useEnricherAdministrationAccess()
   const catalog = useQuery({
@@ -209,13 +209,20 @@ export function EnricherAdministration() {
   const [search, setSearch] = useState('')
   const [kind, setKind] = useState('all')
   const [visibility, setVisibility] = useState('all')
+  const [category, setCategory] = useState('all')
+  const [apiKeyRequirement, setApiKeyRequirement] = useState('all')
   const enrichers = catalog.data ?? []
+  const categories = [...new Set(enrichers.map((enricher) => enricher.category))].sort(
+    (left, right) => friendlyCategory(left).localeCompare(friendlyCategory(right), language)
+  )
   const visibleCount = enrichers.filter((enricher) => enricher.is_visible).length
   const term = search.trim().toLowerCase()
   const filtered = enrichers.filter(
     (enricher) =>
       (kind === 'all' || enricher.kind === kind) &&
       (visibility === 'all' || enricher.is_visible === (visibility === 'visible')) &&
+      (category === 'all' || `category:${enricher.category}` === category) &&
+      (apiKeyRequirement === 'all' || enricher.api_key_requirement === apiKeyRequirement) &&
       [
         enricher.name,
         enricher.description,
@@ -346,6 +353,32 @@ export function EnricherAdministration() {
                 <SelectItem value="hidden">{t('Hidden')}</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger aria-label={t('Category filter')} className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('All Categories')}</SelectItem>
+                {categories.map((value) => (
+                  <SelectItem key={value} value={`category:${value}`} className="capitalize">
+                    {friendlyCategory(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={apiKeyRequirement} onValueChange={setApiKeyRequirement}>
+              <SelectTrigger aria-label={t('API key requirement filter')} className="w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('All API key requirements')}</SelectItem>
+                {Object.entries(apiKeyLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {t(label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {filtered.length > 0 ? (
@@ -357,7 +390,7 @@ export function EnricherAdministration() {
                     <TableHead>{t('Kind')}</TableHead>
                     <TableHead>{t('Category')}</TableHead>
                     <TableHead>{t('Provider')}</TableHead>
-                    <TableHead>API key</TableHead>
+                    <TableHead>{t('API key')}</TableHead>
                     <TableHead>{t('Input → Output')}</TableHead>
                     <TableHead className="pr-4">{t('Visibility')}</TableHead>
                   </TableRow>
@@ -438,6 +471,8 @@ export function EnricherAdministration() {
                     setSearch('')
                     setKind('all')
                     setVisibility('all')
+                    setCategory('all')
+                    setApiKeyRequirement('all')
                   }}
                 >
                   {t('Clear filters')}

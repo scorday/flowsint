@@ -156,6 +156,110 @@ describe('Enricher administration', () => {
     expect(screen.queryByRole('switch', { name: /DNS lookup/ })).toBeNull()
   })
 
+  it('lists unique categories from the full catalog and filters by exact category', async () => {
+    vi.mocked(enricherAdministrationService.list).mockResolvedValue([
+      { ...rows[0], category: 'account_lookup' },
+      { ...rows[1], category: 'account_lookup' },
+      { ...rows[0], id: 'all', name: 'All category lookup', category: 'all' }
+    ])
+    mount()
+    await inventory()
+    await chooseFilter('Enricher kind', 'Template')
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Category filter' }), {
+      key: 'ArrowDown'
+    })
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'All Categories',
+      'account lookup',
+      'all'
+    ])
+    fireEvent.click(screen.getByRole('option', { name: 'all' }))
+    expect(screen.getByText('No matching enrichers')).toBeTruthy()
+    await chooseFilter('Enricher kind', 'All kinds')
+    expect(within(await inventory()).getAllByRole('switch')).toHaveLength(1)
+    expect(
+      screen.getByRole('button', { name: 'View details for All category lookup' })
+    ).toBeTruthy()
+    await chooseFilter('Category filter', 'account lookup')
+    expect(within(await inventory()).getAllByRole('switch')).toHaveLength(2)
+  })
+
+  it('filters every API key requirement independently of visibility', async () => {
+    const requirements = [
+      ['required', 'Required'],
+      ['optional', 'Optional'],
+      ['conditional', 'Conditional'],
+      ['not_required', 'Not required'],
+      ['unknown', 'Unknown']
+    ] as const
+    vi.mocked(enricherAdministrationService.list).mockResolvedValue(
+      requirements.map(([requirement], index) => ({
+        ...rows[index % 2],
+        id: requirement,
+        name: `${requirement} lookup`,
+        api_key_requirement: requirement
+      }))
+    )
+    mount()
+    await inventory()
+    for (const [requirement, label] of requirements) {
+      await chooseFilter('API key requirement filter', label)
+      const table = await inventory()
+      expect(within(table).getAllByRole('switch')).toHaveLength(1)
+      expect(
+        within(table).getByRole('button', { name: `View details for ${requirement} lookup` })
+      ).toBeTruthy()
+    }
+    await chooseFilter('API key requirement filter', 'All API key requirements')
+    expect(within(await inventory()).getAllByRole('switch')).toHaveLength(5)
+    expect(enricherAdministrationService.setVisibility).not.toHaveBeenCalled()
+  })
+
+  it('combines all filters with search and clears them together from empty results', async () => {
+    mount()
+    await inventory()
+    await chooseFilter('Category filter', 'social')
+    await chooseFilter('API key requirement filter', 'Conditional')
+    await chooseFilter('Enricher kind', 'Template')
+    await chooseFilter('Visibility filter', 'Hidden')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search enrichers' }), {
+      target: { value: 'Directory API' }
+    })
+    expect(within(await inventory()).getAllByRole('switch')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'View details for Email search' })).toBeTruthy()
+    await chooseFilter('API key requirement filter', 'Required')
+    expect(screen.getByText('No matching enrichers')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(within(await inventory()).getAllByRole('switch')).toHaveLength(2)
+    expect(
+      (screen.getByRole('textbox', { name: 'Search enrichers' }) as HTMLInputElement).value
+    ).toBe('')
+    for (const [name, label] of [
+      ['Category filter', 'All Categories'],
+      ['API key requirement filter', 'All API key requirements'],
+      ['Enricher kind', 'All kinds'],
+      ['Visibility filter', 'All visibility']
+    ])
+      expect(screen.getByRole('combobox', { name }).textContent).toBe(label)
+  })
+
+  it('preserves selected filters when switching language and translates their labels', async () => {
+    mount()
+    await inventory()
+    await chooseFilter('Category filter', 'social')
+    await chooseFilter('API key requirement filter', 'Conditional')
+    act(() => setLanguage('ru'))
+    expect(screen.getByRole('combobox', { name: 'Фильтр по категории' }).textContent).toBe('social')
+    expect(
+      screen.getByRole('combobox', { name: 'Фильтр по требованию API-ключа' }).textContent
+    ).toBe('При определённых условиях')
+    expect(screen.getAllByRole('switch')).toHaveLength(1)
+    expect(screen.getByRole('table').textContent).toContain('Email search')
+    await chooseFilter('Фильтр по требованию API-ключа', 'API-ключ: все варианты')
+    await chooseFilter('Фильтр по категории', 'Все категории')
+    expect(screen.getAllByRole('switch')).toHaveLength(2)
+  })
+
   it.each([
     ['required', 'Required'],
     ['optional', 'Optional'],
