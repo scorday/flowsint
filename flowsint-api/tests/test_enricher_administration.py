@@ -324,7 +324,7 @@ def test_update_payload_is_strict(client, admin_headers, builtin, body):
     )
 
 
-def test_project_overrides_are_shared_by_members_and_isolated_from_other_projects(
+def test_global_overrides_apply_to_every_project_but_templates_remain_isolated(
     client, db_session, monkeypatch, builtin
 ):
     monkeypatch.setenv("FLOWSINT_AUTH_MODE", "avl4")
@@ -349,6 +349,18 @@ def test_project_overrides_are_shared_by_members_and_isolated_from_other_project
         == 200
     )
     assert name not in names(client, "/api/enrichers", headers("member"))
+    assert name not in names(client, "/api/enrichers", headers("member", "b"))
+    listing = client.get(ADMIN, headers=headers(project="b")).json()
+    assert next(row for row in listing if row["id"] == name)["is_visible"] is False
+    assert (
+        client.patch(
+            f"{ADMIN}/builtin/{name}",
+            headers=headers(project="b"),
+            json={"is_visible": True},
+        ).status_code
+        == 200
+    )
+    assert name in names(client, "/api/enrichers", headers("member", "a"))
     assert name in names(client, "/api/enrichers", headers("member", "b"))
     assert client.get(ADMIN, headers=headers("member")).status_code == 403
     assert (

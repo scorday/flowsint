@@ -10,7 +10,7 @@ from neo4j import GraphDatabase
 from redis import Redis
 from sqlalchemy import create_engine, text
 
-SQL_REVISION = "f5a6b7c8d9e0"
+SQL_REVISION = "a6b7c8d9e0f1"
 
 CONSTRAINT = """CREATE CONSTRAINT avl4_material_identity IF NOT EXISTS
 FOR (n:avl4material) REQUIRE n.avl4_import_key IS UNIQUE"""

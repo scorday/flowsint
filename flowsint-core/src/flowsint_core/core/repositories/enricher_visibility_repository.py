@@ -1,4 +1,4 @@
-"""Project-isolated visibility overrides for the enricher catalog."""
+"""Global visibility overrides shared by every Flowsint user and project."""
 
 from ..models import EnricherVisibility
 from .base import BaseRepository

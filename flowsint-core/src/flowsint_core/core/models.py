@@ -394,17 +394,18 @@ class CustomType(ProjectScoped, Base):
     )
 
 
-class EnricherVisibility(ProjectScoped, Base):
-    """Catalog overrides; execution and template sharing remain independent."""
+class EnricherVisibility(Base):
+    """Instance-wide catalog policy; template sharing remains project-scoped."""
 
-    __tablename__ = "enricher_visibility"
+    __tablename__ = "enricher_visibility_global"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     enricher_key: Mapped[str] = mapped_column(String, nullable=False)
     is_visible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("project_id", "enricher_key", name="uq_enricher_visibility"),
+        UniqueConstraint("enricher_key", name="uq_enricher_visibility_global"),
     )
 
 

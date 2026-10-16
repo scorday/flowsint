@@ -168,5 +168,6 @@ class EnricherCatalogService(BaseService):
                 if row is None:
                     raise
         row.is_visible = is_visible
+        row.updated_by = str(actor.id)
         self._commit()
         return replace(item, is_visible=is_visible)

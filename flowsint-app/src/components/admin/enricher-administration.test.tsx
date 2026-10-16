@@ -105,7 +105,7 @@ describe('Enricher administration', () => {
         .getByRole('switch', { name: /Email search/ })
         .getAttribute('aria-checked')
     ).toBe('false')
-    expect(screen.getByText(/current AVL4 project/)).toBeTruthy()
+    expect(screen.getByText(/all Flowsint users and projects/)).toBeTruthy()
     expect(screen.getByText('Showing 2 of 2 enrichers')).toBeTruthy()
     const counts = screen.getByRole('group', { name: 'Enricher counts' })
     expect(within(counts).getByText('All').textContent).toBe('All 2')

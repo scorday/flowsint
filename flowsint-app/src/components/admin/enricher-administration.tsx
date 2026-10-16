@@ -8,7 +8,6 @@ import {
   enricherAdministrationService
 } from '@/api/enricher-administration-service'
 import { useEnricherAdministrationAccess } from '@/hooks/use-enricher-administration-access'
-import { isAvl4 } from '@/platform/runtime-config'
 import { PageLayout } from '@/components/layout/page-layout'
 import { ErrorState } from '@/components/shared/error-state'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -275,9 +274,7 @@ export function EnricherAdministration() {
             <ShieldCheck aria-hidden="true" />
             <AlertDescription>
               <p>
-                {isAvl4
-                  ? t('Visibility settings apply to the current AVL4 project.')
-                  : t('Visibility settings apply to this Flowsint instance.')}{' '}
+                {t('Visibility settings apply to all Flowsint users and projects.')}{' '}
                 {t(
                   'Hidden enrichers are removed from the catalog and launch menus. Saved flows remain runnable. You can restore a hidden enricher here at any time.'
                 )}
@@ -392,7 +389,12 @@ export function EnricherAdministration() {
                     <TableHead>{t('Provider')}</TableHead>
                     <TableHead>{t('API key')}</TableHead>
                     <TableHead>{t('Input → Output')}</TableHead>
-                    <TableHead className="pr-4">{t('Visibility')}</TableHead>
+                    <TableHead
+                      className="right-0 z-10 min-w-52 border-l bg-card pr-4"
+                      style={{ position: 'sticky' }}
+                    >
+                      {t('Visibility')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -444,7 +446,7 @@ export function EnricherAdministration() {
                           <span>{enricher.output_type}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="pr-4">
+                      <TableCell className="sticky right-0 z-10 min-w-52 border-l bg-card pr-4">
                         <VisibilityControl enricher={enricher} />
                       </TableCell>
                     </TableRow>

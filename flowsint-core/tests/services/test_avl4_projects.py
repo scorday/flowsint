@@ -8,6 +8,7 @@ from flowsint_core.core.models import (
     Chat,
     CustomType,
     EnricherTemplate,
+    EnricherVisibility,
     Investigation,
     InvestigationUserRole,
     Key,
@@ -113,6 +114,38 @@ def test_project_resources_and_public_templates_do_not_cross_projects(db_session
             EnricherTemplateRepository(db_session).get_by_owner_or_public("bob") == []
         )
         assert ChatRepository(db_session).get_by_owner("bob") == []
+
+
+def test_global_catalog_policy_is_readable_across_projects_and_admin_only(db_session):
+    with project_scope(
+        ProjectScope(user_id="admin", project_id="project-a", is_platform_admin=True)
+    ):
+        row = EnricherVisibility(enricher_key="builtin:global-test", is_visible=False)
+        db_session.add(row)
+        db_session.commit()
+        identifier = row.id
+        assert row.updated_by == "admin"
+    with scope("bob", "project-b"):
+        row = db_session.query(EnricherVisibility).filter_by(id=identifier).one()
+        assert row.is_visible is False
+        row.is_visible = True
+        with pytest.raises(PermissionError, match="administrator"):
+            db_session.commit()
+        db_session.rollback()
+        with pytest.raises(PermissionError, match="checked ORM"):
+            db_session.query(EnricherVisibility).delete()
+        db_session.rollback()
+    with project_scope(
+        ProjectScope(
+            user_id="other-admin", project_id="project-c", is_platform_admin=True
+        )
+    ):
+        row = db_session.query(EnricherVisibility).filter_by(id=identifier).one()
+        row.is_visible = True
+        db_session.commit()
+        assert row.updated_by == "other-admin"
+    with scope("alice", "project-a"):
+        assert db_session.query(EnricherVisibility).one().is_visible is True
 
 
 def test_project_vault_is_shared_by_members_and_isolated_by_project(db_session):

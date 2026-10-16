@@ -130,6 +130,14 @@ def _filter_project(execute_state: ORMExecuteState) -> None:
         raise PermissionError("Unscoped SQL is forbidden in AVL4 requests")
     if execute_state.is_insert or execute_state.is_update:
         raise PermissionError("AVL4 writes must use checked ORM entities")
+    if execute_state.is_delete:
+        from .models import EnricherVisibility
+
+        if (
+            execute_state.bind_mapper
+            and execute_state.bind_mapper.class_ is EnricherVisibility
+        ):
+            raise PermissionError("Global catalog writes must use checked ORM entities")
     project_id = scope.project_id
     execute_state.statement = execute_state.statement.options(
         with_loader_criteria(
@@ -157,7 +165,7 @@ def _check_project_writes(
         return
     revalidate_worker_scope()
 
-    from .models import Avl4Material, Chat, Investigation, Sketch
+    from .models import Avl4Material, Chat, EnricherVisibility, Investigation, Sketch
 
     parents: dict[str, Any] = {
         "investigation_id": Investigation,
@@ -167,6 +175,13 @@ def _check_project_writes(
     }
     changed = set(session.new) | set(session.dirty) | set(session.deleted)
     for row in changed:
+        if isinstance(row, EnricherVisibility):
+            if not scope.is_platform_admin or scope.worker:
+                raise PermissionError(
+                    "Global catalog settings require an administrator"
+                )
+            row.updated_by = scope.user_id
+            continue
         if not isinstance(row, ProjectScoped):
             raise PermissionError("Legacy identity/ACL writes are disabled in AVL4")
         state = cast(InstanceState[Any], inspect(row))
