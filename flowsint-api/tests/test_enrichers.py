@@ -9,6 +9,7 @@ from app.api.routes import enrichers as enrichers_route
 from flowsint_core.core.auth import create_access_token
 from flowsint_core.core.models import (
     EnricherTemplate,
+    EnricherVisibility,
     Investigation,
     InvestigationUserRole,
     Profile,
@@ -153,6 +154,20 @@ def test_launch_without_params_sends_an_empty_dict(client, db_session, sent_task
 
     assert res.status_code == 200
     assert sent_task["kwargs"] == {"params": {}}
+
+
+def test_hidden_enricher_remains_executable_for_existing_flows(
+    client, db_session, sent_task
+):
+    db_session.add(
+        EnricherVisibility(enricher_key="builtin:some_enricher", is_visible=False)
+    )
+    db_session.commit()
+
+    response, _ = _launch(client, db_session)
+
+    assert response.status_code == 200
+    assert sent_task["name"] == "run_enricher"
 
 
 def test_launch_keeps_the_positional_args_unchanged(client, db_session, sent_task):

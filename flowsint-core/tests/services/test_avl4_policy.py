@@ -118,6 +118,20 @@ def test_auth_adapter_reads_current_snapshots_not_cached_session_grants(monkeypa
     monkeypatch.setattr(api, "aget_project_by_id", get_project)
     verified = asyncio.run(AuthClient().authenticate("valid-session", "project-a"))
     assert verified.user_id == "auth-user"
+    assert verified.is_platform_admin is False
+    actor.roles.append("global_access_admin")
+    assert asyncio.run(
+        AuthClient().authenticate("valid-session", "project-a")
+    ).is_platform_admin
+    actor.roles.clear()
+    actor.groups.append("/Administrator")
+    assert asyncio.run(
+        AuthClient().authenticate("valid-session", "project-a")
+    ).is_platform_admin
+    actor.groups.clear()
+    assert not asyncio.run(
+        AuthClient().authenticate("valid-session", "project-a")
+    ).is_platform_admin
     actor.access.projects.clear()
     assert snapshot.access.find_project("project-a") is not None
     with pytest.raises(AccessDenied):

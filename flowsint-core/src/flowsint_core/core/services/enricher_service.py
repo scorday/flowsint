@@ -17,6 +17,7 @@ from ..repositories import (
     SketchRepository,
 )
 from .base import BaseService
+from .enricher_catalog_service import EnricherCatalogService
 from .sketch_access import resolve_sketch_for_launch
 
 
@@ -77,10 +78,8 @@ class EnricherService(BaseService):
         enricher_registry: Any,
     ) -> List[Dict[str, Any]]:
         if not category or category.lower() == "undefined":
-            all_enrichers: List[Dict[str, Any]] = enricher_registry.list(
-                exclude=["n8n_connector"]
-            )
-            return all_enrichers
+            all_enrichers: List[Dict[str, Any]] = enricher_registry.list()
+            return EnricherCatalogService(self.db).visible_builtins(all_enrichers)
 
         custom_type = self._custom_type_repo.get_published_by_name_and_owner(
             category, user_id
@@ -90,9 +89,9 @@ class EnricherService(BaseService):
             return []
 
         by_input_type: List[Dict[str, Any]] = enricher_registry.list_by_input_type(
-            category, exclude=["n8n_connector"]
+            category
         )
-        return by_input_type
+        return EnricherCatalogService(self.db).visible_builtins(by_input_type)
 
     def get_all_enrichers(
         self, category: Optional[str], user_id: ActorID, enricher_registry: Any
@@ -104,6 +103,9 @@ class EnricherService(BaseService):
         # the UI and the launch failed on a missing required param.
         template_enrichers = self._enricher_template_repo.get_by_owner_or_public(
             user_id, category
+        )
+        template_enrichers = EnricherCatalogService(self.db).visible_templates(
+            template_enrichers
         )
         for template in template_enrichers:
             # Unmapped attributes: they reach the response because FastAPI's

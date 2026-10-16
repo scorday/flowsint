@@ -1,10 +1,17 @@
 """Operator bootstrap never creates a graph before SQL succeeds or prints secrets."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from alembic.script import ScriptDirectory
 
 from flowsint_core.avl4_import import bootstrap
+
+
+def test_readiness_accepts_the_deployed_migration_head():
+    migrations = Path(__file__).resolve().parents[3] / "flowsint-api" / "alembic"
+    assert bootstrap.SQL_REVISION == ScriptDirectory(str(migrations)).get_current_head()
 
 
 def test_initialize_orders_migration_constraint_and_readiness(monkeypatch):

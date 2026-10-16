@@ -10,6 +10,8 @@ from neo4j import GraphDatabase
 from redis import Redis
 from sqlalchemy import create_engine, text
 
+SQL_REVISION = "f5a6b7c8d9e0"
+
 CONSTRAINT = """CREATE CONSTRAINT avl4_material_identity IF NOT EXISTS
 FOR (n:avl4material) REQUIRE n.avl4_import_key IS UNIQUE"""
 
@@ -25,7 +27,7 @@ def check_storage() -> None:
                 connection.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar()
-                != "e4f5a6b7c8d9"
+                != SQL_REVISION
             ):
                 raise RuntimeError("Flowsint schema is not initialized")
     finally:

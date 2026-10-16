@@ -44,6 +44,7 @@ class ProjectScope:
     last_name: str | None = None
     private_project_id: str | None = None
     worker: bool = False
+    is_platform_admin: bool = False
 
     def __post_init__(self) -> None:
         if (

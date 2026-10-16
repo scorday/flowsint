@@ -106,3 +106,36 @@ Meet/LiveKit и прочие workers не обновлялись; существ
 unhealthy Meet transcription не менялся. Docker-based enrichers не включены,
 автоматического обогащения после импорта нет. Экспорт проектов AVL4 пока
 не включает расследования Flowsint. Staging/production не разворачивались.
+
+## Обновление локальной админки энричеров — 2026-10-16
+
+В существующем `avl4-local-app` обновлены только Flowsint API, UI и его worker.
+API и UI собраны из рабочего дерева Flowsint на базе HEAD
+`0d282583376d180ff8239fe5872ad92c4bfd4bde` до фиксации изменений админки в Git.
+Штатный `flowsint-init` из нового API-образа завершился с кодом 0, применил
+миграцию `f5a6b7c8d9e0` и создал `enricher_visibility`. Ожидаемая SQL-ревизия
+в readiness обновлена; регрессионный тест сверяет её с Alembic head.
+
+| Сервис | Immutable image ID |
+| --- | --- |
+| API / initializer / worker | `sha256:d4e121d545e0c28ef1962bfb977a31bef97e598b38cf815685c01c138e6d9a83` |
+| UI | `sha256:fc8cbbd05f5a310a910b59de6643c04b6d24689a5baf8f497fa1c48e758ac9b6` |
+
+До миграции сохранены PostgreSQL custom dump и прежние image IDs в приватном
+`.flowsint/backups/20261016T145334Z-enricher-admin`; `pg_restore --list` успешен.
+Перед обновлением worker не имел active/reserved/scheduled задач. API, UI и worker
+после обновления проходят health checks. PostgreSQL, Neo4j и остальные компоненты
+стека не пересоздавались.
+
+Админка: <http://flowsint.avl4.localhost/dashboard/admin/enrichers>.
+На реальных локальных Auth-сессиях проверены права администратора и отказ обычному
+участнику, список из 49 зарегистрированных энричеров, сохранение и повторное чтение
+видимости, фильтрация всех трёх API каталогов и изоляция от второго проекта.
+Переключение проверялось в существующем синтетическом приёмочном проекте;
+исходная видимость восстановлена. Учётные записи и права Auth не изменялись.
+Браузер с настоящей AVL4-сессией открыл новую страницу, показал пункт админки,
+таблицу и переключатели; поиск `n8n` отфильтровал одну скрытую строку.
+
+`make config`, `make config-keycloak`, `make config-flowsint`, shell syntax и
+`git diff --check` успешны. Дополнительные пять тестов bootstrap, Ruff и Mypy
+изменённого initializer прошли. Сборки обоих Docker-образов успешны.

@@ -68,6 +68,9 @@ class AuthClient:
             first_name=user.first_name,
             last_name=user.last_name,
             private_project_id=session.private_project_id,
+            is_platform_admin=(
+                "/Administrator" in user.groups or "global_access_admin" in user.roles
+            ),
         )
 
 

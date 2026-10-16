@@ -16,6 +16,7 @@ from flowsint_core.core.services import (
     PermissionDeniedError,
     create_flow_service,
 )
+from flowsint_core.core.services.enricher_catalog_service import EnricherCatalogService
 from flowsint_core.core.services.type_registry_service import (
     create_type_registry_service,
 )
@@ -81,8 +82,18 @@ def get_flows(
 
 
 @router.get("/raw_materials")
-async def get_material_list():
+def get_material_list(
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
     enrichers = ENRICHER_REGISTRY.list_by_categories()
+    catalog = EnricherCatalogService(db)
+    visible_names = {
+        item["name"]
+        for item in catalog.visible_builtins(
+            [item for category_items in enrichers.values() for item in category_items]
+        )
+    }
     enricher_categories = {
         category: [
             {
@@ -101,8 +112,10 @@ async def get_material_list():
                 "icon": enricher.get("icon"),
             }
             for enricher in enricher_list
+            if enricher["name"] in visible_names
         ]
         for category, enricher_list in enrichers.items()
+        if any(enricher["name"] in visible_names for enricher in enricher_list)
     }
 
     object_inputs = [
@@ -132,9 +145,13 @@ async def get_material_list():
 
 
 @router.get("/input_type/{input_type}")
-async def get_material_by_input_type(input_type: str):
+def get_material_by_input_type(
+    input_type: str,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
     enrichers = ENRICHER_REGISTRY.list_by_input_type(input_type)
-    return {"items": enrichers}
+    return {"items": EnricherCatalogService(db).visible_builtins(enrichers)}
 
 
 @router.post("/create", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
