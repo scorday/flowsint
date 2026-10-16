@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import type React from 'react'
 import { useState, useCallback, useRef, useEffect, memo } from 'react'
 import {
@@ -66,6 +67,8 @@ const defaultMarkerEnd: EdgeMarker = {
 }
 
 const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditorProps) => {
+  const { t } = useTranslation()
+
   // #### React Flow and UI State ####
   const { fitView, zoomIn, zoomOut, setCenter } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
@@ -100,12 +103,13 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
   const createFlowMutation = useMutation({
     mutationFn: flowService.create,
     onSuccess: (data) => {
-      toast.success('Enricher saved successfully.')
+      toast.success(t('Enricher saved successfully.'))
       router.navigate({ to: `/dashboard/flows/${data.id}` })
     },
     onError: (error) => {
       toast.error(
-        'Error creating enricher: ' + (error instanceof Error ? error.message : 'Unknown error')
+        t('Error creating enricher: ') +
+          (error instanceof Error ? error.message : t('Unknown error'))
       )
     }
   })
@@ -115,7 +119,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     mutationFn: ({ flowId, body }: { flowId: string; body: BodyInit }) =>
       flowService.update(flowId, body),
     onSuccess: () => {
-      toast.success('Enricher saved successfully.')
+      toast.success(t('Enricher saved successfully.'))
       // Invalidate the flow detail query
       if (flowId) {
         queryClient.invalidateQueries({
@@ -125,7 +129,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     },
     onError: (error) => {
       toast.error(
-        'Error saving enricher: ' + (error instanceof Error ? error.message : 'Unknown error')
+        t('Error saving enricher: ') + (error instanceof Error ? error.message : t('Unknown error'))
       )
     }
   })
@@ -135,7 +139,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     mutationFn: flowService.delete,
     onSuccess: () => {
       router.navigate({ to: '/dashboard/flows' })
-      toast.success('Flow deleted successfully.')
+      toast.success(t('Flow deleted successfully.'))
       // Invalidate flows list
       queryClient.invalidateQueries({
         queryKey: queryKeys.flows.list
@@ -143,7 +147,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     },
     onError: (error) => {
       toast.error(
-        'Error deleting flow: ' + (error instanceof Error ? error.message : 'Unknown error')
+        t('Error deleting flow: ') + (error instanceof Error ? error.message : t('Unknown error'))
       )
     }
   })
@@ -158,7 +162,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     },
     onError: (error) => {
       toast.error(
-        'Error computing flow: ' + (error instanceof Error ? error.message : 'Unknown error')
+        t('Error computing flow: ') + (error instanceof Error ? error.message : t('Unknown error'))
       )
     }
   })
@@ -244,7 +248,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
       if (enricherData.type === 'type') {
         const existsType = nodes.find((node) => node.data.type === 'type')
         if (existsType) {
-          return toast.error('Only one type node is allowed')
+          return toast.error(t('Only one type node is allowed'))
         }
       }
       const position = reactFlowInstance.screenToFlowPosition({
@@ -284,7 +288,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
         zoom: 1.5
       })
     },
-    [reactFlowInstance, nodes, setNodes, setCenter, colors]
+    [reactFlowInstance, nodes, setNodes, setCenter, colors, t]
   )
 
   // #### Node Interaction Handlers ####
@@ -341,7 +345,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
       try {
         const inputType = nodes.find((node) => node.data.type === 'type')?.data?.class_name
         if (!inputType) {
-          toast.error('Make sure your enricher contains an input type.')
+          toast.error(t('Make sure your enricher contains an input type.'))
           return
         }
 
@@ -367,7 +371,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
         setShowModal(false)
       }
     },
-    [nodes, edges, flowId, createFlowMutation, updateFlowMutation, setLoading]
+    [nodes, edges, flowId, createFlowMutation, updateFlowMutation, setLoading, t]
   )
 
   const handleSaveFlow = useCallback(async () => {
@@ -378,20 +382,20 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     if (!flowId) return
     if (
       await confirm({
-        title: 'Are you sure you want to delete this flow ?',
-        message: "All of the flow's settings will be lost."
+        title: t('Are you sure you want to delete this flow ?'),
+        message: t("All of the flow's settings will be lost.")
       })
     ) {
       setLoading(true)
       await deleteFlowMutation.mutateAsync(flowId)
       setLoading(false)
     }
-  }, [flowId, confirm, deleteFlowMutation, setLoading])
+  }, [flowId, confirm, deleteFlowMutation, setLoading, t])
 
   // #### Flow Computation ####
   const handleComputeFlow = useCallback(async () => {
     if (!flowId) {
-      toast.error('Save the flow first to compute it.')
+      toast.error(t('Save the flow first to compute it.'))
       return
     }
     await handleSaveFlow()
@@ -409,7 +413,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
     } finally {
       setLoading(false)
     }
-  }, [flowId, nodes, edges, computeFlowMutation, setLoading, handleSaveFlow])
+  }, [flowId, nodes, edges, computeFlowMutation, setLoading, handleSaveFlow, t])
 
   // #### Simulation State Management ####
   // Update the updateNodeState function with proper types
@@ -646,7 +650,7 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
             >
               {isSimulating ? (
                 <Button size="sm" variant="outline" className="h-7" onClick={pauseSimulation}>
-                  <Pause className="h-4 w-4 mr-1" /> Pause
+                  <Pause className="h-4 w-4 mr-1" /> {t(' Pause')}
                 </Button>
               ) : (
                 <Button
@@ -656,27 +660,27 @@ const FlowEditor = memo(({ initialEdges, initialNodes, theme, flow }: FlowEditor
                   onClick={handleComputeFlow}
                   data-tour-id="compute-button"
                 >
-                  <Play className="h-4 w-4 mr-1" /> Compute
+                  <Play className="h-4 w-4 mr-1" /> {t(' Compute')}
                 </Button>
               )}
               <Button size="sm" variant="outline" className="h-7" onClick={skipToEnd}>
-                <SkipForward className="h-4 w-4 mr-1" /> Skip
+                <SkipForward className="h-4 w-4 mr-1" /> {t(' Skip')}
               </Button>
               <Button size="sm" variant="outline" className="h-7" onClick={resetSimulation}>
-                <RefreshCw className="h-4 w-4 mr-1" /> Reset
+                <RefreshCw className="h-4 w-4 mr-1" /> {t(' Reset')}
               </Button>
               <Select
                 value={String(simulationSpeed)}
                 onValueChange={(value) => setSimulationSpeed(Number(value))}
               >
                 <SelectTrigger className="!h-7">
-                  <SelectValue placeholder="Select speed" />
+                  <SelectValue placeholder={t('Select speed')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2000">Slow</SelectItem>
-                  <SelectItem value="1000">Normal</SelectItem>
-                  <SelectItem value="750">Fast</SelectItem>
-                  <SelectItem value="400">Very fast</SelectItem>
+                  <SelectItem value="2000">{t('Slow')}</SelectItem>
+                  <SelectItem value="1000">{t('Normal')}</SelectItem>
+                  <SelectItem value="750">{t('Fast')}</SelectItem>
+                  <SelectItem value="400">{t('Very fast')}</SelectItem>
                 </SelectContent>
               </Select>
             </Panel>

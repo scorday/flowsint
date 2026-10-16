@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { X } from 'lucide-react'
@@ -21,6 +22,7 @@ export function TagInput({
   className,
   disabled = false
 }: TagInputProps) {
+  const { t } = useTranslation()
   const [inputValue, setInputValue] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -157,7 +159,7 @@ export function TagInput({
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? placeholder : ''}
+          placeholder={value.length === 0 ? t(placeholder) : ''}
           disabled={disabled}
           className="flex-1 min-w-[80px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
         />

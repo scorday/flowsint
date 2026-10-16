@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useRouter, useParams } from '@tanstack/react-router'
@@ -27,6 +28,8 @@ interface NewAnalysisProps {
 }
 
 export default function NewAnalysis({ children }: NewAnalysisProps) {
+  const { t } = useTranslation()
+
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const { investigationId, id: sketchId } = useParams({ strict: false })
@@ -44,7 +47,7 @@ export default function NewAnalysis({ children }: NewAnalysisProps) {
     mutationFn: analysisService.create,
     onSuccess: (result) => {
       if ('id' in result && result.id) {
-        toast.success('New analysis created.')
+        toast.success(t('New analysis created.'))
         router.navigate({
           to: `/dashboard/investigations/${investigationId}/analysis/${result.id}`
         })
@@ -60,7 +63,7 @@ export default function NewAnalysis({ children }: NewAnalysisProps) {
         }
         if (sketchId) setOpen(false)
       } else {
-        toast.error(('error' in result && result.error) || 'Failed to create analysis.')
+        toast.error(('error' in result && result.error) || t('Failed to create analysis.'))
       }
     },
     onError: (error) => {
@@ -70,7 +73,7 @@ export default function NewAnalysis({ children }: NewAnalysisProps) {
 
   async function onSubmit(data: FormValues) {
     if (!investigationId) {
-      toast.error('An analysis must be related to an investigation.')
+      toast.error(t('An analysis must be related to an investigation.'))
       return
     }
 
@@ -89,11 +92,11 @@ export default function NewAnalysis({ children }: NewAnalysisProps) {
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="title">Analysis name</Label>
+          <Label htmlFor="title">{t('Analysis name')}</Label>
           <Input
             id="title"
             {...register('title', { required: 'Title is required' })}
-            placeholder="Fraud suspicion"
+            placeholder={t('Fraud suspicion')}
             aria-invalid={errors.title ? 'true' : 'false'}
           />
           {errors.title && (
@@ -113,10 +116,10 @@ export default function NewAnalysis({ children }: NewAnalysisProps) {
           }}
           disabled={isSubmitting}
         >
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : 'Save'}
+          {isSubmitting ? t('Saving...') : t('Save')}
         </Button>
       </DialogFooter>
     </form>
@@ -129,8 +132,8 @@ export default function NewAnalysis({ children }: NewAnalysisProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>New analysis</DialogTitle>
-          <DialogDescription>Create a new blank analysis.</DialogDescription>
+          <DialogTitle>{t('New analysis')}</DialogTitle>
+          <DialogDescription>{t('Create a new blank analysis.')}</DialogDescription>
         </DialogHeader>
         {formContent}
       </DialogContent>

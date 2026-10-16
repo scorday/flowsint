@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import Editor from '@/components/flows/editor'
 import Loader from '@/components/loader'
@@ -10,22 +11,28 @@ export const Route = createFileRoute('/_auth/dashboard/flows/$flowId')({
     }
   },
   component: FlowPage,
-  pendingComponent: () => (
-    <div className="h-full w-full flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <Loader />
-        <p className="text-muted-foreground">Loading flow...</p>
+  pendingComponent: function PendingComponent() {
+    const { t } = useTranslation()
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader />
+          <p className="text-muted-foreground">{t('Loading flow...')}</p>
+        </div>
       </div>
-    </div>
-  ),
-  errorComponent: ({ error }) => (
-    <div className="h-full w-full flex items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-lg font-semibold text-destructive mb-2">Error loading flow</h2>
-        <p className="text-muted-foreground">{error.message}</p>
+    )
+  },
+  errorComponent: function ErrorComponent({ error }) {
+    const { t } = useTranslation()
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-destructive mb-2">{t('Error loading flow')}</h2>
+          <p className="text-muted-foreground">{error.message}</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 })
 
 function FlowPage() {

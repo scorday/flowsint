@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { ToolCategory } from '@/types'
 import { ToolCard } from '@/components/tool-card'
@@ -149,6 +150,8 @@ const toolCategories: ToolCategory = {
 }
 
 function ToolsPage() {
+  const { t } = useTranslation()
+
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
@@ -164,7 +167,9 @@ function ToolsPage() {
   const filteredTools = allTools.filter((tool) => {
     const matchesSearch =
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      t(tool.description ?? '')
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory
     return matchesSearch && matchesCategory
   })
@@ -173,15 +178,15 @@ function ToolsPage() {
     <div className="h-full w-full px-12 py-12 bg-background overflow-auto">
       <div className="max-w-7xl mx-auto flex flex-col gap-12 items-center justify-start">
         <div className="w-full">
-          <h1 className="font-semibold text-2xl">Tools</h1>
-          <p className="opacity-60 mt-3">Here are the tools used to gather informations.</p>
+          <h1 className="font-semibold text-2xl">{t('Tools')}</h1>
+          <p className="opacity-60 mt-3">{t('Here are the tools used to gather informations.')}</p>
         </div>
 
         <div className="w-full flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <Input
               type="text"
-              placeholder="Search tools..."
+              placeholder={t('Search tools...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -189,13 +194,13 @@ function ToolsPage() {
           <div className="w-full md:w-64">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="h-10 w-full">
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder={t('Select category')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t('All Categories')}</SelectItem>
                 {Object.keys(toolCategories).map((category) => (
                   <SelectItem key={category} value={category}>
-                    {category}
+                    {t(category)}
                   </SelectItem>
                 ))}
               </SelectContent>

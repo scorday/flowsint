@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -103,6 +104,8 @@ const ActionItems: Array<{
 
 export const ImageActions: React.FC<ImageActionsProps> = React.memo(
   ({ shouldMerge = false, isLink = false, ...actions }) => {
+    const { t } = useTranslation()
+
     const [isOpen, setIsOpen] = React.useState(false)
 
     const handleAction = React.useCallback(
@@ -126,7 +129,7 @@ export const ImageActions: React.FC<ImageActionsProps> = React.memo(
             <DropdownMenuTrigger asChild>
               <ActionButton
                 icon={<MoreHorizontal className="size-4" />}
-                tooltip="Open menu"
+                tooltip={t('Open menu')}
                 onClick={(e) => e.preventDefault()}
               />
             </DropdownMenuTrigger>
@@ -135,7 +138,7 @@ export const ImageActions: React.FC<ImageActionsProps> = React.memo(
                 <DropdownMenuItem key={key} onClick={(e) => handleAction(e, actions[key])}>
                   <div className="flex flex-row items-center gap-2">
                     {icon}
-                    <span>{tooltip}</span>
+                    <span>{t(tooltip)}</span>
                   </div>
                 </DropdownMenuItem>
               ))}
@@ -146,7 +149,7 @@ export const ImageActions: React.FC<ImageActionsProps> = React.memo(
             <ActionButton
               key={key}
               icon={icon}
-              tooltip={tooltip}
+              tooltip={t(tooltip)}
               onClick={(e) => handleAction(e, actions[key])}
             />
           ))

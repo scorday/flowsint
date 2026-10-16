@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { isAvl4 } from '@/platform/runtime-config'
 import { redirect } from '@tanstack/react-router'
 import { createFileRoute } from '@tanstack/react-router'
@@ -21,6 +22,8 @@ export const Route = createFileRoute('/_auth/dashboard/profile')({
 })
 
 function ProfilePage() {
+  const { t } = useTranslation()
+
   const authUser = useAuthStore((s) => s.user)
   const setAuth = useAuthStore((s) => s.setAuth)
   const token = useAuthStore((s) => s.token)
@@ -67,9 +70,9 @@ function ProfilePage() {
           username: [data.first_name, data.last_name].filter(Boolean).join(' ') || authUser.email
         })
       }
-      toast.success('Profile updated')
+      toast.success(t('Profile updated'))
     },
-    onError: () => toast.error('Failed to update profile')
+    onError: () => toast.error(t('Failed to update profile'))
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -95,8 +98,10 @@ function ProfilePage() {
     <main className="flex-1 h-full overflow-auto">
       <div className="max-w-xl mx-auto px-8 py-12 space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your account information.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('Profile')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('Manage your account information.')}
+          </p>
         </div>
 
         {/* Avatar preview */}
@@ -115,27 +120,27 @@ function ProfilePage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="first_name">First name</Label>
+              <Label htmlFor="first_name">{t('First name')}</Label>
               <Input
                 id="first_name"
                 value={form.first_name}
                 onChange={(e) => handleChange('first_name', e.target.value)}
-                placeholder="John"
+                placeholder={t('John')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">Last name</Label>
+              <Label htmlFor="last_name">{t('Last name')}</Label>
               <Input
                 id="last_name"
                 value={form.last_name}
                 onChange={(e) => handleChange('last_name', e.target.value)}
-                placeholder="Doe"
+                placeholder={t('Doe')}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="avatar_url">Avatar URL</Label>
+            <Label htmlFor="avatar_url">{t('Avatar URL')}</Label>
             <Input
               id="avatar_url"
               value={form.avatar_url}
@@ -145,13 +150,13 @@ function ProfilePage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Email</Label>
+            <Label>{t('Email')}</Label>
             <Input value={profile?.email ?? ''} disabled className="opacity-60" />
           </div>
 
           <div className="pt-2">
             <Button type="submit" disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving...' : 'Save changes'}
+              {updateMutation.isPending ? t('Saving...') : t('Save changes')}
             </Button>
           </div>
         </form>

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Network, FileText, Users, Shield } from 'lucide-react'
 import { Investigation } from '@/types'
 import { useMemo } from 'react'
@@ -6,18 +7,20 @@ type CaseOverviewPageProps = {
   investigation: Investigation
 }
 export function MetricsGrid({ investigation }: CaseOverviewPageProps) {
+  const { t } = useTranslation()
+
   const sketchCount = investigation.sketches?.length || 0
   const analysisCount = investigation.analyses?.length || 0
   const metrics = useMemo(
     () => [
-      { label: 'Sketches', value: sketchCount, icon: Network },
-      { label: 'Analyses', value: analysisCount, icon: FileText },
-      { label: 'Entities', value: '_', icon: Users },
-      { label: 'Relations', value: '_', icon: Shield }
+      { label: t('Sketches'), value: sketchCount, icon: Network },
+      { label: t('Analyses'), value: analysisCount, icon: FileText },
+      { label: t('Entities'), value: '_', icon: Users },
+      { label: t('Relations'), value: '_', icon: Shield }
       // { label: "Files", value: "34", icon: Paperclip },
       // { label: "Tasks", value: "6/15", icon: CheckCircle },
     ],
-    [sketchCount, analysisCount]
+    [sketchCount, analysisCount, t]
   )
 
   return (

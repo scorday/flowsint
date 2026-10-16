@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import {
   type Table,
   type Row,
@@ -138,6 +139,8 @@ const TableBody = ({
   columnSizeVars: Record<string, number>
   noStickyCol?: boolean
 }) => {
+  const { t } = useTranslation()
+
   const { rows } = table.getRowModel()
 
   const rowVirtualizer = useVirtualizer({
@@ -154,15 +157,15 @@ const TableBody = ({
           <td colSpan={table.getHeaderGroups()[0]?.headers.length || 1}>
             <div className="flex items-center justify-center h-32 text-muted-foreground">
               <div className="text-center">
-                <div className="text-md font-medium">No data found yet.</div>
-                <div className="text-xs">No nodes to display</div>
+                <div className="text-md font-medium">{t('No data found yet.')}</div>
+                <div className="text-xs">{t('No nodes to display')}</div>
               </div>
             </div>
           </td>
         </tr>
       </tbody>
     ),
-    [table.getHeaderGroups()[0]?.headers.length]
+    [table.getHeaderGroups()[0]?.headers.length, t]
   )
 
   const virtualRows = rowVirtualizer.getVirtualItems()

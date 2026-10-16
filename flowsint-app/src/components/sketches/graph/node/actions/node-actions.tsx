@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import React, { memo, useCallback, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Trash2, Sparkles, Plus, MoreHorizontal, Flag } from 'lucide-react'
@@ -34,6 +35,8 @@ type FlagColor = keyof typeof flagColors
 
 const NodeActions = memo(
   ({ node, setMenu }: { node: GraphNode; setMenu?: (menu: any | null) => void }) => {
+    const { t } = useTranslation()
+
     const { id: sketchId } = useParams({ strict: false })
     const { canEdit } = usePermissions()
     const { confirm } = useConfirm()
@@ -71,8 +74,8 @@ const NodeActions = memo(
       if (!node.id || !sketchId) return
       if (
         !(await confirm({
-          title: `You are about to delete this node ?`,
-          message: 'The action is irreversible.'
+          title: t('You are about to delete this node ?'),
+          message: t('The action is irreversible.')
         }))
       )
         return
@@ -82,9 +85,9 @@ const NodeActions = memo(
           return sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: [node.id] }))
         })(),
         {
-          loading: `Deleting ${node.nodeProperties.label}...`,
-          success: 'Node deleted successfully.',
-          error: 'Failed to delete node.'
+          loading: t('Deleting {{v0}}...', { v0: String(node.nodeProperties.label) }),
+          success: t('Node deleted successfully.'),
+          error: t('Failed to delete node.')
         }
       )
     }
@@ -119,18 +122,18 @@ const NodeActions = memo(
         <DropdownMenuContent align="end" className="min-w-[140px]">
           <DropdownMenuItem onClick={handleOpenMainDialog}>
             <Plus className="h-3.5 w-3.5 mr-2" />
-            Add relation
+            {t('Add relation')}
           </DropdownMenuItem>
           {Boolean(settings?.general?.showFlow?.value) && (
             <DropdownMenuItem onClick={handleAskAI}>
               <Sparkles className="h-3.5 w-3.5 mr-2" />
-              Ask AI
+              {t('Ask AI')}
             </DropdownMenuItem>
           )}
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Flag className={cn('h-3.5 w-3.5 mr-2', flagValue ? flagColors[flagValue] : '')} />
-              Flag
+              {t('Flag')}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               <div className="flex gap-1 p-1">
@@ -158,7 +161,7 @@ const NodeActions = memo(
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="h-3.5 w-3.5 mr-2" />
-            Delete
+            {t('Delete')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

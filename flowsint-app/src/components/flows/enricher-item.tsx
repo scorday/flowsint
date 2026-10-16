@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -22,8 +23,10 @@ function CategoryBadge({ category }: { category: string }) {
 }
 
 export const EnricherItem = memo(({ enricher }: { enricher: any }) => {
+  const { t, language } = useTranslation()
+
   const formattedDate = enricher.created_at
-    ? new Date(enricher.created_at).toLocaleDateString('en-US', {
+    ? new Date(enricher.created_at).toLocaleDateString(language, {
         month: 'short',
         day: 'numeric',
         year: 'numeric'
@@ -44,15 +47,13 @@ export const EnricherItem = memo(({ enricher }: { enricher: any }) => {
             <p className=" line-clamp-2">{enricher.name}</p>
           </CardTitle>
           <CardDescription className="line-clamp-2">
-            {enricher.description || 'No description provided'}
+            {enricher.description || t('No description provided')}
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-2">
           <div className="flex items-center text-sm text-muted-foreground">
             <FileCode2 className="h-4 w-4 mr-1" />
-            <span>
-              {stepsCount} {stepsCount === 1 ? 'step' : 'steps'}
-            </span>
+            <span>{t('counts.steps', { count: stepsCount })}</span>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col items-start gap-2">

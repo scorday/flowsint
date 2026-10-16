@@ -1,3 +1,4 @@
+import { translate } from '@/i18n'
 import { Extension } from '@tiptap/core'
 import { computePosition, flip, shift } from '@floating-ui/dom'
 import { posToDOMRect, ReactRenderer } from '@tiptap/react'
@@ -136,7 +137,7 @@ export const SlashCommand = Extension.create({
         items: ({ query }: { query: string }): SlashCommandItem[] => {
           return slashCommandItems.filter(
             (item) =>
-              item.title.toLowerCase().includes(query.toLowerCase()) ||
+              translate(item.title).toLowerCase().includes(query.toLowerCase()) ||
               item.category.toLowerCase().includes(query.toLowerCase())
           )
         },

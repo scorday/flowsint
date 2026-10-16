@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { flowService } from '@/api/flow-service'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -12,6 +13,8 @@ import ErrorState from '../shared/error-state'
 import { Flow } from '@/types'
 
 const FlowsList = () => {
+  const { t, dateLocale } = useTranslation()
+
   const {
     data: flows,
     isLoading,
@@ -48,8 +51,8 @@ const FlowsList = () => {
   if (error)
     return (
       <ErrorState
-        title="Couldn't load flows"
-        description="Something went wrong while fetching data. Please try again."
+        title={t("Couldn't load flows")}
+        description={t('Something went wrong while fetching data. Please try again.')}
         error={error}
         onRetry={() => refetch()}
       />
@@ -66,7 +69,7 @@ const FlowsList = () => {
         <Input
           type="search"
           className="h-7"
-          placeholder="Search flows..."
+          placeholder={t('Search flows...')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -80,10 +83,10 @@ const FlowsList = () => {
                 to={`/dashboard/flows/$flowId`}
                 params={{ flowId: flow.id }}
                 className="block px-4 py-3 hover:bg-muted cursor-pointer"
-                title={flow.description || 'No description'}
+                title={flow.description || t('No description')}
               >
                 <div className="font-semibold text-sm truncate">
-                  {flow.name || '(Unnamed flow)'}
+                  {flow.name || t('(Unnamed flow)')}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   {flow.category && (
@@ -96,7 +99,10 @@ const FlowsList = () => {
                       {Boolean(flow.category.length) && <span>•</span>}
                       <div className="flex items-center gap-1 whitespace-nowrap">
                         <Pencil className="h-3 w-3" />
-                        {formatDistanceToNow(new Date(flow.last_updated_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(flow.last_updated_at), {
+                          locale: dateLocale,
+                          addSuffix: true
+                        })}
                       </div>
                     </>
                   )}
@@ -107,7 +113,7 @@ const FlowsList = () => {
         </ul>
       ) : (
         <div className="flex-1 flex items-center justify-center p-4 text-center text-muted-foreground">
-          {searchQuery ? 'No matching flows found' : 'No flows found'}
+          {searchQuery ? t('No matching flows found') : t('No flows found')}
         </div>
       )}
     </div>

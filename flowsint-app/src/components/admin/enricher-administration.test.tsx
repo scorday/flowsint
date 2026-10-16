@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -8,6 +8,8 @@ import {
   enricherAdministrationService
 } from '@/api/enricher-administration-service'
 import { EnricherAdministration } from './enricher-administration'
+import { setLanguage } from '@/i18n'
+import enricherEn from '@/i18n/locales/enrichers.en.json'
 
 vi.mock('@/api/enricher-administration-service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/enricher-administration-service')>()),
@@ -45,6 +47,7 @@ const rows: AdminEnricher[] = [
 ]
 let client: QueryClient
 beforeEach(() => {
+  setLanguage('en')
   vi.clearAllMocks()
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
@@ -59,6 +62,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   client.clear()
+  setLanguage('en')
 })
 function mount() {
   return render(
@@ -324,4 +328,34 @@ describe('Enricher administration', () => {
     expect(screen.queryByRole('table', { hidden: true })).toBeNull()
     expect(screen.getByText('Showing 0 of 0 enrichers')).toBeTruthy()
   })
+})
+
+it('searches translated descriptions and updates open metadata details when language changes', async () => {
+  const description = Object.keys(enricherEn).find((key) =>
+    key.startsWith('Resolves a domain to IPv4 addresses')
+  )!
+  const notes = Object.keys(enricherEn).find((key) =>
+    key.startsWith('PDCP_API_KEY can optionally be passed to DNSX')
+  )!
+  vi.mocked(enricherAdministrationService.list).mockResolvedValue([
+    { ...rows[0], name: 'domain_to_dns', description, api_key_notes: notes }
+  ])
+  mount()
+  await inventory()
+  act(() => setLanguage('ru'))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Поиск обогатителей' }), {
+    target: { value: 'разрешает домен' }
+  })
+  expect(screen.getByRole('table', { name: 'Все обогатители' })).toBeTruthy()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Поиск обогатителей' }), {
+    target: { value: '' }
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Посмотреть сведения: domain_to_dns' }))
+  const dialog = screen.getByRole('dialog', { name: 'domain_to_dns' })
+  expect(within(dialog).getByText(/^Разрешает домен в адреса IPv4/)).toBeTruthy()
+  expect(within(dialog).getByText(/^PDCP_API_KEY можно передать в DNSX/)).toBeTruthy()
+  act(() => setLanguage('en'))
+  expect(within(dialog).getByText(description)).toBeTruthy()
+  expect(within(dialog).getByText(notes)).toBeTruthy()
+  expect(enricherAdministrationService.setVisibility).not.toHaveBeenCalled()
 })

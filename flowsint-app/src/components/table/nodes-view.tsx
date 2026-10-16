@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useGraphStore } from '@/stores/graph-store'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef, useState, useMemo, useCallback, memo } from 'react'
@@ -42,6 +43,8 @@ const NodeItem = memo(function NodeItem({
   onSelectionChange,
   canEdit
 }: NodeItemProps) {
+  const { t, dateLocale } = useTranslation()
+
   const SourceIcon = useIcon(node.nodeType, {
     nodeColor: node.nodeColor,
     nodeIcon: node.nodeIcon,
@@ -59,13 +62,16 @@ const NodeItem = memo(function NodeItem({
     [onSelectionChange, node]
   )
 
-  const formatCreatedAt = useCallback((dateString: string) => {
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true })
-    } catch {
-      return 'Unknown'
-    }
-  }, [])
+  const formatCreatedAt = useCallback(
+    (dateString: string) => {
+      try {
+        return formatDistanceToNow(new Date(dateString), { locale: dateLocale, addSuffix: true })
+      } catch {
+        return 'Unknown'
+      }
+    },
+    [dateLocale]
+  )
 
   const formatNodeData = useCallback((data: any) => {
     if (!data) return ''
@@ -119,7 +125,7 @@ const NodeItem = memo(function NodeItem({
         {/* Type */}
         <div>
           <Badge variant="outline" className="text-xs">
-            {node.nodeType || 'Unknown'}
+            {node.nodeType || t('Unknown')}
           </Badge>
         </div>
 
@@ -129,7 +135,7 @@ const NodeItem = memo(function NodeItem({
           <span className="truncate">
             {node.nodeMetadata?.created_at
               ? formatCreatedAt(node.nodeMetadata.created_at as string)
-              : 'Unknown'}
+              : t('Unknown')}
           </span>
         </div>
 
@@ -146,6 +152,8 @@ type NodesTableProps = {
   nodes: GraphNode[]
 }
 export default function NodesTable({ nodes }: NodesTableProps) {
+  const { t } = useTranslation()
+
   const { canEdit } = usePermissions()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedType, setSelectedType] = useState<string>('all')
@@ -244,8 +252,8 @@ export default function NodesTable({ nodes }: NodesTableProps) {
         <div className="text-center space-y-4">
           <Link className="mx-auto h-12 w-12 text-muted-foreground" />
           <div>
-            <h3 className="text-lg font-semibold">No nodes found</h3>
-            <p className="text-muted-foreground">This sketch doesn&apos;t have any nodes yet.</p>
+            <h3 className="text-lg font-semibold">{t('No nodes found')}</h3>
+            <p className="text-muted-foreground">{t("This sketch doesn't have any nodes yet.")}</p>
           </div>
         </div>
       </div>
@@ -257,14 +265,15 @@ export default function NodesTable({ nodes }: NodesTableProps) {
       {/* Header with stats */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">Entities</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t('Entities')}</h2>
           <p className="text-muted-foreground">
-            {filteredNodes.length} of {nodes.length} nodes
+            {filteredNodes.length} {t(' of ')}
+            {nodes.length} {t(' nodes')}
           </p>
         </div>
         <Badge variant="secondary" className="flex items-center gap-2">
           <Users className="h-4 w-4" />
-          {nodes.length} total
+          {nodes.length} {t(' total')}
         </Badge>
       </div>
 
@@ -273,7 +282,7 @@ export default function NodesTable({ nodes }: NodesTableProps) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search nodes, nodes, or types..."
+            placeholder={t('Search nodes, nodes, or types...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -282,10 +291,10 @@ export default function NodesTable({ nodes }: NodesTableProps) {
         <Select value={selectedType} onValueChange={setSelectedType}>
           <SelectTrigger className="w-48">
             <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Filter by type" />
+            <SelectValue placeholder={t('Filter by type')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="all">{t('All types')}</SelectItem>
             {nodeTypes.map((type) => (
               <SelectItem key={type} value={type}>
                 <span className="capitalize">{type}</span>
@@ -318,10 +327,10 @@ export default function NodesTable({ nodes }: NodesTableProps) {
           </div>
         )}
         <div></div> {/* Icon */}
-        <div className="text-left">Label</div>
-        <div>Data</div>
-        <div>Type</div>
-        <div>Created</div>
+        <div className="text-left">{t('Label')}</div>
+        <div>{t('Data')}</div>
+        <div>{t('Type')}</div>
+        <div>{t('Created')}</div>
         <div></div> {/* Actions */}
       </div>
 

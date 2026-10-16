@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Plus, FileCode, FileImage, FileText, File } from 'lucide-react'
 
@@ -10,17 +11,19 @@ const evidence = [
 ]
 
 export function EvidenceSection() {
+  const { t } = useTranslation()
+
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-foreground">Evidence & Files</h2>
+        <h2 className="text-sm font-medium text-foreground">{t('Evidence & Files')}</h2>
         <Button
           variant="ghost"
           size="sm"
           className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
         >
           <Plus className="w-3.5 h-3.5" />
-          Upload
+          {t('Upload')}
         </Button>
       </div>
 

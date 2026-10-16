@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useCallback, useEffect, useState } from 'react'
 import { useGraphStore } from '@/stores/graph-store'
 import { sketchService } from '@/api/sketch-service'
@@ -26,6 +27,8 @@ const INITIAL_STATE: QuickAddState = {
 }
 
 export const useQuickAdd = (sketchId?: string) => {
+  const { t } = useTranslation()
+
   const [state, setState] = useState<QuickAddState>(INITIAL_STATE)
   const debouncedText = useDebounce(state.text, 300)
 
@@ -144,9 +147,9 @@ export const useQuickAdd = (sketchId?: string) => {
         replaceNode(tempId, newNode.id, newNode.nodeProperties)
       }
     } catch {
-      toast.error('Could not create node.')
+      toast.error(t('Could not create node.'))
     }
-  }, [state.text, state.detection, state.graphPosition, sketchId, addNode, replaceNode])
+  }, [state.text, state.detection, state.graphPosition, sketchId, addNode, replaceNode, t])
 
   return {
     quickAdd: state,

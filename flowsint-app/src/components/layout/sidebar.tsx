@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { isAvl4 } from '@/platform/runtime-config'
 import {
   Home,
@@ -26,23 +27,25 @@ interface NavItem {
 }
 
 export const Sidebar = memo(() => {
+  const { t } = useTranslation()
+
   const togglePanel = useLayoutStore((s) => s.togglePanel)
   const { data: administrationAccess } = useEnricherAdministrationAccess()
 
   const navItems: NavItem[] = [
-    { icon: Home, label: 'Dashboard', href: '/dashboard/' },
-    { icon: Workflow, label: 'Flows', href: '/dashboard/flows' },
-    { icon: Shapes, label: 'Custom types', href: '/dashboard/custom-types' },
-    { icon: Lock, label: 'Vault', href: '/dashboard/vault' }
+    { icon: Home, label: t('Dashboard'), href: '/dashboard/' },
+    { icon: Workflow, label: t('Flows'), href: '/dashboard/flows' },
+    { icon: Shapes, label: t('Custom types'), href: '/dashboard/custom-types' },
+    { icon: Lock, label: t('Vault'), href: '/dashboard/vault' }
   ]
 
   if (CONFIG.ENRICHER_TEMPLATES_FEATURE_FLAG)
-    navItems.push({ icon: Puzzle, label: 'Enrichers', href: '/dashboard/enrichers' })
+    navItems.push({ icon: Puzzle, label: t('Enrichers'), href: '/dashboard/enrichers' })
 
   if (administrationAccess?.can_manage)
     navItems.push({
       icon: ShieldCheck,
-      label: 'Enricher administration',
+      label: t('Enricher administration'),
       href: '/dashboard/admin/enrichers'
     })
 
@@ -96,7 +99,7 @@ export const Sidebar = memo(() => {
               </div>
             </TooltipTrigger>
             <TooltipContent side="right">
-              Toggle panel
+              {t('Toggle panel')}
               <span className="text-[.7rem] ml-1 opacity-60">({isMac ? '⌘' : 'ctrl'}B)</span>
             </TooltipContent>
           </Tooltip>

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useEffect, useRef, useCallback } from 'react'
 import { XTermTerminal, TerminalHandle } from './xterm-terminal'
 import { formatLogEntry, formatWelcomeMessage } from './log-formatter'
@@ -20,6 +21,8 @@ interface TerminalLogViewerProps {
 }
 
 export const TerminalLogViewer = ({ logs, onRefresh, onClear }: TerminalLogViewerProps) => {
+  const { t } = useTranslation()
+
   const terminalRef = useRef<TerminalHandle>(null)
   const previousLogsRef = useRef<LogEntry[]>([])
   const isInitializedRef = useRef(false)
@@ -129,7 +132,7 @@ export const TerminalLogViewer = ({ logs, onRefresh, onClear }: TerminalLogViewe
           size="icon"
           onClick={handleRefresh}
           className="h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background/90 border border-border/50"
-          title="Refresh logs"
+          title={t('Refresh logs')}
         >
           <RotateCcw className="w-3.5 h-3.5 opacity-60" strokeWidth={1.7} />
         </Button>
@@ -138,7 +141,7 @@ export const TerminalLogViewer = ({ logs, onRefresh, onClear }: TerminalLogViewe
           size="icon"
           onClick={handleClearTerminal}
           className="h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background/90 border border-border/50"
-          title="Clear terminal"
+          title={t('Clear terminal')}
         >
           <Trash2 className="w-3.5 h-3.5 opacity-60" strokeWidth={1.7} />
         </Button>

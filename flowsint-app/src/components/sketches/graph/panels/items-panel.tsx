@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Download, PlusIcon, Search } from 'lucide-react'
 import { memo, useCallback, useMemo, useState } from 'react'
@@ -10,6 +11,8 @@ import { useGraphStore } from '@/stores/graph-store'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 
 export const ItemsPanel = memo(function LeftPanel() {
+  const { t } = useTranslation()
+
   const [searchQuery, setSearchQuery] = useState<string>('')
   const setOpenMainDialog = useGraphStore((state) => state.setOpenMainDialog)
   const setImportModalOpen = useGraphSettingsStore((s) => s.setImportModalOpen)
@@ -74,7 +77,7 @@ export const ItemsPanel = memo(function LeftPanel() {
           <Search className="absolute left-2.5 top-1.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search type..."
+            placeholder={t('Search type...')}
             className="pl-8 h-7 border-border"
             value={searchQuery}
             onChange={handleSearchChange}
@@ -83,7 +86,7 @@ export const ItemsPanel = memo(function LeftPanel() {
       </div>
       <div className="my-1">
         <Button onClick={handleOpenImportModal} className="w-full shadow-none" variant={'outline'}>
-          <Download /> Import entities
+          <Download /> {t(' Import entities')}
         </Button>
       </div>
       <div className="flex flex-col gap-3">
@@ -100,7 +103,7 @@ export const ItemsPanel = memo(function LeftPanel() {
                         {item.label} ({item.children.length})
                       </span>
                       {item.comingSoon && (
-                        <span className="ml-1 text-xs text-muted-foreground">(Soon)</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{t('(Soon)')}</span>
                       )}
                     </div>
                   </div>

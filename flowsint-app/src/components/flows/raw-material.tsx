@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import EnricherItem from './enricher-list-item'
@@ -9,6 +10,8 @@ import { SkeletonList } from '../shared/skeleton-list'
 import { flowService } from '@/api/flow-service'
 
 export default function RawMaterial() {
+  const { t } = useTranslation()
+
   const {
     data: materials,
     isLoading,
@@ -32,6 +35,10 @@ export default function RawMaterial() {
         (item) =>
           item.name.toLowerCase().includes(term) ||
           item.class_name.toLowerCase().includes(term) ||
+          item.description?.toLowerCase().includes(term) ||
+          t(item.description ?? '')
+            .toLowerCase()
+            .includes(term) ||
           (item.documentation && item.documentation.toLowerCase().includes(term))
       )
       if (filtered.length > 0) {
@@ -40,9 +47,9 @@ export default function RawMaterial() {
     })
 
     return result
-  }, [searchTerm, materials])
+  }, [searchTerm, materials, t])
 
-  if (error) return <div>error</div>
+  if (error) return <div>{t('error')}</div>
 
   if (isLoading)
     return (
@@ -56,7 +63,7 @@ export default function RawMaterial() {
         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Search enrichers..."
+          placeholder={t('Search enrichers...')}
           className="pl-8 border! border-border"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -89,7 +96,8 @@ export default function RawMaterial() {
         ))}
         {Object.keys(filteredEnrichers).length === 0 && (
           <div className="text-center py-4 text-muted-foreground">
-            No enrichers found matching &quot;{searchTerm}&quot;
+            {t('No enrichers found matching "')}
+            {searchTerm}&quot;
           </div>
         )}
       </div>

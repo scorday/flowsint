@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import {
   Sheet,
   SheetContent,
@@ -18,6 +19,8 @@ import { useIcon } from '@/hooks/use-icon'
 import { flowService } from '@/api/flow-service'
 
 const FlowSheet = () => {
+  const { t } = useTranslation()
+
   const openFlowSheet = useFlowStore((state) => state.openFlowSheet)
   const setOpenFlowSheet = useFlowStore((state) => state.setOpenFlowSheet)
   const selectedNode = useFlowStore((state) => state.selectedNode)
@@ -47,13 +50,17 @@ const FlowSheet = () => {
       return (
         enricher.class_name.toLowerCase().includes(term) ||
         enricher.name.toLowerCase().includes(term) ||
+        enricher.description?.toLowerCase().includes(term) ||
+        t(enricher.description ?? '')
+          .toLowerCase()
+          .includes(term) ||
         enricher.module.toLowerCase().includes(term) ||
         enricher.inputs.type.toLowerCase().includes(term) ||
         enricher.outputs.type.toLowerCase().includes(term) ||
         (enricher.documentation && enricher.documentation.toLowerCase().includes(term))
       )
     })
-  }, [searchTerm, materials?.items, selectedNode])
+  }, [searchTerm, materials?.items, selectedNode, t])
 
   const handleClick = useCallback(
     (enricher: Enricher) => {
@@ -104,13 +111,16 @@ const FlowSheet = () => {
         <SheetContent className="sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>
-              Add connector to <span className="text-primary">{selectedNode?.data.class_name}</span>
+              {t('Add connector to ')}
+              <span className="text-primary">{selectedNode?.data.class_name}</span>
             </SheetTitle>
-            <SheetDescription>Choose an enricher to launch from the list below.</SheetDescription>
+            <SheetDescription>
+              {t('Choose an enricher to launch from the list below.')}
+            </SheetDescription>
           </SheetHeader>
           <div className="p-4 grow overflow-auto border-t">
             <Input
-              placeholder="Search enrichers..."
+              placeholder={t('Search enrichers...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="mb-4"
@@ -119,14 +129,16 @@ const FlowSheet = () => {
             {isLoading && (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading enrichers...</span>
+                <span className="ml-2">{t('Loading enrichers...')}</span>
               </div>
             )}
 
             {error && (
               <Alert variant="destructive" className="mb-4">
                 <TriangleAlert className="h-4 w-4" />
-                <AlertDescription>Failed to load enrichers. Please try again.</AlertDescription>
+                <AlertDescription>
+                  {t('Failed to load enrichers. Please try again.')}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -135,8 +147,8 @@ const FlowSheet = () => {
                 {filteredEnrichers.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     {searchTerm.trim()
-                      ? 'No enrichers found matching your search.'
-                      : 'No enrichers available for this node type.'}
+                      ? t('No enrichers found matching your search.')
+                      : t('No enrichers available for this node type.')}
                   </div>
                 ) : (
                   filteredEnrichers.map((enricher: Enricher) => (
@@ -170,6 +182,8 @@ function areEqual(prevProps: { enricher: Enricher }, nextProps: { enricher: Enri
 
 // Memoized enricher item component for the sidebar
 const EnricherItem = memo(({ enricher, onClick }: { enricher: Enricher; onClick: () => void }) => {
+  const { t } = useTranslation()
+
   const colors = useNodesDisplaySettings((s) => s.colors)
   const borderInputColor = colors[enricher.inputs.type.toLowerCase()]
   const borderOutputColor = colors[enricher.outputs.type.toLowerCase()]
@@ -204,18 +218,18 @@ const EnricherItem = memo(({ enricher, onClick }: { enricher: Enricher; onClick:
                 </h3>
               </div>
               <p className="text-sm font-normal opacity-60 truncate text-ellipsis">
-                {enricher.description}
+                {t(enricher.description ?? '')}
               </p>
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">Takes</span>
+                  <span className="text-muted-foreground">{t('Takes')}</span>
                   <span className="font-bold truncate text-ellipsis">{enricher.inputs.type}</span>
                 </div>
                 <span>
                   <ArrowRight className="h-3 w-3" />
                 </span>
                 <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">Returns</span>
+                  <span className="text-muted-foreground">{t('Returns')}</span>
                   <span className="font-bold truncate text-ellipsis">{enricher.outputs.type}</span>
                 </div>
               </div>

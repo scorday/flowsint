@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { sketchService } from '@/api/sketch-service'
 import Loader from '@/components/loader'
 import { TypeBadge } from '@/components/type-badge'
@@ -30,6 +31,8 @@ const getInlineRelationships = (nodes: GraphNode[], edges: GraphEdge[]): Relatio
 
 const Relationships = memo(
   ({ sketchId, nodeId, nodeLength }: { sketchId: string; nodeId: string; nodeLength: number }) => {
+    const { t } = useTranslation()
+
     const { data: neighborsData, isLoading } = useQuery({
       queryKey: ['neighbors', sketchId, nodeId, nodeLength],
       queryFn: () => sketchService.getNodeNeighbors(sketchId, nodeId)
@@ -48,7 +51,7 @@ const Relationships = memo(
     if (relationships.length === 0) {
       return (
         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-          No relationships found
+          {t('No relationships found')}
         </div>
       )
     }

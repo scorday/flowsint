@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import MonacoEditor from '@monaco-editor/react'
 import { useTheme } from '@/components/theme-provider'
 
@@ -17,6 +18,8 @@ function useResolvedTheme() {
 }
 
 export function JsonViewer({ data, height = '100%', className }: JsonViewerProps) {
+  const { t } = useTranslation()
+
   const resolvedTheme = useResolvedTheme()
   const jsonString = JSON.stringify(data, null, 2)
 
@@ -58,7 +61,7 @@ export function JsonViewer({ data, height = '100%', className }: JsonViewerProps
         }}
         loading={
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Loading...
+            {t('Loading...')}
           </div>
         }
       />

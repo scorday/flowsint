@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useForm, Controller } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -86,6 +87,8 @@ function EnricherParamsForm({
   onSubmit: (values: Record<string, string>) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
+
   const {
     register,
     handleSubmit,
@@ -104,7 +107,7 @@ function EnricherParamsForm({
   })
 
   const renderField = (param: EnricherParamSchemaItem) => {
-    const required = param.required ? `${param.name} is required` : false
+    const required = param.required ? t('{{v0}} is required', { v0: param.name }) : false
 
     if (isVaultSecret(param)) {
       return (
@@ -131,12 +134,12 @@ function EnricherParamsForm({
           render={({ field: { onChange, value, ref } }) => (
             <Select onValueChange={onChange} value={value || ''}>
               <SelectTrigger ref={ref} id={param.name} className="w-full">
-                <SelectValue placeholder={`Select ${param.name}`} />
+                <SelectValue placeholder={t('Select {{v0}}', { v0: param.name })} />
               </SelectTrigger>
               <SelectContent>
                 {param.options?.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.label === 'Active' ? 'params.active' : option.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -161,9 +164,12 @@ function EnricherParamsForm({
     <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
       <SheetHeader>
         <SheetTitle>
-          Configure <span className="text-primary">{enricherName}</span>
+          {t('Configure ')}
+          <span className="text-primary">{enricherName}</span>
         </SheetTitle>
-        <SheetDescription>Set the parameters for this enricher, then launch it.</SheetDescription>
+        <SheetDescription>
+          {t('Set the parameters for this enricher, then launch it.')}
+        </SheetDescription>
       </SheetHeader>
 
       <div className="grow space-y-4 overflow-auto px-4">
@@ -174,7 +180,7 @@ function EnricherParamsForm({
                 {param.name}
                 {param.required && <span className="text-destructive ml-1">*</span>}
               </Label>
-              {param.description && <p className="text-sm opacity-60">{param.description}</p>}
+              {param.description && <p className="text-sm opacity-60">{t(param.description)}</p>}
             </div>
             {renderField(param)}
             {errors[param.name] && (
@@ -186,9 +192,9 @@ function EnricherParamsForm({
 
       <SheetFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          {t('Cancel')}
         </Button>
-        <Button type="submit">Launch enricher</Button>
+        <Button type="submit">{t('Launch enricher')}</Button>
       </SheetFooter>
     </form>
   )

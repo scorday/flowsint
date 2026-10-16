@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import type { Level } from '@tiptap/extension-heading'
@@ -80,6 +81,8 @@ interface SectionOneProps extends VariantProps<typeof toggleVariants> {
 
 export const SectionOne: React.FC<SectionOneProps> = React.memo(
   ({ editor, activeLevels = [1, 2, 3, 4, 5, 6], size, variant }) => {
+    const { t } = useTranslation()
+
     const filteredActions = React.useMemo(
       () => formatActions.filter((action) => !action.level || activeLevels.includes(action.level)),
       [activeLevels]
@@ -106,13 +109,13 @@ export const SectionOne: React.FC<SectionOneProps> = React.memo(
               ? editor.isActive('heading', { level })
               : editor.isActive('paragraph')
           })}
-          aria-label={label}
+          aria-label={t(label)}
         >
-          <Element className={className}>{label}</Element>
+          <Element className={className}>{t(label)}</Element>
           <ShortcutKey keys={shortcuts} />
         </DropdownMenuItem>
       ),
-      [editor, handleStyleChange]
+      [editor, handleStyleChange, t]
     )
 
     return (
@@ -120,8 +123,8 @@ export const SectionOne: React.FC<SectionOneProps> = React.memo(
         <DropdownMenuTrigger asChild>
           <ToolbarButton
             isActive={editor.isActive('heading')}
-            tooltip="Text styles"
-            aria-label="Text styles"
+            tooltip={t('Text styles')}
+            aria-label={t('Text styles')}
             pressed={editor.isActive('heading')}
             className="w-12"
             disabled={editor.isActive('codeBlock')}

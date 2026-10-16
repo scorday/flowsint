@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useLocation, useParams } from '@tanstack/react-router'
 import {
   Breadcrumb,
@@ -16,6 +17,8 @@ import { Home } from 'lucide-react'
 import { flowService } from '@/api/flow-service'
 
 export function PathBreadcrumb() {
+  const { t } = useTranslation()
+
   const { investigationId, id, type, flowId } = useParams({ strict: false })
   const location = useLocation()
 
@@ -56,7 +59,7 @@ export function PathBreadcrumb() {
               <BreadcrumbItem className="min-w-0">
                 <BreadcrumbLink asChild>
                   <Link to="/dashboard/flows" className="truncate block font-medium">
-                    Flows
+                    {t('Flows')}
                   </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -68,7 +71,7 @@ export function PathBreadcrumb() {
                       {isFlowLoading ? (
                         <Skeleton className="h-4 w-24" />
                       ) : (
-                        flow?.name || '(Unnamed flow)'
+                        flow?.name || t('(Unnamed flow)')
                       )}
                     </BreadcrumbPage>
                   </BreadcrumbItem>

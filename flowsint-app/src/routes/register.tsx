@@ -1,3 +1,5 @@
+import { LanguageSwitcher } from '@/components/language-switcher'
+import { useTranslation } from '@/i18n'
 import { isAvl4 } from '@/platform/runtime-config'
 import { redirect } from '@tanstack/react-router'
 // src/routes/register.tsx
@@ -20,20 +22,22 @@ const registerSchema = z
   .object({
     username: z
       .string()
-      .min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères")
-      .max(50, "Le nom d'utilisateur ne peut pas dépasser 50 caractères"),
-    email: z.string().email('Veuillez entrer une adresse email valide'),
-    password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+      .min(3, 'Username must contain at least 3 characters')
+      .max(50, 'Username must not exceed 50 characters'),
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(6, 'Password must contain at least 6 characters'),
     confirmPassword: z.string()
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'Les mots de passe ne correspondent pas',
+    message: 'Passwords do not match',
     path: ['confirmPassword']
   })
 
 type RegisterFormValues = z.infer<typeof registerSchema>
 
 function Register() {
+  const { t } = useTranslation()
+
   const methods = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -58,8 +62,11 @@ function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
+        <div className="flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold">Create an account</h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold">{t('Create an account')}</h2>
         </div>
 
         <FormProvider {...methods}>
@@ -68,15 +75,15 @@ function Register() {
               <div className="p-3 mb-4 text-sm bg-red-100 border border-red-400 text-red-700 rounded">
                 {registerMutation.error instanceof Error
                   ? registerMutation.error.message
-                  : 'An error occurred registering.'}
+                  : t('An error occurred registering.')}
               </div>
             )}
 
             <div className="space-y-4">
-              <FormField name="username" label="Username" />
-              <FormField name="email" label="Email" type="email" />
-              <FormField name="password" label="Password" type="password" />
-              <FormField name="confirmPassword" label="Confirm password" type="password" />
+              <FormField name="username" label={t('Username')} />
+              <FormField name="email" label={t('Email')} type="email" />
+              <FormField name="password" label={t('Password')} type="password" />
+              <FormField name="confirmPassword" label={t('Confirm password')} type="password" />
             </div>
 
             <div>
@@ -109,10 +116,10 @@ function Register() {
                            3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    Registering...
+                    {t('Registering...')}
                   </span>
                 ) : (
-                  'Register'
+                  t('Register')
                 )}
               </Button>
             </div>
@@ -121,9 +128,9 @@ function Register() {
 
         <div className="text-center mt-4">
           <p className="text-sm">
-            Already have an account ?{' '}
+            {t('Already have an account ?')}{' '}
             <Link to="/login" className="font-medium text-primary underline">
-              Login
+              {t('Login')}
             </Link>
           </p>
         </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useState, useCallback } from 'react'
 import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useTimeout } from 'usehooks-ts'
@@ -20,6 +21,8 @@ export function CopyButton({
   delay = 2000,
   size = 'icon'
 }: CopyButtonProps) {
+  const { t } = useTranslation()
+
   const [isCopied, setIsCopied] = useState(false)
 
   const handleCopy = useCallback(
@@ -49,7 +52,7 @@ export function CopyButton({
           size={label ? 'default' : size}
           variant="ghost"
           onClick={handleCopy}
-          aria-label="Copy content"
+          aria-label={t('Copy content')}
         >
           {isCopied ? (
             <CheckIcon className="!h-3.5 !w-3.5 text-primary" />
@@ -59,7 +62,7 @@ export function CopyButton({
           {label && <span className="text-xs">{label}</span>}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Copied !</TooltipContent>
+      <TooltipContent>{t('Copied !')}</TooltipContent>
     </Tooltip>
   )
 }

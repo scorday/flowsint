@@ -1,3 +1,4 @@
+import { translate as t } from '@/i18n'
 import { usePasteListener } from '@/hooks/use-paste-listener'
 import { useGraphStore } from '@/stores/graph-store'
 import { type GraphNode, NodeProperties } from '@/types/graph'
@@ -92,6 +93,6 @@ const createNode = async (
       replaceNode(node.id, newNode.id, newNode.nodeProperties)
     }
   } catch {
-    toast.error('Could not create node.')
+    toast.error(t('Could not create node.'))
   }
 }

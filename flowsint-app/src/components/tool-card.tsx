@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Terminal, Key } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +11,8 @@ interface ToolCardProps {
 }
 
 export function ToolCard({ tool }: ToolCardProps) {
+  const { t } = useTranslation()
+
   return (
     <Card
       className={cn(
@@ -37,7 +40,9 @@ export function ToolCard({ tool }: ToolCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1">
-        {tool.description && <p className="text-sm text-muted-foreground">{tool.description}</p>}
+        {tool.description && (
+          <p className="text-sm text-muted-foreground">{t(tool.description ?? '')}</p>
+        )}
       </CardContent>
       <div className="absolute top-2 right-2 flex flex-row items-center gap-1">
         {tool.apiKeyRequired && (
@@ -49,16 +54,16 @@ export function ToolCard({ tool }: ToolCardProps) {
             }
           >
             <Key className="h-3 w-3 mr-1" />
-            {tool.apiKeyRequired === 'paid' ? 'Paid API Key' : 'Free API Key'}
+            {tool.apiKeyRequired === 'paid' ? t('Paid API Key') : t('Free API Key')}
           </Badge>
         )}
         {tool.active ? (
           <Badge className="bg-green-500/15 text-green-500 text-xs shadow-none border-green-500/30">
-            Active
+            {t('Active')}
           </Badge>
         ) : (
           <Badge className="bg-orange-500/15 text-orange-500 text-xs shadow-none border-orange-500/30">
-            Coming soon
+            {t('Coming soon')}
           </Badge>
         )}
       </div>

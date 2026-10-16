@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import React, { ChangeEvent, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
@@ -44,6 +45,8 @@ export default function EdgeContextMenu({
   onDismissNew,
   ...props
 }: EdgeContextMenuProps) {
+  const { t } = useTranslation()
+
   const { id: sketchId } = useParams({ strict: false })
   const { canEdit } = usePermissions()
   const removeEdges = useGraphStore((s) => s.removeEdges)
@@ -92,14 +95,14 @@ export default function EdgeContextMenu({
             data: { label: newLabel }
           })
         )
-        toast.success('Relationship updated successfully.')
+        toast.success(t('Relationship updated successfully.'))
       } catch {
         // Rollback on error
         updateEdge(edge.id, { label: previousLabel })
-        toast.error('Failed to update relationship.')
+        toast.error(t('Failed to update relationship.'))
       }
     }
-  }, [edge, updateEdge, sketchId, setMenu, onSubmitNew])
+  }, [edge, updateEdge, sketchId, setMenu, onSubmitNew, t])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -115,8 +118,11 @@ export default function EdgeContextMenu({
       const count = edgeIds.length
       if (
         !(await confirm({
-          title: `You are about to delete ${count} relationship${count > 1 ? 's' : ''}?`,
-          message: 'The action is irreversible.'
+          title: t('You are about to delete {{v0}} relationship{{v1}}?', {
+            v0: count,
+            v1: count > 1 ? 's' : ''
+          }),
+          message: t('The action is irreversible.')
         }))
       ) {
         return
@@ -129,13 +135,16 @@ export default function EdgeContextMenu({
           return sketchService.deleteEdges(sketchId, JSON.stringify({ relationshipIds: edgeIds }))
         })(),
         {
-          loading: `Deleting ${count} relationship${count > 1 ? 's' : ''}...`,
-          success: `Relationship${count > 1 ? 's' : ''} deleted successfully.`,
-          error: 'Failed to delete relationship.'
+          loading: t('Deleting {{v0}} relationship{{v1}}...', {
+            v0: count,
+            v1: count > 1 ? 's' : ''
+          }),
+          success: t('Relationship{{v0}} deleted successfully.', { v0: count > 1 ? 's' : '' }),
+          error: t('Failed to delete relationship.')
         }
       )
     },
-    [edgeIds, sketchId, setMenu, removeEdges, clearSelectedEdges, isMultiSelect, confirm]
+    [edgeIds, sketchId, setMenu, removeEdges, clearSelectedEdges, isMultiSelect, confirm, t]
   )
 
   // Wrap setMenu to handle dismissing new edges (Escape / click outside)
@@ -163,7 +172,9 @@ export default function EdgeContextMenu({
       <div className="px-3 py-1 flex items-center justify-between shrink-0">
         <div className="flex text-xs items-center gap-1 truncate">
           {isMultiSelect ? (
-            <span className="block truncate">{edgeIds.length} relationships selected</span>
+            <span className="block truncate">
+              {edgeIds.length} {t(' relationships selected')}
+            </span>
           ) : (
             <div className="p-1">
               <Input

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
@@ -54,6 +55,8 @@ const BubbleButton = ({
 )
 
 export const TextBubbleMenu: React.FC<TextBubbleMenuProps> = ({ editor }) => {
+  const { t } = useTranslation()
+
   const [showLinkEditor, setShowLinkEditor] = React.useState(false)
 
   const shouldShow = React.useCallback(
@@ -177,7 +180,7 @@ export const TextBubbleMenu: React.FC<TextBubbleMenuProps> = ({ editor }) => {
                 onClick={() => editor.chain().focus().setParagraph().run()}
               >
                 <Pilcrow className="size-4" />
-                Paragraph
+                {t('Paragraph')}
               </button>
               <button
                 type="button"
@@ -186,7 +189,7 @@ export const TextBubbleMenu: React.FC<TextBubbleMenuProps> = ({ editor }) => {
                 onClick={() => editor.chain().focus().setHeading({ level: 1 }).run()}
               >
                 <Heading1 className="size-4" />
-                Heading 1
+                {t('Heading 1')}
               </button>
               <button
                 type="button"
@@ -195,7 +198,7 @@ export const TextBubbleMenu: React.FC<TextBubbleMenuProps> = ({ editor }) => {
                 onClick={() => editor.chain().focus().setHeading({ level: 2 }).run()}
               >
                 <Heading2 className="size-4" />
-                Heading 2
+                {t('Heading 2')}
               </button>
               <button
                 type="button"
@@ -204,7 +207,7 @@ export const TextBubbleMenu: React.FC<TextBubbleMenuProps> = ({ editor }) => {
                 onClick={() => editor.chain().focus().setHeading({ level: 3 }).run()}
               >
                 <Heading3 className="size-4" />
-                Heading 3
+                {t('Heading 3')}
               </button>
             </div>
           </PopoverContent>

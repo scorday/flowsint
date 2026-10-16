@@ -1,3 +1,4 @@
+import { translate as t } from '@/i18n'
 import { ColumnDef } from '@tanstack/react-table'
 import { useIcon } from '@/hooks/use-icon'
 import { MoreVertical, AlertTriangle, CheckCircle, Clock, XCircle } from 'lucide-react'
@@ -189,7 +190,7 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Label
+          {t('Label')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
@@ -205,7 +206,7 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Type
+          {t('Type')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
@@ -235,14 +236,14 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Status
+          {t('Status')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
     },
     accessorKey: 'data.status',
     cell: ({ row }) => {
-      const status = row.original.data.status || 'Active'
+      const status = row.original.data.status || t('Active')
       const style = getStatusStyle(status)
       const IconComponent = style.icon
 
@@ -268,14 +269,14 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Source
+          {t('Source')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
     },
     accessorKey: 'data.source',
     cell: ({ row }) => {
-      const source = row.original.data.source || 'Enricher'
+      const source = row.original.data.source || t('Enricher')
       return <div className="text-left font-medium text-gray-700 dark:text-gray-200">{source}</div>
     }
   },
@@ -291,7 +292,7 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Confidence
+          {t('Confidence')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
@@ -326,14 +327,14 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Risk Level
+          {t('Risk Level')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
     },
     accessorKey: 'data.riskLevel',
     cell: ({ row }) => {
-      const risk = row.original.data.riskLevel || 'N/A'
+      const risk = row.original.data.riskLevel || t('N/A')
       const style = getRiskStyle(risk)
 
       return (
@@ -357,7 +358,7 @@ export const columns: ColumnDef<GraphNode>[] = [
           className="h-7"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Last Updated
+          {t('Last Updated')}
           <ArrowUpDown className="h-4 w-4" />
         </Button>
       )
@@ -389,13 +390,13 @@ export const columns: ColumnDef<GraphNode>[] = [
                   variant="ghost"
                   className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors duration-500"
                 >
-                  <span className="sr-only">Open menu</span>
+                  <span className="sr-only">{t('Open menu')}</span>
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('Actions')}</DropdownMenuLabel>
               <DropdownMenuItem></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useCallback, useState } from 'react'
 import { Route, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,6 +12,8 @@ import { ResizableContainer } from '@/components/ui/resizable-container'
 import { useNodesDisplaySettings } from '@/stores/node-display-settings'
 
 export function PathFinder() {
+  const { t } = useTranslation()
+
   const [isLoading, setIsLoading] = useState(false)
   const { findPath } = usePathfinder()
 
@@ -37,10 +40,10 @@ export function PathFinder() {
         setHighlightedNodes(result.ids)
         zoomToSelection()
       } else {
-        toast.info('No path found between these nodes')
+        toast.info(t('No path found between these nodes'))
       }
     } catch {
-      toast.error('Failed to find path')
+      toast.error(t('Failed to find path'))
     } finally {
       setIsLoading(false)
     }
@@ -52,7 +55,8 @@ export function PathFinder() {
     findPath,
     setPath,
     setHighlightedNodes,
-    zoomToSelection
+    zoomToSelection,
+    t
   ])
 
   return (
@@ -64,7 +68,7 @@ export function PathFinder() {
           <Route className="h-4 w-4 opacity-70" />
         )
       }
-      tooltip="Find Path"
+      tooltip={t('Find Path')}
       onClick={handleFindPath}
       disabled={!areExactlyTwoSelected || isLoading}
       badge={areExactlyTwoSelected ? 2 : null}
@@ -73,6 +77,8 @@ export function PathFinder() {
 }
 
 export function PathPanel() {
+  const { t } = useTranslation()
+
   const path = useGraphStore((s) => s.path)
   const setPath = useGraphStore((s) => s.setPath)
   const setHighlightedNodes = useGraphStore((s) => s.setHighlightedNodes)
@@ -109,7 +115,10 @@ export function PathPanel() {
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
-            <span className="text-sm font-medium truncate">Path ({path.nodes.length} nodes)</span>
+            <span className="text-sm font-medium truncate">
+              {t('Path (')}
+              {path.nodes.length} {t(' nodes)')}
+            </span>
             <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={handleClose}>
               <X className="h-3.5 w-3.5" />
             </Button>

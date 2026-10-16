@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Panel } from '@xyflow/react'
 import { Save, Trash2, ZoomIn, ZoomOut, Maximize, LayoutGrid } from 'lucide-react'
@@ -28,6 +29,8 @@ export function FlowControls({
   isSaved,
   flow
 }: FlowControlsProps): JSX.Element {
+  const { t } = useTranslation()
+
   return (
     <TooltipProvider>
       <FlowNamePanel flow={flow} />
@@ -46,7 +49,7 @@ export function FlowControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Save flow</p>
+            <p>{t('Save flow')}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -64,7 +67,7 @@ export function FlowControls({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Delete flow</p>
+              <p>{t('Delete flow')}</p>
             </TooltipContent>
           </Tooltip>
         )}
@@ -82,7 +85,7 @@ export function FlowControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Auto Layout</p>
+            <p>{t('Auto Layout')}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -93,7 +96,7 @@ export function FlowControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Fit View</p>
+            <p>{t('Fit View')}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -104,7 +107,7 @@ export function FlowControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Zoom In</p>
+            <p>{t('Zoom In')}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -115,7 +118,7 @@ export function FlowControls({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Zoom Out</p>
+            <p>{t('Zoom Out')}</p>
           </TooltipContent>
         </Tooltip>
       </Panel>

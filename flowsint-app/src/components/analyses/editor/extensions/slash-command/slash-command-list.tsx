@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { forwardRef, useEffect, useImperativeHandle, useState, useCallback } from 'react'
 import type { SlashCommandItem } from './slash-command'
 import {
@@ -37,6 +38,8 @@ export interface SlashCommandListRef {
 }
 
 const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>((props, ref) => {
+  const { t } = useTranslation()
+
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const selectItem = useCallback(
@@ -82,7 +85,7 @@ const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
   if (!props.items.length) {
     return (
       <div className="z-50 w-[280px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-        <div className="px-2 py-1.5 text-sm text-muted-foreground">No results</div>
+        <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('No results')}</div>
       </div>
     )
   }
@@ -112,8 +115,8 @@ const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
                     </div>
                   )}
                   <div className="flex flex-col text-left">
-                    <span className="font-medium">{item.title}</span>
-                    <span className="text-xs text-muted-foreground">{item.description}</span>
+                    <span className="font-medium">{t(item.title)}</span>
+                    <span className="text-xs text-muted-foreground">{t(item.description)}</span>
                   </div>
                 </button>
               )

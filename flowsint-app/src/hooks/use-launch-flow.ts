@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { toast } from 'sonner'
 import { useConfirm } from '@/components/use-confirm-dialog'
 import { flowService } from '@/api/flow-service'
@@ -6,6 +7,8 @@ import { queryKeys } from '@/api/query-keys'
 import { useLayoutStore } from '@/stores/layout-store'
 
 export function useLaunchFlow(askUser: boolean = false) {
+  const { t } = useTranslation()
+
   const { confirm } = useConfirm()
   const queryClient = useQueryClient()
   const openClonsole = useLayoutStore((s) => s.openConsole)
@@ -33,11 +36,14 @@ export function useLaunchFlow(askUser: boolean = false) {
     flow_id: string,
     sketch_id: string | null | undefined
   ) => {
-    if (!sketch_id) return toast.error('Could not find the graph.')
+    if (!sketch_id) return toast.error(t('Could not find the graph.'))
     if (askUser) {
       const confirmed = await confirm({
         title: `${flow_id} scan`,
-        message: `You're about to launch ${flow_id} flow on ${node_ids.length} items.`
+        message: t("You're about to launch {{v0}} flow on {{v1}} items.", {
+          v0: flow_id,
+          v1: node_ids.length
+        })
       })
       if (!confirmed) return
     }
@@ -45,9 +51,14 @@ export function useLaunchFlow(askUser: boolean = false) {
     const count = node_ids.length
 
     toast.promise(launchFlowMutation.mutateAsync({ flowId: flow_id, body }), {
-      loading: 'Loading...',
-      success: () => `Flow ${flow_id} has been launched on ${count} node${count > 1 ? 's' : ''}.`,
-      error: () => `An error occurred launching flow.`
+      loading: t('Loading...'),
+      success: () =>
+        t('Flow {{v0}} has been launched on {{v1}} node{{v2}}.', {
+          v0: flow_id,
+          v1: count,
+          v2: count > 1 ? 's' : ''
+        }),
+      error: () => t('An error occurred launching flow.')
     })
     return
   }

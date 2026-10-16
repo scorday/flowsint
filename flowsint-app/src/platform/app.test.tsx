@@ -21,6 +21,7 @@ beforeEach(async () => {
     setItem: (key: string, value: string) => values.set(key, value),
     removeItem: (key: string) => values.delete(key)
   })
+  localStorage.setItem('flowsint-language', 'ru')
   host = createPlatformHost({ onUnauthorized: challenge })
   host.initializeAuthenticated(platformUser())
   host.selectProject('project-a')

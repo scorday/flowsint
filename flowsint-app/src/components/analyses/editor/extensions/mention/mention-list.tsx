@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { forwardRef, useImperativeHandle, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ItemType } from '@/stores/node-display-settings'
@@ -21,6 +22,8 @@ export interface MentionListRef {
 }
 
 const MentionList = forwardRef<MentionListRef, MentionListProps>((props, ref) => {
+  const { t } = useTranslation()
+
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const selectItem = (index: number) => {
@@ -88,7 +91,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>((props, ref) =>
           ))}
         </div>
       ) : (
-        <div className="px-2 py-1.5 text-sm text-muted-foreground">No results</div>
+        <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('No results')}</div>
       )}
     </div>
   )

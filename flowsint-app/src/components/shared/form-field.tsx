@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 // src/components/FormField.tsx
 import React, { type InputHTMLAttributes } from 'react'
 import { useFormContext, type RegisterOptions, type FieldError } from 'react-hook-form'
@@ -23,6 +24,7 @@ const FormField: React.FC<FormFieldProps> = ({
   className = '',
   ...rest
 }) => {
+  const { t } = useTranslation()
   // Si utilisé dans un FormProvider, on peut récupérer le registre ici
   const formContext = useFormContext()
 
@@ -47,7 +49,9 @@ const FormField: React.FC<FormFieldProps> = ({
         {...rest}
       />
 
-      {fieldError && <p className="mt-1 text-sm text-red-600">{fieldError.message as string}</p>}
+      {fieldError && (
+        <p className="mt-1 text-sm text-red-600">{t(String(fieldError.message ?? ''))}</p>
+      )}
     </div>
   )
 }

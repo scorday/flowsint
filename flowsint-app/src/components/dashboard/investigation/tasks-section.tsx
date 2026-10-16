@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus } from 'lucide-react'
@@ -39,12 +40,14 @@ const tasksData = [
 ]
 
 export function TasksSection() {
+  const { t } = useTranslation()
+
   const [tasks, setTasks] = useState<Task[]>(tasksData)
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-foreground">Tasks</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('Tasks')}</h3>
           <span className="text-xs text-muted-foreground">2/5</span>
         </div>
         <Button
@@ -53,7 +56,7 @@ export function TasksSection() {
           className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add
+          {t('Add')}
         </Button>
       </div>
 
@@ -78,7 +81,7 @@ export function TasksSection() {
                 task.completed ? 'text-muted-foreground line-through' : 'text-foreground'
               )}
             >
-              {task.title}
+              {t(task.title)}
             </span>
             <div className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center shrink-0">
               <span className="text-[9px] text-muted-foreground">{task.assignee}</span>

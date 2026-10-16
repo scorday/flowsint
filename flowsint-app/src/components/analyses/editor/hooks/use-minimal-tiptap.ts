@@ -1,3 +1,4 @@
+import { translate as t } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import type { Content, UseEditorOptions } from '@tiptap/react'
@@ -99,7 +100,7 @@ const createExtensions = ({
     },
     onValidationError(errors) {
       errors.forEach((error) => {
-        toast.error('Image validation error', {
+        toast.error(t('Image validation error'), {
           position: 'bottom-right',
           description: error.reason
         })
@@ -107,22 +108,22 @@ const createExtensions = ({
     },
     onActionSuccess({ action }) {
       const mapping = {
-        copyImage: 'Copy Image',
-        copyLink: 'Copy Link',
-        download: 'Download'
+        copyImage: t('Copy Image'),
+        copyLink: t('Copy Link'),
+        download: t('Download')
       }
       toast.success(mapping[action], {
         position: 'bottom-right',
-        description: 'Image action success'
+        description: t('Image action success')
       })
     },
     onActionError(error, { action }) {
       const mapping = {
-        copyImage: 'Copy Image',
-        copyLink: 'Copy Link',
-        download: 'Download'
+        copyImage: t('Copy Image'),
+        copyLink: t('Copy Link'),
+        download: t('Download')
       }
-      toast.error(`Failed to ${mapping[action]}`, {
+      toast.error(t('Failed to {{v0}}', { v0: mapping[action] }), {
         position: 'bottom-right',
         description: error.message
       })
@@ -152,7 +153,7 @@ const createExtensions = ({
     },
     onValidationError: (errors) => {
       errors.forEach((error) => {
-        toast.error('Image validation error', {
+        toast.error(t('Image validation error'), {
           position: 'bottom-right',
           description: error.reason
         })

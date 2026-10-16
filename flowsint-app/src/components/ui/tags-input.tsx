@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +28,8 @@ function TagsInput({
   variant = 'compact',
   ...props
 }: TagsInputProps) {
+  const { t } = useTranslation()
+
   const [inputValue, setInputValue] = React.useState('')
 
   const addTag = () => {
@@ -70,7 +73,10 @@ function TagsInput({
             disabled={disabled}
           >
             <X className="h-3 w-3" />
-            <span className="sr-only">Delete tag {tag}</span>
+            <span className="sr-only">
+              {t('Delete tag ')}
+              {tag}
+            </span>
           </Button>
         </Badge>
       ))}
@@ -83,7 +89,7 @@ function TagsInput({
           onKeyDown={handleKeyDown}
           onBlur={addTag}
           className="w-full bg-transparent outline-none placeholder:text-muted-foreground/30 focus:bg-muted/20 px-1 rounded transition-colors"
-          placeholder={placeholder ?? 'Empty'}
+          placeholder={placeholder ?? t('Empty')}
         />
       ) : (
         <Input

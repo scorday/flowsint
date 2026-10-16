@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import React, { memo, useCallback, useState } from 'react'
 import { enricherService } from '@/api/enricher-service'
 import { flowService } from '@/api/flow-service'
@@ -64,6 +65,8 @@ export default function ContextMenu({
   onRequestParams,
   ...props
 }: GraphContextMenuProps) {
+  const { t } = useTranslation()
+
   const { id: sketchId } = useParams({ strict: false })
   const { canEdit } = usePermissions()
   const [activeTab, setActiveTab] = useState('enrichers')
@@ -88,7 +91,11 @@ export default function ContextMenu({
       if (!enrichersSearchQuery.trim()) return true
       const query = enrichersSearchQuery.toLowerCase().trim()
       const matchesName = enricher.name?.toLowerCase().includes(query)
-      const matchesDescription = enricher.description?.toLowerCase().includes(query)
+      const matchesDescription =
+        enricher.description?.toLowerCase().includes(query) ||
+        t(enricher.description ?? '')
+          .toLowerCase()
+          .includes(query)
       return matchesName || matchesDescription
     }) || []
 
@@ -162,11 +169,11 @@ export default function ContextMenu({
                 onClick={(e) => e.stopPropagation()}
               >
                 <Zap className="h-3 w-3 mr-1" />
-                Enrichers
+                {t('Enrichers')}
               </TabsTrigger>
               <TabsTrigger value="flows" className="flex-1" onClick={(e) => e.stopPropagation()}>
                 <FileCode2 className="h-3 w-3 mr-1" />
-                Flows
+                {t('Flows')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -184,7 +191,7 @@ export default function ContextMenu({
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search enrichers..."
+                  placeholder={t('Search enrichers...')}
                   value={enrichersSearchQuery}
                   onChange={(e) => {
                     e.stopPropagation()
@@ -228,22 +235,22 @@ export default function ContextMenu({
                               <BadgeCheck className="h-3 w-3 text-green-400" />
                             )}{' '}
                           </span>{' '}
-                          {enricher.name || '(Unnamed enricher)'}
+                          {enricher.name || t('(Unnamed enricher)')}
                           {enricher.params_schema?.length ? (
-                            <span title="Requires configuration">
+                            <span title={t('Requires configuration')}>
                               <Settings className="h-3 w-3 text-muted-foreground shrink-0" />
                             </span>
                           ) : null}
                         </p>
                         {enricher.description && (
                           <p className="text-xs text-muted-foreground truncate">
-                            {enricher.description}
+                            {t(enricher.description ?? '')}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
                         {/* <FavoriteButton isFavorite={false} /> */}
-                        <InfoButton description={enricher.description ?? ''} />
+                        <InfoButton description={t(enricher.description ?? '')} />
                       </div>
                     </button>
                   ))}
@@ -251,7 +258,7 @@ export default function ContextMenu({
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-muted-foreground">
-                    {enrichersSearchQuery ? 'No enrichers found' : 'No enrichers available'}
+                    {enrichersSearchQuery ? t('No enrichers found') : t('No enrichers available')}
                   </p>
                 </div>
               )}
@@ -266,7 +273,7 @@ export default function ContextMenu({
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search flows..."
+                  placeholder={t('Search flows...')}
                   value={flowsSearchQuery}
                   onChange={(e) => {
                     e.stopPropagation()
@@ -310,7 +317,7 @@ export default function ContextMenu({
                               <BadgeCheck className="h-3 w-3 text-green-400" />
                             )}{' '}
                           </span>{' '}
-                          {flow.name || '(Unnamed flow)'}
+                          {flow.name || t('(Unnamed flow)')}
                         </p>
                         {flow.description && (
                           <p className="text-xs text-muted-foreground truncate">
@@ -328,7 +335,7 @@ export default function ContextMenu({
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-muted-foreground">
-                    {flowsSearchQuery ? 'No flows found' : 'No flows available'}
+                    {flowsSearchQuery ? t('No flows found') : t('No flows available')}
                   </p>
                 </div>
               )}

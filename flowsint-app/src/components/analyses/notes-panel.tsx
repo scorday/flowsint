@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { analysisService } from '@/api/analysis-service'
@@ -8,6 +9,8 @@ import { useEffect, memo } from 'react'
 import AnalysisSkeleton from './analysis-skeleton'
 
 export const AnalysisPanel = memo(() => {
+  const { t } = useTranslation()
+
   const { investigationId } = useParams({ strict: false }) as { investigationId: string }
   const currentAnalysisId = useAnalysisPanelStore((s) => s.currentAnalysisId)
   const setCurrentAnalysisId = useAnalysisPanelStore((s) => s.setCurrentAnalysisId)
@@ -68,7 +71,7 @@ export const AnalysisPanel = memo(() => {
   }
 
   if (isError) {
-    return <div className="text-sm text-destructive">Error loading analyses.</div>
+    return <div className="text-sm text-destructive">{t('Error loading analyses.')}</div>
   }
 
   return (

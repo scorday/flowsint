@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useCallback, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Loader2 } from 'lucide-react'
@@ -27,6 +28,8 @@ export const QuickAddOverlay = ({
   onSubmit,
   onCancel
 }: QuickAddOverlayProps) => {
+  const { t } = useTranslation()
+
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export const QuickAddOverlay = ({
           onKeyDown={handleKeyDown}
           onBlur={onCancel}
           className="h-8 min-w-[200px] max-w-[320px] text-sm shadow-lg border-border/80 bg-background"
-          placeholder="Type to add..."
+          placeholder={t('Type to add...')}
         />
         {loading && (
           <div className="shrink-0">

@@ -1,3 +1,5 @@
+import { useTranslation } from '@/i18n'
+import { LanguageSwitcher } from '@/components/language-switcher'
 import type { ReactNode } from 'react'
 import { createPlatformApp } from '@avl4/core-sdk-react/app'
 import { queryClient } from './query-client'
@@ -5,27 +7,35 @@ import { runtimeConfig } from './runtime-config'
 import { resetProjectState } from './reset-state'
 
 function State({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
   return (
     <main className="platform-state" role="status">
-      <p>{children}</p>
+      <p>{typeof children === 'string' ? t(children) : children}</p>
+      <LanguageSwitcher />
     </main>
   )
 }
 
 export const platformFallbacks = {
-  loading: <State>Подключение к AVL4…</State>,
+  loading: <State>Connecting to AVL4…</State>,
   missing: (
     <State>
-      Панель AVL4 не загрузилась. Обновите страницу или откройте Flowsint через главное меню.
+      The AVL4 panel did not load. Refresh the page or open Flowsint from the main menu.
     </State>
   ),
-  incompatible: <State>Версия панели AVL4 несовместима с Flowsint. Обновите страницу.</State>,
-  anonymous: <State>Войдите в AVL4 через общую панель.</State>,
-  reauthenticationRequired: <State>Сессия истекла. Продолжите вход через панель AVL4.</State>,
-  error: <State>Не удалось подключиться к AVL4. Проверьте соединение и обновите страницу.</State>,
-  noAccess: <State>Нет доступа к Flowsint. Обратитесь к администратору.</State>,
-  projectLoading: <State>Загрузка проекта…</State>,
-  projectUnavailable: <State>Проект недоступен. Выберите доступный проект в панели AVL4.</State>
+  incompatible: (
+    <State>The AVL4 panel version is incompatible with Flowsint. Refresh the page.</State>
+  ),
+  anonymous: <State>Sign in to AVL4 through the shared panel.</State>,
+  reauthenticationRequired: (
+    <State>Your session expired. Continue signing in through the AVL4 panel.</State>
+  ),
+  error: <State>Could not connect to AVL4. Check your connection and refresh the page.</State>,
+  noAccess: <State>You do not have access to Flowsint. Contact your administrator.</State>,
+  projectLoading: <State>Loading project…</State>,
+  projectUnavailable: (
+    <State>The project is unavailable. Select an available project in the AVL4 panel.</State>
+  )
 }
 
 let app: ReturnType<typeof createPlatformApp> | undefined

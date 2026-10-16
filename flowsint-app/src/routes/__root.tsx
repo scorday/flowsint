@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
@@ -10,10 +11,16 @@ export interface MyRouterContext {
 }
 
 function RootComponent() {
+  const { t } = useTranslation()
   const { theme } = useTheme()
   return (
     <TutorialProvider>
-      <Toaster offset={{ top: '90px' }} theme={theme} position="top-center" />
+      <Toaster
+        containerAriaLabel={t('Notifications')}
+        offset={{ top: '90px' }}
+        theme={theme}
+        position="top-center"
+      />
       <Outlet />
     </TutorialProvider>
   )

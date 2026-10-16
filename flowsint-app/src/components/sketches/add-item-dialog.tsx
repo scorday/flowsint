@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useMemo, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,8 @@ import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { useGraphControls } from '@/stores/graph-controls-store'
 
 export default function AddItemDialog() {
+  const { t } = useTranslation()
+
   const handleOpenFormModal = useGraphStore((state) => state.handleOpenFormModal)
   const currentNodeType = useGraphStore((state) => state.currentNodeType)
   const setCurrentNodeId = useGraphStore((state) => state.setCurrentNodeId)
@@ -78,7 +81,7 @@ export default function AddItemDialog() {
 
   const handleAddNode = async (data: any) => {
     if (!currentNodeType || !sketch_id) {
-      toast.error('Invalid node type or sketch ID.')
+      toast.error(t('Invalid node type or sketch ID.'))
       return
     }
 
@@ -140,12 +143,16 @@ export default function AddItemDialog() {
     setOpenMainDialog(false)
     setOpenFormDialog(false)
     // Show optimistic success message
-    toast(`New ${type.toLowerCase()} added to sketch.`, {
+    toast(t('New {{v0}} added to sketch.', { v0: type.toLowerCase() }), {
       description: relatedNodeToAdd
-        ? `A new ${type.toLowerCase()} "${label}" was added to relation ${relatedNodeToAdd.nodeLabel}.`
-        : `A new ${type.toLowerCase()} "${label}" was added.`,
+        ? t('A new {{v0}} "{{v1}}" was added to relation {{v2}}.', {
+            v0: type.toLowerCase(),
+            v1: label,
+            v2: relatedNodeToAdd.nodeLabel
+          })
+        : t('A new {{v0}} "{{v1}}" was added.', { v0: type.toLowerCase(), v1: label }),
       action: {
-        label: 'Beautify layout',
+        label: t('Beautify layout'),
         onClick: () => regenerateLayout(currentLayoutType)
       }
     })
@@ -172,7 +179,7 @@ export default function AddItemDialog() {
       }
     } catch (error) {
       console.error(error)
-      toast.error('Failed to sync node with server. Please refresh.')
+      toast.error(t('Failed to sync node with server. Please refresh.'))
     }
     // finally {
     //   setTimeout(() => {
@@ -191,7 +198,9 @@ export default function AddItemDialog() {
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              {search ? `No types match "${search}"` : 'No action items available'}
+              {search
+                ? t('No types match "{{v0}}"', { v0: search })
+                : t('No action items available')}
             </p>
           </div>
         </div>
@@ -226,7 +235,7 @@ export default function AddItemDialog() {
         <DialogContent className="sm:max-w-[800px] h-[80vh] overflow-hidden flex flex-col">
           <DialogTitle className="flex items justify-between">
             <div className="flex items-center">
-              {relatedNodeToAdd ? `Add a relation to ` : 'Select an item to insert'}
+              {relatedNodeToAdd ? t('Add a relation to ') : t('Select an item to insert')}
               {relatedNodeToAdd && (
                 <span className="text-primary truncate max-w-[50%] text-ellipsis font-semibold ml-1">
                   {relatedNodeToAdd.nodeLabel}
@@ -241,14 +250,14 @@ export default function AddItemDialog() {
                 className="flex items-center gap-2 rounded"
               >
                 <Download className="h-4 w-4" />
-                Import entities
+                {t('Import entities')}
               </Button>
             </div>
           </DialogTitle>
           <DialogDescription>
             {relatedNodeToAdd
-              ? 'Choose what type of relation to add to this node.'
-              : 'Choose an item to insert manually, or import data from a file.'}
+              ? t('Choose what type of relation to add to this node.')
+              : t('Choose an item to insert manually, or import data from a file.')}
           </DialogDescription>
 
           <div className="relative">
@@ -257,7 +266,7 @@ export default function AddItemDialog() {
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search types..."
+              placeholder={t('Search types...')}
               className="pl-8"
             />
           </div>
@@ -284,7 +293,12 @@ export default function AddItemDialog() {
       <Dialog open={openFormDialog} onOpenChange={setOpenFormDialog}>
         <DialogContent className="max-h-[95vh] flex flex-col">
           <DialogTitle>
-            {currentNodeType && <>Add {currentNodeType.label.toLowerCase()}</>}
+            {currentNodeType && (
+              <>
+                {t('Add ')}
+                {currentNodeType.label.toLowerCase()}
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>{currentNodeType?.description}</DialogDescription>
           {currentNodeType && (
@@ -308,6 +322,8 @@ interface ActionCardProps {
 }
 
 function ActionCard({ item, onSelect }: ActionCardProps) {
+  const { t } = useTranslation()
+
   const IconComponent = useIcon(item.icon, { nodeIcon: item.icon, nodeColor: item.color })
 
   return (
@@ -326,11 +342,11 @@ function ActionCard({ item, onSelect }: ActionCardProps) {
         <div className="font-medium text-sm">{item.label}</div>
         <div className="text-sm mt-2 opacity-60">{item.description}</div>
         <Badge variant="outline" className="mt-2">
-          {item.fields.length} fields
+          {item.fields.length} {t(' fields')}
         </Badge>
         {item.disabled && (
           <Badge variant="outline" className="mt-2 absolute top-2 left-2">
-            Soon
+            {t('Soon')}
           </Badge>
         )}
       </CardContent>

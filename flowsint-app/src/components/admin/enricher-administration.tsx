@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, Eye, EyeOff, Info, Loader2, Search, ShieldCheck } from 'lucide-react'
@@ -52,6 +53,8 @@ const apiKeyLabels: Record<AdminEnricher['api_key_requirement'], string> = {
 }
 
 function ApiKeyRequirement({ enricher }: { enricher: AdminEnricher }) {
+  const { t } = useTranslation()
+
   return (
     <Badge
       variant="outline"
@@ -61,18 +64,20 @@ function ApiKeyRequirement({ enricher }: { enricher: AdminEnricher }) {
           : undefined
       }
     >
-      {apiKeyLabels[enricher.api_key_requirement] ?? 'Unknown'}
+      {t(apiKeyLabels[enricher.api_key_requirement] ?? 'Unknown')}
     </Badge>
   )
 }
 
 function EnricherDetails({ enricher }: { enricher: AdminEnricher }) {
+  const { t } = useTranslation()
+
   return (
     <Dialog>
       <DialogTrigger asChild>
         <button
           type="button"
-          aria-label={`View details for ${enricher.name}`}
+          aria-label={t('View details for {{v0}}', { v0: enricher.name })}
           className="inline-flex max-w-full items-center gap-2 rounded-sm text-left font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="min-w-0 break-words">{enricher.name}</span>
@@ -83,46 +88,46 @@ function EnricherDetails({ enricher }: { enricher: AdminEnricher }) {
         <DialogHeader className="text-left">
           <DialogTitle className="break-words pr-8 leading-snug">{enricher.name}</DialogTitle>
           <DialogDescription className="whitespace-pre-wrap break-words leading-relaxed">
-            {enricher.description || 'No description available.'}
+            {t(enricher.description || 'No description available.')}
           </DialogDescription>
         </DialogHeader>
         <dl className="grid gap-4 border-t pt-4 text-sm sm:grid-cols-2">
           <div className="space-y-1">
-            <dt className="text-xs text-muted-foreground">Provider</dt>
+            <dt className="text-xs text-muted-foreground">{t('Provider')}</dt>
             <dd className="break-words">
               {enricher.providers?.length
                 ? enricher.providers.join(', ')
-                : 'No named external provider specified.'}
+                : t('No named external provider specified.')}
             </dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs text-muted-foreground">API key</dt>
+            <dt className="text-xs text-muted-foreground">{t('API key')}</dt>
             <dd>
               <ApiKeyRequirement enricher={enricher} />
             </dd>
           </div>
           {enricher.api_key_notes && (
             <div className="space-y-1 sm:col-span-2">
-              <dt className="text-xs text-muted-foreground">API key notes</dt>
+              <dt className="text-xs text-muted-foreground">{t('API key notes')}</dt>
               <dd className="whitespace-pre-wrap break-words leading-relaxed">
-                {enricher.api_key_notes}
+                {t(enricher.api_key_notes)}
               </dd>
             </div>
           )}
           <div className="space-y-1">
-            <dt className="text-xs text-muted-foreground">Kind</dt>
-            <dd>{enricher.kind === 'builtin' ? 'Built-in' : 'Template'}</dd>
+            <dt className="text-xs text-muted-foreground">{t('Kind')}</dt>
+            <dd>{enricher.kind === 'builtin' ? t('Built-in') : t('Template')}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs text-muted-foreground">Category</dt>
+            <dt className="text-xs text-muted-foreground">{t('Category')}</dt>
             <dd className="capitalize">{friendlyCategory(enricher.category)}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs text-muted-foreground">Input</dt>
+            <dt className="text-xs text-muted-foreground">{t('Input')}</dt>
             <dd className="break-words">{enricher.input_type}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs text-muted-foreground">Output</dt>
+            <dt className="text-xs text-muted-foreground">{t('Output')}</dt>
             <dd className="break-words">{enricher.output_type}</dd>
           </div>
         </dl>
@@ -144,6 +149,8 @@ function isForbidden(error: unknown): boolean {
 }
 
 function VisibilityControl({ enricher }: { enricher: AdminEnricher }) {
+  const { t } = useTranslation()
+
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: (isVisible: boolean) =>
@@ -169,17 +176,20 @@ function VisibilityControl({ enricher }: { enricher: AdminEnricher }) {
           checked={enricher.is_visible}
           disabled={mutation.isPending}
           onCheckedChange={(checked) => mutation.mutate(checked)}
-          aria-label={`Show ${enricher.name} (${enricher.kind}) in catalog and launch menus`}
+          aria-label={t('Show {{v0}} ({{v1}}) in catalog and launch menus', {
+            v0: enricher.name,
+            v1: enricher.kind
+          })}
         />
         <Badge variant={enricher.is_visible ? 'secondary' : 'outline'}>
           {enricher.is_visible ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
-          {enricher.is_visible ? 'Visible' : 'Hidden'}
+          {enricher.is_visible ? t('Visible') : t('Hidden')}
         </Badge>
-        {mutation.isPending && <Loader2 className="size-3 animate-spin" aria-label="Saving" />}
+        {mutation.isPending && <Loader2 className="size-3 animate-spin" aria-label={t('Saving')} />}
       </div>
       {mutation.isError && (
         <p role="alert" className="max-w-52 whitespace-normal text-xs text-destructive">
-          Couldn&apos;t save visibility. Try the switch again.
+          {t("Couldn't save visibility. Try the switch again.")}
         </p>
       )}
     </div>
@@ -187,6 +197,8 @@ function VisibilityControl({ enricher }: { enricher: AdminEnricher }) {
 }
 
 export function EnricherAdministration() {
+  const { t } = useTranslation()
+
   const access = useEnricherAdministrationAccess()
   const catalog = useQuery({
     queryKey: enricherAdministrationKeys.list,
@@ -207,6 +219,7 @@ export function EnricherAdministration() {
       [
         enricher.name,
         enricher.description,
+        t(enricher.description ?? ''),
         enricher.category,
         friendlyCategory(enricher.category),
         enricher.input_type,
@@ -221,20 +234,20 @@ export function EnricherAdministration() {
 
   return (
     <PageLayout
-      title="Enricher administration"
-      description="Control which enrichers appear in the catalog and launch menus."
+      title={t('Enricher administration')}
+      description={t('Control which enrichers appear in the catalog and launch menus.')}
       isLoading={Boolean(isLoading)}
       loadingComponent={
         <div role="status" className="flex items-center gap-2 py-12 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Loading enricher administration…
+          {t('Loading enricher administration…')}
         </div>
       }
       error={forbidden ? null : error}
       errorComponent={
         <ErrorState
-          title="Couldn't load enricher administration"
-          description="Check your access and connection, then try again."
+          title={t("Couldn't load enricher administration")}
+          description={t('Check your access and connection, then try again.')}
           onRetry={() => (access.isError ? access.refetch() : catalog.refetch())}
         />
       }
@@ -242,9 +255,11 @@ export function EnricherAdministration() {
       {forbidden ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <ShieldCheck className="size-8 text-muted-foreground" aria-hidden="true" />
-          <h2 className="text-lg font-semibold">Administrator access required</h2>
+          <h2 className="text-lg font-semibold">{t('Administrator access required')}</h2>
           <p className="max-w-md text-sm text-muted-foreground">
-            Your account cannot manage enricher visibility. Contact your administrator for access.
+            {t(
+              'Your account cannot manage enricher visibility. Contact your administrator for access.'
+            )}
           </p>
         </div>
       ) : (
@@ -254,10 +269,11 @@ export function EnricherAdministration() {
             <AlertDescription>
               <p>
                 {isAvl4
-                  ? 'Visibility settings apply to the current AVL4 project.'
-                  : 'Visibility settings apply to this Flowsint instance.'}{' '}
-                Hidden enrichers are removed from the catalog and launch menus. Saved flows remain
-                runnable. You can restore a hidden enricher here at any time.
+                  ? t('Visibility settings apply to the current AVL4 project.')
+                  : t('Visibility settings apply to this Flowsint instance.')}{' '}
+                {t(
+                  'Hidden enrichers are removed from the catalog and launch menus. Saved flows remain runnable. You can restore a hidden enricher here at any time.'
+                )}
               </p>
             </AlertDescription>
           </Alert>
@@ -266,18 +282,21 @@ export function EnricherAdministration() {
             className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm"
             aria-live="polite"
             role="group"
-            aria-label="Enricher counts"
+            aria-label={t('Enricher counts')}
           >
             <span className="text-muted-foreground">
-              All <strong className="ml-1 text-foreground">{enrichers.length}</strong>
+              {t('All ')}
+              <strong className="ml-1 text-foreground">{enrichers.length}</strong>
             </span>
             <span className="flex items-center gap-2 text-muted-foreground">
               <Eye className="size-3.5" aria-hidden="true" />
-              Visible <strong className="text-foreground">{visibleCount}</strong>
+              {t('Visible ')}
+              <strong className="text-foreground">{visibleCount}</strong>
             </span>
             <span className="flex items-center gap-2 text-muted-foreground">
               <EyeOff className="size-3.5" aria-hidden="true" />
-              Hidden <strong className="text-foreground">{enrichers.length - visibleCount}</strong>
+              {t('Hidden ')}
+              <strong className="text-foreground">{enrichers.length - visibleCount}</strong>
             </span>
           </div>
 
@@ -288,8 +307,8 @@ export function EnricherAdministration() {
                 aria-hidden="true"
               />
               <Input
-                aria-label="Search enrichers"
-                placeholder="Search name, provider, description or type…"
+                aria-label={t('Search enrichers')}
+                placeholder={t('Search name, provider, description or type…')}
                 className="pl-9"
                 value={search}
                 onChange={(event) => {
@@ -303,13 +322,13 @@ export function EnricherAdministration() {
                 setKind(value)
               }}
             >
-              <SelectTrigger aria-label="Enricher kind" className="w-40">
+              <SelectTrigger aria-label={t('Enricher kind')} className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All kinds</SelectItem>
-                <SelectItem value="builtin">Built-in</SelectItem>
-                <SelectItem value="template">Template</SelectItem>
+                <SelectItem value="all">{t('All kinds')}</SelectItem>
+                <SelectItem value="builtin">{t('Built-in')}</SelectItem>
+                <SelectItem value="template">{t('Template')}</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -318,29 +337,29 @@ export function EnricherAdministration() {
                 setVisibility(value)
               }}
             >
-              <SelectTrigger aria-label="Visibility filter" className="w-40">
+              <SelectTrigger aria-label={t('Visibility filter')} className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All visibility</SelectItem>
-                <SelectItem value="visible">Visible</SelectItem>
-                <SelectItem value="hidden">Hidden</SelectItem>
+                <SelectItem value="all">{t('All visibility')}</SelectItem>
+                <SelectItem value="visible">{t('Visible')}</SelectItem>
+                <SelectItem value="hidden">{t('Hidden')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {filtered.length > 0 ? (
             <div className="min-w-0 overflow-hidden rounded-md border bg-card">
-              <Table className="min-w-[1100px]" aria-label="All enrichers">
+              <Table className="min-w-[1100px]" aria-label={t('All enrichers')}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4">Enricher</TableHead>
-                    <TableHead>Kind</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Provider</TableHead>
+                    <TableHead className="pl-4">{t('Enricher')}</TableHead>
+                    <TableHead>{t('Kind')}</TableHead>
+                    <TableHead>{t('Category')}</TableHead>
+                    <TableHead>{t('Provider')}</TableHead>
                     <TableHead>API key</TableHead>
-                    <TableHead>Input → Output</TableHead>
-                    <TableHead className="pr-4">Visibility</TableHead>
+                    <TableHead>{t('Input → Output')}</TableHead>
+                    <TableHead className="pr-4">{t('Visibility')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -351,7 +370,7 @@ export function EnricherAdministration() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {enricher.kind === 'builtin' ? 'Built-in' : 'Template'}
+                          {enricher.kind === 'builtin' ? t('Built-in') : t('Template')}
                         </Badge>
                       </TableCell>
                       <TableCell className="capitalize">
@@ -371,7 +390,10 @@ export function EnricherAdministration() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-muted-foreground" aria-label="No named provider">
+                          <span
+                            className="text-muted-foreground"
+                            aria-label={t('No named provider')}
+                          >
                             —
                           </span>
                         )}
@@ -382,7 +404,10 @@ export function EnricherAdministration() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-xs">
                           <span>{enricher.input_type}</span>
-                          <ArrowRight className="size-3 text-muted-foreground" aria-label="to" />
+                          <ArrowRight
+                            className="size-3 text-muted-foreground"
+                            aria-label={t('to')}
+                          />
                           <span>{enricher.output_type}</span>
                         </div>
                       </TableCell>
@@ -397,12 +422,12 @@ export function EnricherAdministration() {
           ) : (
             <div className="rounded-md border bg-card py-12 text-center">
               <p className="font-medium">
-                {enrichers.length ? 'No matching enrichers' : 'No enrichers available'}
+                {enrichers.length ? t('No matching enrichers') : t('No enrichers available')}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {enrichers.length
-                  ? 'Try a different search or clear your filters.'
-                  : 'Registered enrichers and templates will appear here.'}
+                  ? t('Try a different search or clear your filters.')
+                  : t('Registered enrichers and templates will appear here.')}
               </p>
               {enrichers.length > 0 && (
                 <Button
@@ -415,13 +440,15 @@ export function EnricherAdministration() {
                     setVisibility('all')
                   }}
                 >
-                  Clear filters
+                  {t('Clear filters')}
                 </Button>
               )}
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            Showing {filtered.length} of {enrichers.length} enrichers
+            {t('Showing ')}
+            {filtered.length} {t(' of ')}
+            {enrichers.length} {t(' enrichers')}
           </p>
         </div>
       )}

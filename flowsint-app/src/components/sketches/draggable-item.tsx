@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { memo, useState } from 'react'
 import { useIcon } from '@/hooks/use-icon'
 import { useGraphStore } from '@/stores/graph-store'
@@ -26,6 +27,8 @@ export const DraggableItem = memo(function DraggableItem({
   disabled = false,
   description
 }: DraggableItemProps) {
+  const { t } = useTranslation()
+
   const handleOpenFormModal = useGraphStore((s) => s.handleOpenFormModal)
   const { actionItems } = useActionItems()
   const [isDragging, setIsDragging] = useState(false)
@@ -78,7 +81,7 @@ export const DraggableItem = memo(function DraggableItem({
           </button>
         </TooltipTrigger>
         <TooltipContent>
-          {disabled ? 'This item is not available' : 'Drag and drop to add to the graph'}
+          {disabled ? t('This item is not available') : t('Drag and drop to add to the graph')}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
