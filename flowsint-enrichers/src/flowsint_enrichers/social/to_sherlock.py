@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types import SocialAccount, Username
@@ -11,6 +12,13 @@ from flowsint_types import SocialAccount, Username
 @flowsint_enricher
 class SherlockEnricher(Enricher):
     """[SHERLOCK] Scans the usernames for associated social accounts using Sherlock."""
+
+    metadata = EnricherMetadata(
+        description="Runs the local Sherlock command-line tool to search public websites for the input username and converts reported profile URLs into SocialAccount records. A username match does not prove that accounts belong to the same person.",
+        providers=("Sherlock",),
+        api_key_requirement="not_required",
+        api_key_notes="No API key is configured by this integration. The local Sherlock executable and its supported target sites must be available.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Username

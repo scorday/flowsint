@@ -3,6 +3,7 @@ from typing import List
 import whois
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -14,6 +15,12 @@ from flowsint_types.whois import Whois
 @flowsint_enricher
 class WhoisEnricher(Enricher):
     """Scan for WHOIS information of a domain."""
+
+    metadata = EnricherMetadata(
+        description="Queries current domain WHOIS data through the python-whois library and creates a Whois record with available registrar, organization, location, email and registration dates. Availability and redaction depend on the relevant registry; no fixed commercial API provider is configured.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Domain

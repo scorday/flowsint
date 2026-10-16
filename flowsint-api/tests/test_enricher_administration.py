@@ -168,6 +168,102 @@ def test_legacy_hidden_builtin_is_in_admin_table_and_can_be_restored(
     assert "n8n_connector" in names(client, "/api/enrichers", admin_headers)
 
 
+def test_public_metadata_is_consistent_in_admin_patch_and_launch_catalogs(
+    client, admin_headers
+):
+    expected = {
+        key: value
+        for key, value in next(
+            item for item in ENRICHER_REGISTRY.list() if item["name"] == "ip_to_ports"
+        ).items()
+        if key in {"description", "providers", "api_key_requirement", "api_key_notes"}
+    }
+    rows = [
+        next(
+            row
+            for row in client.get(ADMIN, headers=admin_headers).json()
+            if row["name"] == "ip_to_ports"
+        )
+    ]
+    rows.append(
+        client.patch(
+            f"{ADMIN}/builtin/ip_to_ports",
+            headers=admin_headers,
+            json={"is_visible": True},
+        ).json()
+    )
+    for path in ("/api/enrichers", "/api/flows/input_type/Ip"):
+        response = client.get(path, headers=admin_headers)
+        assert response.status_code == 200
+        items = response.json()
+        if isinstance(items, dict):
+            items = items["items"]
+        rows.append(next(row for row in items if row["name"] == "ip_to_ports"))
+    raw = client.get("/api/flows/raw_materials", headers=admin_headers).json()["items"]
+    rows.append(
+        next(
+            row
+            for category, items in raw.items()
+            if category != "types"
+            for row in items
+            if row["name"] == "ip_to_ports"
+        )
+    )
+    for row in rows:
+        assert {key: row[key] for key in expected} == expected
+
+
+@pytest.mark.parametrize("declared", [False, True])
+def test_template_public_metadata_never_exposes_request_credentials(
+    client, db_session, admin_headers, declared
+):
+    content = {
+        "input": {"type": "Ip"},
+        "output": {"type": "Ip"},
+        "request": {
+            "url": "https://private.example/?token=private-token",
+            "headers": {"Authorization": "private-credential"},
+        },
+    }
+    metadata = {
+        "description": "Looks up public IP information.",
+        "providers": ["Example"],
+        "api_key_requirement": "required",
+        "api_key_notes": "Requires EXAMPLE_API_KEY.",
+    }
+    if declared:
+        content["metadata"] = metadata
+    template = EnricherTemplate(
+        name="metadata-template",
+        category="Ip",
+        owner_id=db_session.query(Profile).one().id,
+        description="Legacy template description",
+        content=content,
+    )
+    db_session.add(template)
+    db_session.commit()
+    listing = client.get(ADMIN, headers=admin_headers)
+    patched = client.patch(
+        f"{ADMIN}/template/{template.id}",
+        headers=admin_headers,
+        json={"is_visible": True},
+    )
+    for response in (listing, patched):
+        assert response.status_code == 200
+        assert (
+            "private-token" not in response.text
+            and "private-credential" not in response.text
+        )
+        assert "private.example" not in response.text
+    row = patched.json()
+    if declared:
+        assert {key: row[key] for key in metadata} == metadata
+    else:
+        assert row["api_key_requirement"] == "unknown"
+        assert row["providers"] == []
+        assert row["description"] == "Legacy template description"
+
+
 def test_inactive_standalone_admin_cannot_manage_catalog(
     client, db_session, admin_headers
 ):

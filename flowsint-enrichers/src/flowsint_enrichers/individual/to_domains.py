@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from tools.network.whoxy import WhoxyTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
@@ -19,6 +20,13 @@ WHOXY_API_KEY = os.getenv("WHOXY_API_KEY")
 @flowsint_enricher
 class IndividualToDomainsEnricher(Enricher):
     """[WHOXY] Takes an individual and returns the domains it registered."""
+
+    metadata = EnricherMetadata(
+        description="Runs a Whoxy reverse-WHOIS search for the input person’s full name, matching the registrant/contact name. Adds returned domains and available contact relationships. A matching record is an association from WHOIS data, not proof of current ownership.",
+        providers=("Whoxy",),
+        api_key_requirement="required",
+        api_key_notes="Requires WHOXY_API_KEY.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Individual

@@ -4,6 +4,7 @@ from typing import List
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -13,6 +14,13 @@ from flowsint_types.ip import Ip
 @flowsint_enricher
 class ReverseResolveEnricher(Enricher):
     """Resolve IP addresses to domain names using PTR, Certificate Transparency and optional API calls."""
+
+    metadata = EnricherMetadata(
+        description="Attempts a reverse-DNS PTR lookup for the IP address through the system resolver. If it fails, searches public crt.sh records, examines up to the first 15 records and selects the first available domain name. Certificate matches do not establish current DNS resolution.",
+        providers=("crt.sh",),
+        api_key_requirement="not_required",
+        api_key_notes="System reverse DNS and the public crt.sh fallback require no configured API key.",
+    )
 
     InputType = Ip
     OutputType = Domain

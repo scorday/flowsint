@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.website import Website
@@ -12,6 +13,13 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class WebsiteToSubdomains(Enricher):
     """[c99.nl] Performs an automated scan to find subdomains of the given domain."""
+
+    metadata = EnricherMetadata(
+        description="Calls the c99.nl Subdomain Finder API using the input website URL. Creates Website results for discovered subdomains with available IP and Cloudflare information.",
+        providers=("c99.nl",),
+        api_key_requirement="required",
+        api_key_notes="Requires C99_API_KEY.",
+    )
 
     InputType = Website
     OutputType = Website

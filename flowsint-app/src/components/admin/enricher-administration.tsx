@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Eye, EyeOff, Loader2, Search, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Info, Loader2, Search, ShieldCheck } from 'lucide-react'
 import {
   type AdminEnricher,
   enricherAdministrationKeys,
@@ -14,6 +14,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -30,6 +38,98 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
+
+function friendlyCategory(category: string): string {
+  return category.replace(/[_\s]+/g, ' ').trim()
+}
+
+const apiKeyLabels: Record<AdminEnricher['api_key_requirement'], string> = {
+  required: 'Required',
+  optional: 'Optional',
+  conditional: 'Conditional',
+  not_required: 'Not required',
+  unknown: 'Unknown'
+}
+
+function ApiKeyRequirement({ enricher }: { enricher: AdminEnricher }) {
+  return (
+    <Badge
+      variant="outline"
+      className={
+        enricher.api_key_requirement === 'required'
+          ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          : undefined
+      }
+    >
+      {apiKeyLabels[enricher.api_key_requirement] ?? 'Unknown'}
+    </Badge>
+  )
+}
+
+function EnricherDetails({ enricher }: { enricher: AdminEnricher }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          aria-label={`View details for ${enricher.name}`}
+          className="inline-flex max-w-full items-center gap-2 rounded-sm text-left font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="min-w-0 break-words">{enricher.name}</span>
+          <Info className="size-3.5 shrink-0" aria-hidden="true" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader className="text-left">
+          <DialogTitle className="break-words pr-8 leading-snug">{enricher.name}</DialogTitle>
+          <DialogDescription className="whitespace-pre-wrap break-words leading-relaxed">
+            {enricher.description || 'No description available.'}
+          </DialogDescription>
+        </DialogHeader>
+        <dl className="grid gap-4 border-t pt-4 text-sm sm:grid-cols-2">
+          <div className="space-y-1">
+            <dt className="text-xs text-muted-foreground">Provider</dt>
+            <dd className="break-words">
+              {enricher.providers?.length
+                ? enricher.providers.join(', ')
+                : 'No named external provider specified.'}
+            </dd>
+          </div>
+          <div className="space-y-1">
+            <dt className="text-xs text-muted-foreground">API key</dt>
+            <dd>
+              <ApiKeyRequirement enricher={enricher} />
+            </dd>
+          </div>
+          {enricher.api_key_notes && (
+            <div className="space-y-1 sm:col-span-2">
+              <dt className="text-xs text-muted-foreground">API key notes</dt>
+              <dd className="whitespace-pre-wrap break-words leading-relaxed">
+                {enricher.api_key_notes}
+              </dd>
+            </div>
+          )}
+          <div className="space-y-1">
+            <dt className="text-xs text-muted-foreground">Kind</dt>
+            <dd>{enricher.kind === 'builtin' ? 'Built-in' : 'Template'}</dd>
+          </div>
+          <div className="space-y-1">
+            <dt className="text-xs text-muted-foreground">Category</dt>
+            <dd className="capitalize">{friendlyCategory(enricher.category)}</dd>
+          </div>
+          <div className="space-y-1">
+            <dt className="text-xs text-muted-foreground">Input</dt>
+            <dd className="break-words">{enricher.input_type}</dd>
+          </div>
+          <div className="space-y-1">
+            <dt className="text-xs text-muted-foreground">Output</dt>
+            <dd className="break-words">{enricher.output_type}</dd>
+          </div>
+        </dl>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 function isForbidden(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -108,9 +208,12 @@ export function EnricherAdministration() {
         enricher.name,
         enricher.description,
         enricher.category,
+        friendlyCategory(enricher.category),
         enricher.input_type,
         enricher.output_type
-      ].some((value) => value?.toLowerCase().includes(term))
+      ]
+        .concat(enricher.providers ?? [])
+        .some((value) => value?.toLowerCase().includes(term))
   )
   const isLoading = access.isPending || (access.data?.can_manage && catalog.isPending)
   const error = access.error ?? catalog.error
@@ -159,7 +262,12 @@ export function EnricherAdministration() {
             </AlertDescription>
           </Alert>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm" aria-live="polite">
+          <div
+            className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm"
+            aria-live="polite"
+            role="group"
+            aria-label="Enricher counts"
+          >
             <span className="text-muted-foreground">
               All <strong className="ml-1 text-foreground">{enrichers.length}</strong>
             </span>
@@ -181,13 +289,20 @@ export function EnricherAdministration() {
               />
               <Input
                 aria-label="Search enrichers"
-                placeholder="Search name, description, category or type…"
+                placeholder="Search name, provider, description or type…"
                 className="pl-9"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value)
+                }}
               />
             </div>
-            <Select value={kind} onValueChange={setKind}>
+            <Select
+              value={kind}
+              onValueChange={(value) => {
+                setKind(value)
+              }}
+            >
               <SelectTrigger aria-label="Enricher kind" className="w-40">
                 <SelectValue />
               </SelectTrigger>
@@ -197,7 +312,12 @@ export function EnricherAdministration() {
                 <SelectItem value="template">Template</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={visibility} onValueChange={setVisibility}>
+            <Select
+              value={visibility}
+              onValueChange={(value) => {
+                setVisibility(value)
+              }}
+            >
               <SelectTrigger aria-label="Visibility filter" className="w-40">
                 <SelectValue />
               </SelectTrigger>
@@ -209,77 +329,97 @@ export function EnricherAdministration() {
             </Select>
           </div>
 
-          <div className="min-w-0 overflow-hidden rounded-md border bg-card">
-            <Table className="min-w-[760px]" aria-label="All enrichers">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Enricher</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Input → Output</TableHead>
-                  <TableHead className="pr-4">Visibility</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((enricher) => (
-                  <TableRow key={`${enricher.kind}:${enricher.id}`}>
-                    <TableCell className="max-w-96 whitespace-normal py-4 pl-4">
-                      <div className="font-medium break-words">{enricher.name}</div>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {enricher.description || 'No description available.'}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {enricher.kind === 'builtin' ? 'Built-in' : 'Template'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {enricher.category.replace(/_/g, ' ')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span>{enricher.input_type}</span>
-                        <ArrowRight className="size-3 text-muted-foreground" aria-label="to" />
-                        <span>{enricher.output_type}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="pr-4">
-                      <VisibilityControl enricher={enricher} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+          {filtered.length > 0 ? (
+            <div className="min-w-0 overflow-hidden rounded-md border bg-card">
+              <Table className="min-w-[1100px]" aria-label="All enrichers">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="whitespace-normal py-12 text-center">
-                      <p className="font-medium">
-                        {enrichers.length ? 'No matching enrichers' : 'No enrichers available'}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {enrichers.length
-                          ? 'Try a different search or clear your filters.'
-                          : 'Registered enrichers and templates will appear here.'}
-                      </p>
-                      {enrichers.length > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-4"
-                          onClick={() => {
-                            setSearch('')
-                            setKind('all')
-                            setVisibility('all')
-                          }}
-                        >
-                          Clear filters
-                        </Button>
-                      )}
-                    </TableCell>
+                    <TableHead className="pl-4">Enricher</TableHead>
+                    <TableHead>Kind</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead>API key</TableHead>
+                    <TableHead>Input → Output</TableHead>
+                    <TableHead className="pr-4">Visibility</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((enricher) => (
+                    <TableRow key={`${enricher.kind}:${enricher.id}`}>
+                      <TableCell className="max-w-96 whitespace-normal py-4 pl-4">
+                        <EnricherDetails enricher={enricher} />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {enricher.kind === 'builtin' ? 'Built-in' : 'Template'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {friendlyCategory(enricher.category)}
+                      </TableCell>
+                      <TableCell>
+                        {enricher.providers?.length ? (
+                          <div className="flex max-w-56 flex-wrap gap-1">
+                            {enricher.providers.map((provider) => (
+                              <Badge
+                                key={provider}
+                                variant="secondary"
+                                className="max-w-full whitespace-normal break-words"
+                              >
+                                {provider}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground" aria-label="No named provider">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <ApiKeyRequirement enricher={enricher} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span>{enricher.input_type}</span>
+                          <ArrowRight className="size-3 text-muted-foreground" aria-label="to" />
+                          <span>{enricher.output_type}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="pr-4">
+                        <VisibilityControl enricher={enricher} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="rounded-md border bg-card py-12 text-center">
+              <p className="font-medium">
+                {enrichers.length ? 'No matching enrichers' : 'No enrichers available'}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {enrichers.length
+                  ? 'Try a different search or clear your filters.'
+                  : 'Registered enrichers and templates will appear here.'}
+              </p>
+              {enrichers.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => {
+                    setSearch('')
+                    setKind('all')
+                    setVisibility('all')
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
             Showing {filtered.length} of {enrichers.length} enrichers
           </p>

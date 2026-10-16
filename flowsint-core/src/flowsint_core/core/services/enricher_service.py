@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ...templates.types import TemplateSecret, params_schema_from_secrets
+from ..enricher_metadata import template_metadata
 from ..models import Sketch
 from ..project_scope import ActorID
 from ..repositories import (
@@ -116,6 +117,10 @@ class EnricherService(BaseService):
             template.required_params = any(  # type: ignore[attr-defined]
                 param["required"] for param in params_schema
             )
+            metadata = template_metadata(template.content, template.description)
+            template.providers = list(metadata.providers)  # type: ignore[attr-defined]
+            template.api_key_requirement = metadata.api_key_requirement  # type: ignore[attr-defined]
+            template.api_key_notes = metadata.api_key_notes  # type: ignore[attr-defined]
         return [*base_enrichers, *template_enrichers]
 
 

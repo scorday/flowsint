@@ -7,6 +7,7 @@ import requests.exceptions
 from dotenv import load_dotenv
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.wallet import CryptoWallet, CryptoWalletTransaction
@@ -21,6 +22,13 @@ def wei_to_eth(wei_str):
 @flowsint_enricher
 class CryptoWalletAddressToTransactions(Enricher):
     """[ETHERSCAN] Resolve transactions for a wallet address (ETH)."""
+
+    metadata = EnricherMetadata(
+        description="Fetches normal Ethereum transactions for a wallet from Etherscan and creates transaction and wallet relationships. The current implementation requests the first 100 transactions in ascending order, so the result is not a complete transaction history.",
+        providers=("Etherscan",),
+        api_key_requirement="required",
+        api_key_notes="Requires ETHERSCAN_API_KEY. ETHERSCAN_API_URL can override the default Etherscan API endpoint.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = CryptoWallet

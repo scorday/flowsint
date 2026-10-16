@@ -2,6 +2,7 @@ from typing import List
 from urllib.parse import urlparse
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -11,6 +12,12 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class WebsiteToDomainEnricher(Enricher):
     """From website to domain."""
+
+    metadata = EnricherMetadata(
+        description="Parses the hostname from a website URL, removes the port and a leading www. prefix, and creates the corresponding Domain record. This is local URL parsing and does not fetch the website.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Website

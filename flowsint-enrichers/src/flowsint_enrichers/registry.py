@@ -48,13 +48,19 @@ class EnricherRegistry:
             raise Exception(f"Enricher '{name}' not found")
         return self._enrichers[name](sketch_id=sketch_id, scan_id=scan_id, **kwargs)
 
-    def _create_enricher_metadata(self, enricher: Type[Enricher]) -> Dict[str, str]:
+    def _create_enricher_metadata(self, enricher: Type[Enricher]) -> Dict[str, Any]:
         """Helper method to create enricher metadata dictionary."""
+        metadata = enricher.metadata
         return {
             "class_name": enricher.__name__,
             "name": enricher.name(),
             "module": enricher.__module__,
-            "description": enricher.__doc__,
+            "description": metadata.description if metadata else enricher.__doc__,
+            "providers": list(metadata.providers) if metadata else [],
+            "api_key_requirement": metadata.api_key_requirement
+            if metadata
+            else "unknown",
+            "api_key_notes": metadata.api_key_notes if metadata else None,
             "documentation": inspect.cleandoc(enricher.documentation()),
             "category": enricher.category(),
             "inputs": enricher.input_schema(),
@@ -82,7 +88,7 @@ class EnricherRegistry:
             key=lambda item: item["name"],
         )
 
-    def list_by_categories(self) -> Dict[str, List[Dict[str, str]]]:
+    def list_by_categories(self) -> Dict[str, List[Dict[str, Any]]]:
         enrichers_by_category = {}
 
         for enricher in self._enrichers.values():
@@ -101,7 +107,7 @@ class EnricherRegistry:
 
     def list_by_input_type(
         self, input_type: str, exclude: Optional[List[str]] = None
-    ) -> List[Dict[str, str]]:
+    ) -> List[Dict[str, Any]]:
         if exclude is None:
             exclude = []
         input_type_lower = input_type.lower()

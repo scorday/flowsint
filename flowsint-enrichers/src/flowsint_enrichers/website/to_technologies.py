@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from tools.network.httpx import HttpxTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.technology import Technology
@@ -12,6 +13,12 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class TechDetectEnricher(Enricher):
     """[HTTPX] Detect web technologies on a website via httpx (wappalyzer)."""
+
+    metadata = EnricherMetadata(
+        description="Probes the target website with the ProjectDiscovery HTTPX Docker tool and its Wappalyzer-based technology detection. Converts detected technology names and available versions into Technology records.",
+        providers=("ProjectDiscovery",),
+        api_key_requirement="not_required",
+    )
 
     InputType = Website
     OutputType = Technology

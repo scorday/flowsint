@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.phrase import Phrase
 from flowsint_types.website import Website
@@ -12,6 +13,12 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class WebsiteToText(Enricher):
     """Extracts the texts in a webpage."""
+
+    metadata = EnricherMetadata(
+        description="Fetches the target page with an HTTP request and extracts its text with BeautifulSoup into a Phrase record. This does not run browser JavaScript, so client-rendered content may be missing.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Website
     OutputType = Phrase

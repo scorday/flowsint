@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.phone import Phone
@@ -12,6 +13,13 @@ from flowsint_types.phone import Phone
 @flowsint_enricher
 class PhoneToCarrier(Enricher):
     """[veriphone] Looks up phone number/s carrier using veriphone API."""
+
+    metadata = EnricherMetadata(
+        description="Looks up a phone number using the Veriphone verification API and enriches it with available carrier, country and validity information.",
+        providers=("Veriphone",),
+        api_key_requirement="required",
+        api_key_notes="Requires VERIPHONE_API_KEY.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Phone

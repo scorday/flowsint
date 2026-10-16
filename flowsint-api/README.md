@@ -19,11 +19,18 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 5001
 
 ## Enricher administration
 
+Provider and API-key columns describe the integration used by each enricher.
+Click a name for the full description and key requirements. Keys can be required,
+optional, conditional on a mode, not required, or unknown for an unannotated custom
+template. These values do not reveal whether a vault key is configured.
+The [complete metadata audit](../docs/enricher-metadata-audit.md) documents all 49
+built-ins, implementation limits and the optional template `metadata` block.
+
 Open **Enricher administration** in the sidebar, or `/dashboard/admin/enrichers`.
 The table includes all registered built-in enrichers and stored templates,
-including hidden entries. Search or filter the table, then use a row's visibility
-switch; changes are saved immediately. Template content and credentials are not
-returned by this API.
+including hidden entries, in one flat table with a Category column. Search and
+filters narrow the rows directly. Use a row's visibility switch to save changes
+immediately. Template content and credentials are not returned by this API.
 
 In AVL4 mode, administration requires the current Auth user to have the
 `global_access_admin` role or belong to `/Administrator`, in addition to access to

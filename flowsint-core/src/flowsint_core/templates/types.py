@@ -2,6 +2,8 @@ from typing import Any, Dict, Iterable, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..core.enricher_metadata import EnricherMetadata
+
 
 class TemplateInput(BaseModel):
     type: str = Field(..., description="Flowsint Type the template takes as input")
@@ -158,6 +160,7 @@ class TemplateHttpResponse(BaseModel):
 class Template(BaseModel):
     name: str = Field(..., description="Name of the template")
     description: Optional[str] = Field(None, description="Description of the template")
+    metadata: EnricherMetadata | None = None
     category: str = Field(..., description="Category of the template")
     version: float = Field(..., description="Version of the template")
     input: TemplateInput = Field(

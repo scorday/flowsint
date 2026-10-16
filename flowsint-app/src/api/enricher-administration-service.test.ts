@@ -15,6 +15,9 @@ describe('enricher administration API', () => {
       name: 'Example',
       category: 'test',
       description: null,
+      providers: [],
+      api_key_requirement: 'unknown',
+      api_key_notes: null,
       input_type: 'domain',
       output_type: 'ip',
       is_visible: true

@@ -2,6 +2,7 @@ import socket
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -11,6 +12,12 @@ from flowsint_types.ip import Ip
 @flowsint_enricher
 class ResolveEnricher(Enricher):
     """Resolve domain names to IP addresses."""
+
+    metadata = EnricherMetadata(
+        description="Resolves a domain through the system DNS resolver using socket.gethostbyname. Returns one IPv4 address for each successfully resolved domain; it does not enumerate all DNS records or IPv6 addresses.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Domain
     OutputType = Ip

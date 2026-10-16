@@ -5,6 +5,9 @@ export interface AdminEnricher {
   kind: 'builtin' | 'template'
   name: string
   description: string | null
+  providers: string[]
+  api_key_requirement: 'required' | 'optional' | 'conditional' | 'not_required' | 'unknown'
+  api_key_notes: string | null
   category: string
   input_type: string
   output_type: string

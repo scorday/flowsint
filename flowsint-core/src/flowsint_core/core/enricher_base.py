@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, create_model
 from pydantic.config import ConfigDict
@@ -7,6 +7,7 @@ from pydantic.config import ConfigDict
 from flowsint_types import FlowsintType
 
 from ..utils import resolve_type
+from .enricher_metadata import EnricherMetadata
 from .graph import GraphService, create_graph_service
 from .logger import Logger
 from .vault import VaultProtocol
@@ -111,6 +112,7 @@ class Enricher(ABC):
     # Abstract type aliases that must be defined in subclasses for runtime use
     InputType = NotImplemented
     OutputType = NotImplemented
+    metadata: ClassVar[EnricherMetadata | None] = None
 
     def __init__(
         self,

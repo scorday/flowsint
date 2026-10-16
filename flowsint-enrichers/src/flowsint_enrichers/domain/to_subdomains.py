@@ -4,6 +4,7 @@ import requests
 from tools.network.subfinder import SubfinderTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.utils import is_valid_domain
 from flowsint_enrichers.registry import flowsint_enricher
@@ -13,6 +14,13 @@ from flowsint_types.domain import Domain
 @flowsint_enricher
 class SubdomainEnricher(Enricher):
     """Enricher to find subdomains associated with a domain."""
+
+    metadata = EnricherMetadata(
+        description="Discovers subdomains using the Subfinder Docker tool, with public crt.sh certificate-transparency results as a fallback. Removes wildcard prefixes and excludes the root domain from subdomain results.",
+        providers=("ProjectDiscovery", "crt.sh"),
+        api_key_requirement="not_required",
+        api_key_notes="No API key is configured by this enricher. Individual optional Subfinder data sources may have their own requirements outside this integration.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Domain

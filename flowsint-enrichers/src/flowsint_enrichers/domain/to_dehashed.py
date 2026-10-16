@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
@@ -15,6 +16,13 @@ from flowsint_types.individual import Individual
 @flowsint_enricher
 class DomainToDehashed(Enricher):
     """[DeHashed] Get breach intelligence from a domain."""
+
+    metadata = EnricherMetadata(
+        description="Searches DeHashed breach data for the input domain. Converts matching identity fields, such as names, email addresses and usernames, into Individual records and links them to the input. Matches are reported associations, not independently verified identities.",
+        providers=("DeHashed",),
+        api_key_requirement="required",
+        api_key_notes="Requires DEHASHED_API_KEY.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Domain

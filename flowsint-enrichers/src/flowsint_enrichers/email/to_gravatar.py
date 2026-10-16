@@ -4,6 +4,7 @@ from typing import List
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.email import Email
@@ -13,6 +14,13 @@ from flowsint_types.gravatar import Gravatar
 @flowsint_enricher
 class EmailToGravatarEnricher(Enricher):
     """From md5 hash of email to gravatar."""
+
+    metadata = EnricherMetadata(
+        description="Hashes the normalized email address and checks public Gravatar avatar and profile endpoints. Extracts an available avatar, display name, biography and location; an absent public profile produces no profile finding.",
+        providers=("Gravatar",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses public Gravatar endpoints without a configured API key.",
+    )
 
     InputType = Email
     OutputType = Gravatar

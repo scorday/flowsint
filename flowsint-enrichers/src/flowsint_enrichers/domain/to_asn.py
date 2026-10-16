@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from tools.network.asnmap import AsnmapTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.asn import ASN
@@ -13,6 +14,13 @@ from flowsint_types.domain import Domain
 @flowsint_enricher
 class DomainToAsnEnricher(Enricher):
     """[ASNMAP] Takes a domain and returns its corresponding ASN."""
+
+    metadata = EnricherMetadata(
+        description="Looks up autonomous systems associated with a domain using ProjectDiscovery ASNMAP and adds the results and their relationships to the investigation graph.",
+        providers=("ProjectDiscovery",),
+        api_key_requirement="required",
+        api_key_notes="Requires PDCP_API_KEY for the ASNMAP integration.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Domain

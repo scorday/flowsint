@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from tools.network.dnsx import DnsxTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -12,6 +13,13 @@ from flowsint_types.ip import Ip
 @flowsint_enricher
 class DomainToDnsEnricher(Enricher):
     """[DNSX] Resolve a domain's A (IPv4) and AAAA (IPv6) records using dnsx."""
+
+    metadata = EnricherMetadata(
+        description="Resolves a domain to IPv4 addresses and, when enabled, IPv6 addresses using the ProjectDiscovery DNSX Docker tool. Adds the resolved IP addresses and domain relationships to the graph.",
+        providers=("ProjectDiscovery",),
+        api_key_requirement="optional",
+        api_key_notes="PDCP_API_KEY can optionally be passed to DNSX; ordinary DNS resolution does not require it in this enricher.",
+    )
 
     InputType = Domain
     OutputType = Ip

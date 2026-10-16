@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ..enricher_metadata import ApiKeyRequirement, template_metadata
 from ..models import EnricherTemplate, EnricherVisibility, Profile
 from ..project_scope import ProjectScope
 from ..repositories.enricher_template_repository import EnricherTemplateRepository
@@ -41,6 +42,9 @@ class CatalogEnricher:
     input_type: str
     output_type: str
     is_visible: bool
+    providers: list[str]
+    api_key_requirement: ApiKeyRequirement
+    api_key_notes: str | None
 
 
 class EnricherCatalogService(BaseService):
@@ -92,11 +96,15 @@ class EnricherCatalogService(BaseService):
                 input_type=item["inputs"]["type"],
                 output_type=item["outputs"]["type"],
                 is_visible=self._visible(f"builtin:{item['name']}", overrides),
+                providers=item.get("providers", []),
+                api_key_requirement=item.get("api_key_requirement", "unknown"),
+                api_key_notes=item.get("api_key_notes"),
             )
             for item in registry.list()
         ]
         for template in self._templates.get_all():
             content = template.content if isinstance(template.content, dict) else {}
+            metadata = template_metadata(content, template.description)
 
             def io_type(key: str) -> str:
                 value = content.get(key)
@@ -107,11 +115,14 @@ class EnricherCatalogService(BaseService):
                     id=str(template.id),
                     kind="template",
                     name=template.name,
-                    description=template.description,
+                    description=metadata.description,
                     category=template.category,
                     input_type=io_type("input"),
                     output_type=io_type("output"),
                     is_visible=self._visible(f"template:{template.id}", overrides),
+                    providers=list(metadata.providers),
+                    api_key_requirement=metadata.api_key_requirement,
+                    api_key_notes=metadata.api_key_notes,
                 )
             )
         return sorted(

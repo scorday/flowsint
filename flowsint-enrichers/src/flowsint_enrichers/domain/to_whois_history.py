@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from tools.network.whoisxml import WhoisXmlTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
@@ -22,6 +23,13 @@ load_dotenv()
 @flowsint_enricher
 class DomainToWhoisHistoryEnricher(Enricher):
     """[WHOISXML] Takes a domain and returns WHOIS history records (registrants, registrars, organizations, contacts)."""
+
+    metadata = EnricherMetadata(
+        description="Retrieves historical WHOIS records for a domain using the WhoisXML API WHOIS History service. Converts available historical registration and contact information into graph records.",
+        providers=("WhoisXML API",),
+        api_key_requirement="required",
+        api_key_notes="Requires WHOISXML_API_KEY.",
+    )
 
     InputType = Domain
     OutputType = Whois

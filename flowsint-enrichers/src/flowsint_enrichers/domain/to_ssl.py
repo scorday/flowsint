@@ -3,6 +3,7 @@ from typing import List, Optional
 from tools.network.httpx import HttpxTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -12,6 +13,12 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class DomainToTLS(Enricher):
     """[httpX] Get TLS information from a domain."""
+
+    metadata = EnricherMetadata(
+        description="Probes a domain with the ProjectDiscovery HTTPX Docker tool using its TLS-probe option. The current enricher emits Website records with available URL, title, content type and HTTP status; it does not emit a structured TLS certificate record.",
+        providers=("ProjectDiscovery",),
+        api_key_requirement="not_required",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Domain

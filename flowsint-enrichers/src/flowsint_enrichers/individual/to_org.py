@@ -3,6 +3,7 @@ from typing import Dict, List, Set, Union
 from tools.organizations.sirene import SireneTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.individual import Individual
@@ -12,6 +13,13 @@ from flowsint_types.organization import Organization
 @flowsint_enricher
 class IndividualToOrgEnricher(Enricher):
     """[SIRENE] Find organization from a person with data from SIRENE (France only)."""
+
+    metadata = EnricherMetadata(
+        description="Searches the French public company-search API by a person’s full name, with a limit of 25 results, and creates matching organizations and WORKS_FOR relationships. A name match alone does not independently verify employment or distinguish namesakes.",
+        providers=("Recherche d’entreprises (France)",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses the public French Recherche d’entreprises API; no API key is configured.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Individual

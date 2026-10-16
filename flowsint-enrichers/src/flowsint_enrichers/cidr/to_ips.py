@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from tools.network.mapcidr import MapcidrTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.cidr import CIDR
@@ -13,6 +14,13 @@ from flowsint_types.ip import Ip
 @flowsint_enricher
 class CidrToIpsEnricher(Enricher):
     """[MAPCIDR] Takes a CIDR and returns its corresponding IP addresses."""
+
+    metadata = EnricherMetadata(
+        description="Expands a CIDR range into individual IP addresses using the ProjectDiscovery MAPCIDR Docker tool. This is address enumeration, not a check that the hosts are reachable.",
+        providers=("ProjectDiscovery",),
+        api_key_requirement="optional",
+        api_key_notes="PDCP_API_KEY may be supplied to the tool but is not required by this enricher for CIDR expansion.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = CIDR

@@ -1,6 +1,7 @@
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
 from flowsint_types.email import Email
@@ -9,6 +10,12 @@ from flowsint_types.email import Email
 @flowsint_enricher
 class EmailToDomainEnricher(Enricher):
     """From email to domain."""
+
+    metadata = EnricherMetadata(
+        description="Extracts the domain portion after @ from an email address and creates a Domain record linked to the email. This is local parsing and does not verify DNS or mailbox existence.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Email
     OutputType = Domain

@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, StrictBool
 
+from flowsint_core.core.enricher_metadata import ApiKeyRequirement
 from flowsint_core.core.services.enricher_catalog_service import EnricherKind
 
 
@@ -26,3 +27,6 @@ class EnricherCatalogRead(BaseModel):
     input_type: str
     output_type: str
     is_visible: bool
+    providers: list[str]
+    api_key_requirement: ApiKeyRequirement
+    api_key_notes: str | None
