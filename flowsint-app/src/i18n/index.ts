@@ -4,15 +4,17 @@ import en from './locales/en.json'
 import ruMessages from './locales/ru.json'
 import enricherEn from './locales/enrichers.en.json'
 import enricherRu from './locales/enrichers.ru.json'
+import typesEn from './locales/types.en.json'
+import typesRu from './locales/types.ru.json'
 
 export const languages = ['en', 'ru'] as const
 export type Language = (typeof languages)[number]
-export type TranslationKey = keyof typeof en | keyof typeof enricherEn
+export type TranslationKey = keyof typeof en | keyof typeof enricherEn | keyof typeof typesEn
 export type TranslationValues = Record<string, string | number>
 export const LANGUAGE_STORAGE_KEY = 'flowsint-language'
 const dictionaries: Record<Language, Record<string, string>> = {
-  en: { ...en, ...enricherEn },
-  ru: { ...ruMessages, ...enricherRu }
+  en: { ...en, ...enricherEn, ...typesEn },
+  ru: { ...ruMessages, ...enricherRu, ...typesRu }
 }
 const listeners = new Set<() => void>()
 

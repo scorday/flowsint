@@ -3,12 +3,15 @@ import { useGraphStore } from '@/stores/graph-store'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components//ui/separator'
 import TypeFilters from './type-filters'
+import FlightFilter from './flight-filter'
+import { useGraphControls } from '@/stores/graph-controls-store'
 
 const Filters = ({ children }: { children: React.ReactNode }) => {
   const { t } = useTranslation()
 
   const filters = useGraphStore((s) => s.filters)
   const toggleTypeFilter = useGraphStore((s) => s.toggleTypeFilter)
+  const view = useGraphControls((s) => s.view)
 
   return (
     <Popover>
@@ -22,6 +25,7 @@ const Filters = ({ children }: { children: React.ReactNode }) => {
           </div>
           <Separator />
           <TypeFilters filters={filters} toggleTypeFilter={toggleTypeFilter} />
+          {view === 'map' && <FlightFilter />}
           {/* <Separator />
           <RuleFilters filters={filters} setFilters={setFilters} /> */}
         </div>

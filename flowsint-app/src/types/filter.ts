@@ -16,4 +16,6 @@ export type RuleFilter = {
 export type Filters = {
   types: TypeFilter[]
   rules: RuleFilter[]
+  /** Limits map positions to observations directly linked to this Flight node. */
+  mapFlightId?: string | null
 }

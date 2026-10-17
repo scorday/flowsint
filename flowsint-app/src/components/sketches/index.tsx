@@ -71,11 +71,12 @@ const GraphPanel = ({ graphData, isLoading }: GraphPanelProps) => {
       const types = new Set(graphData.nds.map((n) => n.nodeType))
       // Read current filters via getState() rather than subscribing — this
       // effect shouldn't re-run just because filters changed.
+      const currentFilters = useGraphStore.getState().filters
       setFilters({
-        ...useGraphStore.getState().filters,
+        ...currentFilters,
         types: Array.from(types).map((t) => ({
           type: t,
-          checked: true
+          checked: currentFilters.types.find((filter) => filter.type === t)?.checked ?? true
         }))
       })
     }

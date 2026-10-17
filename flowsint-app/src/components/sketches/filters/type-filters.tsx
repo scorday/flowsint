@@ -20,6 +20,7 @@ const TypeFilters = ({ filters, toggleTypeFilter }: TypeFiltersProps) => {
             <li key={filter.type}>
               <div className="flex items-center gap-1">
                 <Checkbox
+                  aria-label={filter.type}
                   checked={filter.checked}
                   onCheckedChange={() => toggleTypeFilter(filter)}
                 />

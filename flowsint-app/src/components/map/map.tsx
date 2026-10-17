@@ -1,8 +1,9 @@
 import { useTranslation } from '@/i18n'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import Map, { Marker, Popup } from 'react-map-gl/maplibre'
+import Map, { Layer, Marker, Popup, Source } from 'react-map-gl/maplibre'
 import maplibregl from 'maplibre-gl'
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-csp-worker.js?url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../theme-provider'
 import { Globe, MapPin } from 'lucide-react'
@@ -13,7 +14,11 @@ import { useGraphStore } from '@/stores/graph-store'
 import { Switch } from '../ui/switch'
 import { Label } from '../ui/label'
 import type { MapRef } from 'react-map-gl/maplibre'
-import type { StyleSpecification } from 'maplibre-gl'
+import type { LineLayerSpecification, StyleSpecification } from 'maplibre-gl'
+import type { FlightRoutes } from './flight-routes'
+
+// Keep the worker self-contained: bundler helpers otherwise break GeoJSON parsing.
+maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
 export type LocationPoint = {
   nodeId?: string
@@ -22,18 +27,35 @@ export type LocationPoint = {
   address?: string
   label?: string
   nodeType?: string
+  observedAt?: string
   color?: string | null
   icon?: string | null
 }
 
 type MapFromAddressProps = {
   locations: LocationPoint[]
+  flightRoutes?: FlightRoutes
   height?: string
   zoom?: number
   centerOnFirst?: boolean
 }
 
 type MapStyleVariant = 'standard' | 'voyager' | 'satellite'
+
+const FLIGHT_ROUTE_LAYOUT: LineLayerSpecification['layout'] = {
+  'line-join': 'round',
+  'line-cap': 'round'
+}
+const FLIGHT_ROUTE_HALO: LineLayerSpecification['paint'] = {
+  'line-color': ['get', 'color'],
+  'line-width': 8,
+  'line-opacity': 0.2
+}
+const FLIGHT_ROUTE_LINE: LineLayerSpecification['paint'] = {
+  'line-color': ['get', 'color'],
+  'line-width': 3,
+  'line-opacity': 0.95
+}
 
 const VECTOR_STYLES: Record<'standard' | 'voyager', { dark: string; light: string }> = {
   standard: {
@@ -112,6 +134,7 @@ function useResolvedTheme() {
 
 export const MapFromAddress: React.FC<MapFromAddressProps> = ({
   locations,
+  flightRoutes,
   height = '400px',
   zoom = 15,
   centerOnFirst = true
@@ -119,8 +142,10 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
   const { t } = useTranslation()
 
   const mapRef = useRef<MapRef>(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
   const resolvedTheme = useResolvedTheme()
   const [popupInfo, setPopupInfo] = useState<{
+    nodeId?: string
     lng: number
     lat: number
     label: string
@@ -135,8 +160,9 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
   const showDetails = zoomLevel >= 6
 
   // Geocoding
-  const locationsToGeocode = locations.filter(
-    (loc) => loc.lat === undefined && loc.lon === undefined && loc.address
+  const locationsToGeocode = useMemo(
+    () => locations.filter((loc) => loc.lat === undefined && loc.lon === undefined && loc.address),
+    [locations]
   )
 
   const geocodeQuery = useQuery({
@@ -223,7 +249,7 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
   // Fly to markers on data load
   useEffect(() => {
     const map = mapRef.current?.getMap()
-    if (!map || validLocations.length === 0) return
+    if (!map || !mapLoaded || validLocations.length === 0) return
 
     // Wait for map to be loaded
     const doFly = () => {
@@ -246,9 +272,12 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
     if (map.loaded()) {
       doFly()
     } else {
-      map.once('load', doFly)
+      map.once('idle', doFly)
     }
-  }, [validLocations, zoom, centerOnFirst])
+    return () => {
+      map.off('idle', doFly)
+    }
+  }, [validLocations, zoom, centerOnFirst, mapLoaded])
 
   const setCurrentNodeId = useGraphStore((s) => s.setCurrentNodeId)
 
@@ -258,6 +287,7 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
       const lon = Number(loc.coordinates!.lon)
       if (loc.nodeId) setCurrentNodeId(loc.nodeId)
       setPopupInfo({
+        nodeId: loc.nodeId,
         lng: lon,
         lat,
         label: loc.label || loc.address || `${lat.toFixed(6)}, ${lon.toFixed(6)}`,
@@ -292,6 +322,7 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
     const map = mapRef.current?.getMap()
     if (!map) return
     applyProjection()
+    setMapLoaded(true)
     map.on('style.load', () => {
       applyProjection()
     })
@@ -394,6 +425,13 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
   }
 
   const mapStyle = resolveMapStyle(styleVariant, resolvedTheme)
+  const popupIsVisible =
+    popupInfo &&
+    validLocations.some((loc) =>
+      popupInfo.nodeId
+        ? loc.nodeId === popupInfo.nodeId
+        : loc.coordinates!.lat === popupInfo.lat && loc.coordinates!.lon === popupInfo.lng
+    )
 
   return (
     <div style={{ minHeight: height, height: '100%', width: '100%' }} className="relative">
@@ -429,6 +467,7 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
       </div>
       <Map
         ref={mapRef}
+        mapLib={maplibregl}
         initialViewState={{
           longitude: Number(validLocations[0].coordinates!.lon),
           latitude: Number(validLocations[0].coordinates!.lat),
@@ -442,6 +481,22 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
         cursor="auto"
         attributionControl={false}
       >
+        {flightRoutes && flightRoutes.features.length > 0 && (
+          <Source id="observed-flight-routes" type="geojson" data={flightRoutes}>
+            <Layer
+              id="observed-flight-routes-halo"
+              type="line"
+              layout={FLIGHT_ROUTE_LAYOUT}
+              paint={FLIGHT_ROUTE_HALO}
+            />
+            <Layer
+              id="observed-flight-routes-line"
+              type="line"
+              layout={FLIGHT_ROUTE_LAYOUT}
+              paint={FLIGHT_ROUTE_LINE}
+            />
+          </Source>
+        )}
         {validLocations.map((loc, i) => {
           const lat = Number(loc.coordinates!.lat)
           const lon = Number(loc.coordinates!.lon)
@@ -483,7 +538,7 @@ export const MapFromAddress: React.FC<MapFromAddressProps> = ({
           )
         })}
 
-        {popupInfo && (
+        {popupIsVisible && popupInfo && (
           <Popup
             longitude={popupInfo.lng}
             latitude={popupInfo.lat}

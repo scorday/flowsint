@@ -505,7 +505,7 @@ export function DynamicForm({
               {t('Submitting...')}
             </>
           ) : (
-            t('Add {{v0}}', { v0: currentNodeType.label })
+            t('Add entity: {{type}}', { type: t(currentNodeType.label) })
           )}
         </Button>
       </div>

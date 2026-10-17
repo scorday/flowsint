@@ -52,10 +52,12 @@ export default function AddItemDialog() {
     if (!actionItems) return actionItems
     const query = search.trim().toLowerCase()
     if (!query) return actionItems
-    return actionItems.filter(
-      (item) => item.label.toLowerCase().includes(query) || item.type.toLowerCase().includes(query)
+    return actionItems.filter((item) =>
+      [item.label, item.type, t(item.label), item.description, t(item.description)].some((text) =>
+        text.toLowerCase().includes(query)
+      )
     )
-  }, [actionItems, search])
+  }, [actionItems, search, t])
 
   const generateTempId = () => {
     // Generate a temporary ID in the format: temp:uuid:0
@@ -143,14 +145,15 @@ export default function AddItemDialog() {
     setOpenMainDialog(false)
     setOpenFormDialog(false)
     // Show optimistic success message
-    toast(t('New {{v0}} added to sketch.', { v0: type.toLowerCase() }), {
+    const typeLabel = t(currentNodeType.label)
+    toast(t('New {{v0}} added to sketch.', { v0: typeLabel }), {
       description: relatedNodeToAdd
         ? t('A new {{v0}} "{{v1}}" was added to relation {{v2}}.', {
-            v0: type.toLowerCase(),
+            v0: typeLabel,
             v1: label,
             v2: relatedNodeToAdd.nodeLabel
           })
-        : t('A new {{v0}} "{{v1}}" was added.', { v0: type.toLowerCase(), v1: label }),
+        : t('A new {{v0}} "{{v1}}" was added.', { v0: typeLabel, v1: label }),
       action: {
         label: t('Beautify layout'),
         onClick: () => regenerateLayout(currentLayoutType)
@@ -293,16 +296,13 @@ export default function AddItemDialog() {
       <Dialog open={openFormDialog} onOpenChange={setOpenFormDialog}>
         <DialogContent className="max-h-[95vh] flex flex-col">
           <DialogTitle>
-            {currentNodeType && (
-              <>
-                {t('Add ')}
-                {currentNodeType.label.toLowerCase()}
-              </>
-            )}
+            {currentNodeType && t('Add entity: {{type}}', { type: t(currentNodeType.label) })}
           </DialogTitle>
-          <DialogDescription>{currentNodeType?.description}</DialogDescription>
+          <DialogDescription className="max-h-28 shrink-0 overflow-y-auto whitespace-pre-line break-words">
+            {t(currentNodeType?.description ?? '')}
+          </DialogDescription>
           {currentNodeType && (
-            <div className="grow overflow-y-auto">
+            <div className="min-h-0 grow overflow-y-auto">
               <DynamicForm
                 currentNodeType={currentNodeType}
                 isForm={true}
@@ -331,18 +331,28 @@ function ActionCard({ item, onSelect }: ActionCardProps) {
       className={cn(
         'cursor-pointer transition-all hover:border-primary border rounded border-transparent hover:shadow-md bg-muted',
         item.disabled && 'opacity-50 cursor-not-allowed',
-        'h-full'
+        'h-full min-w-0'
       )}
       onClick={item.disabled ? undefined : onSelect}
     >
-      <CardContent className="p-2 relative flex flex-col items-center text-center h-full">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center mb-3 mt-2">
+      <CardContent className="p-2 relative flex flex-1 flex-col items-center text-center min-w-0">
+        <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center mb-3 mt-2">
           {IconComponent({})}
         </div>
-        <div className="font-medium text-sm">{item.label}</div>
-        <div className="text-sm mt-2 opacity-60">{item.description}</div>
-        <Badge variant="outline" className="mt-2">
-          {item.fields.length} {t(' fields')}
+        <div
+          className="line-clamp-2 min-h-10 w-full break-words font-medium text-sm leading-5"
+          title={t(item.label)}
+        >
+          {t(item.label)}
+        </div>
+        <div
+          className="line-clamp-3 h-[3.75rem] w-full break-words text-sm leading-5 mt-2 mb-3 opacity-60"
+          title={t(item.description)}
+        >
+          {t(item.description)}
+        </div>
+        <Badge variant="outline" className="mt-auto">
+          {t('counts.fields', { count: item.fields.length })}
         </Badge>
         {item.disabled && (
           <Badge variant="outline" className="mt-2 absolute top-2 left-2">

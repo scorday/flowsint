@@ -87,10 +87,6 @@ interface GraphState {
 
 // --- Helpers ---
 const computeFilteredNodes = (nodes: GraphNode[], filters: Filters): GraphNode[] => {
-  // types
-  const areAllToggled = filters.types.every((t) => t.checked)
-  const areNoneToggled = filters.types.every((t) => !t.checked)
-  if (areNoneToggled || areAllToggled) return nodes
   const types = filters.types.filter((t) => !t.checked).map((t) => t.type)
   return nodes.filter((node) => !types.includes(node.nodeType))
 }
@@ -529,6 +525,11 @@ export const useGraphStore = create<GraphState>()(
 
       reset: () => {
         set({
+          filters: {
+            types: get().filters.types.map((filter) => ({ ...filter, checked: true })),
+            rules: [],
+            mapFlightId: null
+          },
           currentNodeId: null,
           currentEdgeId: null,
           selectedNodes: [],

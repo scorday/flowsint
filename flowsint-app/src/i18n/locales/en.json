@@ -1328,5 +1328,9 @@
   "AircraftPosition": "AircraftPosition",
   "Aviation": "Aviation",
   "Maximum position age in seconds (1–3600); stale positions are skipped": "Maximum position age in seconds (1–3600); stale positions are skipped",
-  "Flight": "Flight"
+  "Flight": "Flight",
+  "All flights": "All flights",
+  "Flight no longer available": "Flight no longer available",
+  "Shows only positions linked to the selected flight. Times are in UTC.": "Shows only positions linked to the selected flight. Times are in UTC.",
+  "No locations match the current filters.": "No locations match the current filters."
 }
