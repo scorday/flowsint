@@ -277,7 +277,7 @@ async def test_history_execute_reads_gzip_and_preserves_graph_metadata(mock_hist
 
 
 @pytest.mark.asyncio
-async def test_registration_resolves_once_and_aliases_share_history(mock_history):
+async def test_registration_resolves_once_and_input_nodes_share_history(mock_history):
     def handler(request):
         if request.url.host == "api.adsbdb.com":
             return httpx.Response(
@@ -295,8 +295,115 @@ async def test_registration_resolves_once_and_aliases_share_history(mock_history
     results = await instance.execute(["G-EUUU", "405455"])
     assert len(results) == 1
     assert len(requests) == 2
-    edge = instance.graph_service.create_relationship.call_args.kwargs
-    assert edge["rel_label"] == "RESOLVES_TO_AIRCRAFT"
+    aircraft_nodes = [
+        call.kwargs["node_obj"]
+        for call in instance.graph_service.create_node_from_flowsint_type.call_args_list
+        if isinstance(call.kwargs["node_obj"], Aircraft)
+    ]
+    assert {aircraft.identifier for aircraft in aircraft_nodes} == {"G-EUUU", "405455"}
+    edges = [
+        call.kwargs
+        for call in instance.graph_service.create_relationship.call_args_list
+    ]
+    assert all(edge["rel_label"] != "RESOLVES_TO_AIRCRAFT" for edge in edges)
+    flight_edges = [
+        edge for edge in edges if edge["rel_label"] == "HAS_OBSERVED_FLIGHT"
+    ]
+    assert {edge["from_obj"].identifier for edge in flight_edges} == {
+        "G-EUUU",
+        "405455",
+    }
+    assert all(edge["to_obj"] == results[0] for edge in flight_edges)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("identifier", "icao_hex"),
+    [("G-EUUU", None), ("G-EUUU", "405455"), ("405455", None)],
+)
+async def test_history_preserves_input_aircraft_identity_and_metadata(
+    mock_history, identifier, icao_hex
+):
+    def handler(request):
+        if request.url.host == "api.adsbdb.com":
+            return httpx.Response(
+                200,
+                json={
+                    "response": {
+                        "aircraft": {"mode_s": "405455", "registration": "G-EUUU"}
+                    }
+                },
+            )
+        return httpx.Response(200, json=archive())
+
+    requests = mock_history(handler)
+    original = Aircraft(
+        identifier=identifier,
+        icao_hex=icao_hex,
+        registration="G-EUUU",
+        model="Current model",
+        registered_owner="Current owner",
+        notes="Keep my notes",
+    )
+    repository = MagicMock()
+    graph = GraphService(sketch_id="s", repository=repository)
+    graph.create_node_from_flowsint_type(original)
+    instance = job()
+    instance._graph_service = graph
+    [flight] = await instance.execute([original])
+    await instance.execute([original])
+    if icao_hex or identifier == "405455":
+        assert all(request.url.host != "api.adsbdb.com" for request in requests)
+    aircraft_nodes = [
+        call.kwargs["node_obj"]
+        for call in repository.create_node.call_args_list
+        if call.kwargs["node_obj"]["nodeType"] == "aircraft"
+    ]
+    assert len(aircraft_nodes) == 3
+    assert {node["nodeLabel"] for node in aircraft_nodes} == {original.identifier}
+    assert aircraft_nodes[-1]["nodeProperties.icao_hex"] == "405455"
+    assert aircraft_nodes[-1]["nodeProperties.registration"] == "G-EUUU"
+    assert aircraft_nodes[-1]["nodeProperties.model"] == "Current model"
+    assert aircraft_nodes[-1]["nodeProperties.registered_owner"] == "Current owner"
+    assert aircraft_nodes[-1]["nodeProperties.notes"] == "Keep my notes"
+    edges = [
+        call.kwargs["rel_obj"] for call in repository.create_relationship.call_args_list
+    ]
+    assert all(edge["rel_label"] != "RESOLVES_TO_AIRCRAFT" for edge in edges)
+    aircraft_edges = [edge for edge in edges if edge["from_type"] == "aircraft"]
+    assert all(edge["from_label"] == original.identifier for edge in aircraft_edges)
+    assert {edge["rel_label"] for edge in aircraft_edges} == {
+        "HAS_OBSERVED_FLIGHT",
+        "HAS_POSITION_OBSERVATION",
+    }
+    flight_edges = [
+        edge for edge in edges if edge["rel_label"] == "HAS_OBSERVED_FLIGHT"
+    ]
+    assert all(edge["to_label"] == flight.flight_id for edge in flight_edges)
+
+
+@pytest.mark.asyncio
+async def test_history_partial_resolution_failure_only_updates_matching_input(
+    mock_history,
+):
+    def handler(request):
+        if request.url.host == "api.adsbdb.com":
+            return httpx.Response(404)
+        return httpx.Response(200, json=archive())
+
+    mock_history(handler)
+    instance = job()
+    [flight] = await instance.execute(["G-FAIL", "405455"])
+    edges = [
+        call.kwargs
+        for call in instance.graph_service.create_relationship.call_args_list
+    ]
+    flight_edges = [
+        edge for edge in edges if edge["rel_label"] == "HAS_OBSERVED_FLIGHT"
+    ]
+    assert len(flight_edges) == 1
+    assert flight_edges[0]["from_obj"].identifier == "405455"
+    assert flight_edges[0]["to_obj"] == flight
 
 
 @pytest.mark.asyncio

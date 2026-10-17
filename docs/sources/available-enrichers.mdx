@@ -74,9 +74,14 @@ registration such as `G-EUUU` or a six-digit ICAO hex code such as `400942`.
 Run `aircraft_to_details`, `aircraft_to_position` or `aircraft_to_flights` from that node. To search
 an area, create a **Location** node with coordinates and run `location_to_aircraft`.
 
-Resolved Aircraft nodes use uppercase ICAO hex as their stable graph label;
-registration lookup nodes link to them with `RESOLVES_TO_AIRCRAFT`. The label
-does not change when descriptive metadata is updated. Identifiers can be
+`aircraft_to_details` updates the input Aircraft node, preserving its identifier
+and graph label. It adds ICAO hex, registration, registry details and provenance
+to that node without creating another Aircraft or an alias relationship.
+`aircraft_to_position` and `aircraft_to_flights` also preserve the input Aircraft
+node and attach observations and flights directly to it, recording the resolved
+ICAO hex on that node. They do not create another Aircraft or an alias relationship.
+Area searches create discovered Aircraft nodes identified by uppercase ICAO hex.
+The label does not change when descriptive metadata is updated. Identifiers can be
 reassigned, so these lookups do not establish immutable airframe identity.
 Registered-owner names are preserved verbatim as fields, with adsbdb source URL
 and retrieval time. They are not automatically classified as Organization or

@@ -17,7 +17,7 @@ class AircraftToPositionEnricher(AviationEnricher):
     """Retrieve fresh observed positions, rather than assume continuous coverage."""
 
     metadata = EnricherMetadata(
-        description="Retrieves fresh ADSB.lol position observations for an aircraft registration or ICAO hex, including observation time, coordinates and available altitude and speed. Missing coverage or stale data produces no position, not evidence of absence.",
+        description="Retrieves fresh ADSB.lol position observations for an aircraft registration or ICAO hex and links them to the input Aircraft node, preserving its identity. Includes observation time, coordinates and available altitude and speed. Missing coverage or stale data produces no position, not evidence of absence.",
         providers=("ADSB.lol",),
         api_key_requirement="not_required",
         api_key_notes="Free public API, ODbL 1.0 data; attribute ADSB.lol. The provider asks production users to contact them. Coverage and availability are not guaranteed.",
@@ -80,13 +80,12 @@ class AircraftToPositionEnricher(AviationEnricher):
         self, results: list[OutputType], input_data: list[InputType] | None = None
     ) -> list[OutputType]:
         for position in results:
-            resolved = self.store_position(position)
             for original in input_data or []:
                 if original.identifier in (
                     position.aircraft_hex,
                     (position.registration or "").upper(),
                 ):
-                    self.store_alias(original, resolved)
+                    self.store_position(position, original)
         return results
 
 

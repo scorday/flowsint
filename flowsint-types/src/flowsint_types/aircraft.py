@@ -21,7 +21,7 @@ def normalize_aircraft_identifier(value: str) -> str:
 
 @flowsint_type
 class Aircraft(FlowsintType):
-    """Aircraft identified by registration or ICAO hex; resolved results use ICAO hex.
+    """Aircraft identified by registration or ICAO hex; details preserve that identity.
 
     Identifiers may be reassigned. Registry details are a retrieved snapshot,
     not proof of current operation or of a person's presence aboard.

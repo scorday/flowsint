@@ -33,7 +33,7 @@ class AircraftToFlightsEnricher(AviationEnricher):
     """Build observed flight history from free daily ADSB.lol aircraft traces."""
 
     metadata = EnricherMetadata(
-        description="Retrieves free ADSB.lol daily aircraft traces for a UTC date range and infers observed airborne segments using ground states, provider leg markers and coverage gaps. Stores dated Flight nodes and sampled positions; endpoints are observations, not confirmed takeoff, landing or airports.",
+        description="Retrieves free ADSB.lol daily aircraft traces for a UTC date range and infers observed airborne segments using ground states, provider leg markers and coverage gaps. Links dated Flight nodes and sampled positions to the input Aircraft node, preserving its identity; endpoints are observations, not confirmed takeoff, landing or airports.",
         providers=("ADSB.lol", "adsbdb"),
         api_key_requirement="not_required",
         api_key_notes="No API key. ADSB.lol archive data is ODbL 1.0; retain attribution. Registration inputs use the current adsbdb ICAO mapping, which does not prove historical registration. Archive availability varies; missing days do not prove no flights.",
@@ -44,7 +44,7 @@ class AircraftToFlightsEnricher(AviationEnricher):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._flights: list[ObservedFlight] = []
-        self._aliases: dict[str, Aircraft] = {}
+        self._aircraft_hexes: dict[str, str] = {}
 
     @classmethod
     def name(cls) -> str:
@@ -127,7 +127,7 @@ class AircraftToFlightsEnricher(AviationEnricher):
         return [start + timedelta(days=offset) for offset in range(count)]
 
     async def scan(self, data: list[InputType]) -> list[OutputType]:
-        self._flights, self._aliases = [], {}
+        self._flights, self._aircraft_hexes = [], {}
         days = self.date_range()
         gap = self.numeric_param("gap_minutes", "30", 5, 180) * 60
         limit = self.numeric_param("max_flights", "50", 1, 100)
@@ -161,9 +161,7 @@ class AircraftToFlightsEnricher(AviationEnricher):
                                 "adsbdb: registration lookup mismatch"
                             )
                         hex_id = resolved.identifier
-                    self._aliases[original.identifier] = Aircraft(
-                        identifier=hex_id, icao_hex=hex_id
-                    )
+                    self._aircraft_hexes[original.identifier] = hex_id
                     if hex_id in processed:
                         continue
                     processed.add(hex_id)
@@ -234,27 +232,32 @@ class AircraftToFlightsEnricher(AviationEnricher):
     def postprocess(
         self, results: list[OutputType], input_data: list[InputType] | None = None
     ) -> list[OutputType]:
+        observed_hexes = {flight.aircraft_hex for flight in results}
+        aircraft_by_hex: dict[str, list[Aircraft]] = {}
+        for original in input_data or []:
+            hex_id = self._aircraft_hexes.get(original.identifier)
+            if hex_id is not None and hex_id in observed_hexes:
+                aircraft = original.model_copy(update={"icao_hex": hex_id})
+                self.create_node(aircraft)
+                aircraft_by_hex.setdefault(hex_id, []).append(aircraft)
         for segment in self._flights:
-            aircraft = Aircraft(
-                identifier=segment.flight.aircraft_hex,
-                icao_hex=segment.flight.aircraft_hex,
-            )
-            self.create_node(aircraft)
+            aircraft_nodes = aircraft_by_hex.get(segment.flight.aircraft_hex, [])
             self.create_node(segment.flight)
-            self.create_relationship(aircraft, segment.flight, "HAS_OBSERVED_FLIGHT")
+            for aircraft in aircraft_nodes:
+                self.create_relationship(
+                    aircraft, segment.flight, "HAS_OBSERVED_FLIGHT"
+                )
             for position in segment.positions:
                 # Historical registration/type snapshots belong to observations;
                 # do not overwrite present-day aircraft metadata with them.
                 self.create_node(position)
-                self.create_relationship(aircraft, position, "HAS_POSITION_OBSERVATION")
+                for aircraft in aircraft_nodes:
+                    self.create_relationship(
+                        aircraft, position, "HAS_POSITION_OBSERVATION"
+                    )
                 self.create_relationship(
                     segment.flight, position, "HAS_POSITION_OBSERVATION"
                 )
-        observed_hexes = {flight.aircraft_hex for flight in results}
-        for original in input_data or []:
-            resolved = self._aliases.get(original.identifier)
-            if resolved is not None and resolved.identifier in observed_hexes:
-                self.store_alias(original, resolved)
         return results
 
 

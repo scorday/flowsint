@@ -17,10 +17,10 @@ from flowsint_types import Aircraft
 
 @flowsint_enricher
 class AircraftToDetailsEnricher(AviationEnricher):
-    """Look up aircraft registry details using the public adsbdb aircraft endpoint."""
+    """Enrich the input aircraft in place using the public adsbdb endpoint."""
 
     metadata = EnricherMetadata(
-        description="Looks up an aircraft by registration or ICAO hex using adsbdb and records its model, manufacturer and reported registered owner. Registered ownership does not establish the operator, beneficial owner or passengers.",
+        description="Enriches the existing aircraft by registration or ICAO hex using adsbdb, preserving its identifier and adding ICAO hex, model, manufacturer and reported registered owner. Registered ownership does not establish the operator, beneficial owner or passengers.",
         providers=("adsbdb",),
         api_key_requirement="not_required",
         api_key_notes="Public aircraft lookup, no API key. Does not request restricted flight-route data. Registry details may be incomplete or outdated.",
@@ -63,7 +63,11 @@ class AircraftToDetailsEnricher(AviationEnricher):
                         raise AviationProviderError(
                             "adsbdb: result does not match requested identifier"
                         )
-                    results[aircraft.identifier] = aircraft
+                    # Graph identity is based on the input label. Keep it while
+                    # replacing registry fields with the latest provider snapshot.
+                    results[original.identifier] = original.model_copy(
+                        update=aircraft.model_dump(exclude={"identifier", "nodeLabel"})
+                    )
                 except AviationRateLimited as exc:
                     self.warn(str(exc))
                     break
@@ -78,9 +82,6 @@ class AircraftToDetailsEnricher(AviationEnricher):
     ) -> list[OutputType]:
         for aircraft in results:
             self.create_node(aircraft)
-            for original in input_data or []:
-                if original.identifier in (aircraft.identifier, aircraft.registration):
-                    self.store_alias(original, aircraft)
         return results
 
 

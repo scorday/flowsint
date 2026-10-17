@@ -135,23 +135,27 @@ def test_discovery_catalog_and_type_menu():
 
 
 @pytest.mark.asyncio
-async def test_details_execute_preserves_alias_and_provenance(mock_api):
+@pytest.mark.parametrize("identifier", ["g-euuu", "400942"])
+async def test_details_execute_enriches_original_node_and_preserves_provenance(
+    mock_api, identifier
+):
     requests = mock_api(lambda request: httpx.Response(200, json=registry_record()))
     job = enricher(AircraftToDetailsEnricher)
-    [result] = await job.execute(["g-euuu"])
-    assert result.identifier == "400942"
+    original = Aircraft(identifier=identifier, model="Old model", notes="Keep my notes")
+    [result] = await job.execute([original])
+    assert result.identifier == result.nodeLabel == original.identifier
+    assert result.icao_hex == "400942"
+    assert result.registration == "G-EUUU"
+    assert result.model == "A320"
+    assert result.notes == "Keep my notes"
     assert result.registered_owner == "Example Registered Owner"
     assert result.details_source == "adsbdb"
     assert result.details_retrieved_at.tzinfo is not None
     assert result.details_source_url == str(requests[0].url)
-    assert requests[0].url.path == "/v0/aircraft/G-EUUU"
-    edge = job.graph_service.create_relationship.call_args.kwargs
-    assert edge["rel_label"] == "RESOLVES_TO_AIRCRAFT"
-    assert edge["from_obj"].identifier == "G-EUUU"
-    assert edge["to_obj"].identifier == "400942"
-    assert all(
-        call.kwargs["node_obj"].__class__ is Aircraft
-        for call in job.graph_service.create_node_from_flowsint_type.call_args_list
+    assert requests[0].url.path == f"/v0/aircraft/{original.identifier}"
+    job.graph_service.create_relationship.assert_not_called()
+    job.graph_service.create_node_from_flowsint_type.assert_called_once_with(
+        node_obj=result
     )
 
 
@@ -168,11 +172,41 @@ async def test_details_partial_failure_does_not_misassociate_results(mock_api):
     results = await job.scan(inputs)
     job.postprocess(results, inputs)
     assert len(results) == 1
-    assert job.graph_service.create_relationship.call_count == 1
-    assert (
-        job.graph_service.create_relationship.call_args.kwargs["from_obj"].identifier
-        == "G-EUUU"
+    assert results[0].identifier == "G-EUUU"
+    job.graph_service.create_relationship.assert_not_called()
+    job.graph_service.create_node_from_flowsint_type.assert_called_once_with(
+        node_obj=results[0]
     )
+
+
+@pytest.mark.asyncio
+async def test_details_enriches_each_input_identity_for_same_aircraft(mock_api):
+    mock_api(lambda request: httpx.Response(200, json=registry_record()))
+    job = enricher(AircraftToDetailsEnricher)
+    results = await job.execute(["G-EUUU", "400942"])
+    assert {result.identifier for result in results} == {"G-EUUU", "400942"}
+    assert all(result.icao_hex == "400942" for result in results)
+    assert job.graph_service.create_node_from_flowsint_type.call_count == 2
+    job.graph_service.create_relationship.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_details_repeated_lookup_keeps_original_graph_identity(mock_api):
+    mock_api(lambda request: httpx.Response(200, json=registry_record()))
+    repository = MagicMock()
+    graph = GraphService(sketch_id="s", repository=repository)
+    original = Aircraft(identifier="G-EUUU", notes="Keep my notes")
+    graph.create_node_from_flowsint_type(original)
+    job = AircraftToDetailsEnricher(sketch_id="s", graph_service=graph)
+    [result] = await job.execute([original])
+    await job.execute([result])
+    nodes = [call.kwargs["node_obj"] for call in repository.create_node.call_args_list]
+    assert len(nodes) == 3
+    assert {node["nodeType"] for node in nodes} == {"aircraft"}
+    assert {node["nodeLabel"] for node in nodes} == {"G-EUUU"}
+    assert nodes[-1]["nodeProperties.icao_hex"] == "400942"
+    assert nodes[-1]["nodeProperties.notes"] == "Keep my notes"
+    repository.create_relationship.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -204,13 +238,74 @@ async def test_position_execute_preserves_zero_coordinates_units_and_time(mock_a
 
 
 @pytest.mark.asyncio
-async def test_position_registration_query_links_alias(mock_api):
+@pytest.mark.parametrize("identifier", ["g-euuu", "400942"])
+async def test_position_links_original_aircraft_and_preserves_metadata(
+    mock_api, identifier
+):
     requests = mock_api(lambda request: httpx.Response(200, json=envelope(record())))
-    job = enricher(AircraftToPositionEnricher)
-    [position] = await job.execute(["g-euuu"])
-    assert requests[0].url.path == "/v2/reg/G-EUUU"
+    repository = MagicMock()
+    graph = GraphService(sketch_id="s", repository=repository)
+    original = Aircraft(
+        identifier=identifier,
+        model="Airbus A320",
+        registered_owner="Known owner",
+        notes="Keep my notes",
+    )
+    graph.create_node_from_flowsint_type(original)
+    job = AircraftToPositionEnricher(graph_service=graph)
+    [position] = await job.execute([original])
+    await job.execute([original])
+    endpoint = "hex" if identifier == "400942" else "reg"
+    assert requests[0].url.path == f"/v2/{endpoint}/{original.identifier}"
     assert position.aircraft_hex == "400942"
-    assert job.graph_service.create_relationship.call_count == 2
+    aircraft_nodes = [
+        call.kwargs["node_obj"]
+        for call in repository.create_node.call_args_list
+        if call.kwargs["node_obj"]["nodeType"] == "aircraft"
+    ]
+    assert len(aircraft_nodes) == 3
+    assert {node["nodeLabel"] for node in aircraft_nodes} == {original.identifier}
+    assert aircraft_nodes[-1]["nodeProperties.icao_hex"] == "400942"
+    assert aircraft_nodes[-1]["nodeProperties.model"] == "Airbus A320"
+    assert aircraft_nodes[-1]["nodeProperties.registered_owner"] == "Known owner"
+    assert aircraft_nodes[-1]["nodeProperties.notes"] == "Keep my notes"
+    edges = [
+        call.kwargs["rel_obj"] for call in repository.create_relationship.call_args_list
+    ]
+    assert len(edges) == 2
+    assert all(edge["rel_label"] == "HAS_POSITION_OBSERVATION" for edge in edges)
+    assert all(edge["from_label"] == original.identifier for edge in edges)
+    assert all(edge["to_label"] == position.observation_id for edge in edges)
+
+
+@pytest.mark.asyncio
+async def test_position_links_both_input_identifiers_to_shared_observation(mock_api):
+    mock_api(lambda request: httpx.Response(200, json=envelope(record())))
+    job = enricher(AircraftToPositionEnricher)
+    [position] = await job.execute(["G-EUUU", "400942"])
+    edges = [
+        call.kwargs for call in job.graph_service.create_relationship.call_args_list
+    ]
+    assert {edge["from_obj"].identifier for edge in edges} == {"G-EUUU", "400942"}
+    assert all(edge["rel_label"] == "HAS_POSITION_OBSERVATION" for edge in edges)
+    assert all(edge["to_obj"] == position for edge in edges)
+
+
+@pytest.mark.asyncio
+async def test_position_partial_failure_does_not_link_unmatched_input(mock_api):
+    mock_api(lambda request: httpx.Response(200, json=envelope(record())))
+    job = enricher(AircraftToPositionEnricher)
+    [position] = await job.execute(["G-FAIL", "G-EUUU"])
+    job.graph_service.create_relationship.assert_called_once()
+    edge = job.graph_service.create_relationship.call_args.kwargs
+    assert edge["from_obj"].identifier == "G-EUUU"
+    assert edge["to_obj"] == position
+    aircraft_nodes = [
+        call.kwargs["node_obj"]
+        for call in job.graph_service.create_node_from_flowsint_type.call_args_list
+        if isinstance(call.kwargs["node_obj"], Aircraft)
+    ]
+    assert [aircraft.identifier for aircraft in aircraft_nodes] == ["G-EUUU"]
 
 
 @pytest.mark.asyncio
@@ -507,7 +602,7 @@ def test_graph_serialization_preserves_details_and_distinct_observations():
     positions += job.positions(
         envelope(record(seen_pos=2)), "https://api.adsb.lol/v2/hex/400942"
     )
-    job.postprocess(positions)
+    job.postprocess(positions, [Aircraft(identifier="400942")])
     nodes = [call.kwargs["node_obj"] for call in repository.create_node.call_args_list]
     aircraft_nodes = [n for n in nodes if n["nodeType"] == "aircraft"]
     observation_nodes = [n for n in nodes if n["nodeType"] == "aircraftposition"]

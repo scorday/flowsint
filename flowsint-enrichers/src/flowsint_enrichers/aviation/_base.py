@@ -105,14 +105,17 @@ class AviationEnricher(Enricher):
             self.warn(f"Skipped {skipped} stale, missing or invalid position records")
         return list(observations.values())
 
-    def store_position(self, position: AircraftPosition) -> Aircraft:
+    def store_position(
+        self, position: AircraftPosition, original: Aircraft | None = None
+    ) -> Aircraft:
         aircraft = aircraft_from_position(position)
+        if original is not None:
+            aircraft = original.model_copy(
+                update=aircraft.model_dump(
+                    exclude={"identifier", "nodeLabel"}, exclude_unset=True
+                )
+            )
         self.create_node(aircraft)
         self.create_node(position)
         self.create_relationship(aircraft, position, "HAS_POSITION_OBSERVATION")
         return aircraft
-
-    def store_alias(self, original: Aircraft, resolved: Aircraft) -> None:
-        if original.identifier != resolved.identifier:
-            self.create_node(original)
-            self.create_relationship(original, resolved, "RESOLVES_TO_AIRCRAFT")
