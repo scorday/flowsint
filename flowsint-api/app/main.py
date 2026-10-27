@@ -31,7 +31,7 @@ origins = [
 ]
 
 
-app = FastAPI(ignore_trailing_slash=True, redirect_slashes=False)
+app = FastAPI(redirect_slashes=False)
 
 app.add_middleware(Avl4AuthMiddleware)
 

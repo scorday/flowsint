@@ -46,6 +46,13 @@ def headers(user="alice", project="project-a"):
     return {"h-avl-session": user, "h-avl-project": project}
 
 
+def test_health_is_available_without_session_and_does_not_redirect(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert client.get("/health/", follow_redirects=False).status_code == 404
+
+
 def test_bearer_or_forged_user_header_cannot_replace_avl4_session(client):
     response = client.get(
         "/api/investigations",
