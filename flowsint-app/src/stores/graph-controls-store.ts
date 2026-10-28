@@ -11,6 +11,10 @@ type GraphControlsStore = {
   selectionMode: SelectionMode
   highlightSelectionLinks: boolean
   setHighlightSelectionLinks: (enabled: boolean) => void
+  hideRootLinks: boolean
+  setHideRootLinks: (enabled: boolean) => void
+  onlyRootNeighborhood: boolean
+  setOnlyRootNeighborhood: (enabled: boolean) => void
   currentLayoutType: LayoutType
   zoomToFit: () => void
   zoomIn: () => void
@@ -36,6 +40,10 @@ export const useGraphControls = create<GraphControlsStore>()(
       selectionMode: 'lasso',
       highlightSelectionLinks: false,
       setHighlightSelectionLinks: (enabled) => set({ highlightSelectionLinks: enabled }),
+      hideRootLinks: false,
+      setHideRootLinks: (enabled) => set({ hideRootLinks: enabled }),
+      onlyRootNeighborhood: false,
+      setOnlyRootNeighborhood: (enabled) => set({ onlyRootNeighborhood: enabled }),
       currentLayoutType: 'force',
       zoomToFit: () => {},
       zoomIn: () => {},
@@ -58,7 +66,9 @@ export const useGraphControls = create<GraphControlsStore>()(
         view: state.view,
         currentLayoutType: state.currentLayoutType,
         selectionMode: state.selectionMode,
-        highlightSelectionLinks: state.highlightSelectionLinks
+        highlightSelectionLinks: state.highlightSelectionLinks,
+        hideRootLinks: state.hideRootLinks,
+        onlyRootNeighborhood: state.onlyRootNeighborhood
       })
     }
   )

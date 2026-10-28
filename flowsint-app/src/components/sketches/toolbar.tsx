@@ -19,7 +19,9 @@ import {
   LassoSelect,
   ChevronDown,
   SquareDashed,
-  Share2
+  Share2,
+  Unlink,
+  ScanEye
 } from 'lucide-react'
 import { memo, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -48,7 +50,7 @@ export const ToolbarButton = memo(function ToolbarButton({
   onClick,
   disabled = false,
   badge = null,
-  toggled = false,
+  toggled = null,
   showLabel = false
 }: {
   icon: React.ReactNode
@@ -127,8 +129,13 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
   const selectionMode = useGraphControls((s) => s.selectionMode)
   const setSelectionMode = useGraphControls((s) => s.setSelectionMode)
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
+  const currentNodeId = useGraphStore((s) => s.currentNodeId)
   const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
   const setHighlightSelectionLinks = useGraphControls((s) => s.setHighlightSelectionLinks)
+  const hideRootLinks = useGraphControls((s) => s.hideRootLinks)
+  const setHideRootLinks = useGraphControls((s) => s.setHideRootLinks)
+  const onlyRootNeighborhood = useGraphControls((s) => s.onlyRootNeighborhood)
+  const setOnlyRootNeighborhood = useGraphControls((s) => s.setOnlyRootNeighborhood)
   const setOpenAddRelationDialog = useGraphStore((state) => state.setOpenAddRelationDialog)
   const setOpenMergeDialog = useGraphStore((state) => state.setOpenMergeDialog)
   const filters = useGraphStore((s) => s.filters)
@@ -346,6 +353,20 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
             tooltip={t('Highlight links between selected nodes')}
             toggled={highlightSelectionLinks}
             onClick={() => setHighlightSelectionLinks(!highlightSelectionLinks)}
+          />
+          <ToolbarButton
+            icon={<Unlink className="h-4 w-4 opacity-70" />}
+            tooltip={t('Hide root links and show links between its neighbors')}
+            toggled={hideRootLinks}
+            disabled={!currentNodeId && !hideRootLinks}
+            onClick={() => setHideRootLinks(!hideRootLinks)}
+          />
+          <ToolbarButton
+            icon={<ScanEye className="h-4 w-4 opacity-70" />}
+            tooltip={t('Show only root and first-level neighbors')}
+            toggled={onlyRootNeighborhood}
+            disabled={!currentNodeId && !onlyRootNeighborhood}
+            onClick={() => setOnlyRootNeighborhood(!onlyRootNeighborhood)}
           />
           <ToolbarButton
             icon={<GitPullRequestArrow className="h-4 w-4 opacity-70" />}

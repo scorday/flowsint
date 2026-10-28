@@ -1,4 +1,6 @@
 {
+  "Hide root links and show links between its neighbors": "Скрыть связи корня и оставить связи между его друзьями",
+  "Show only root and first-level neighbors": "Оставить только корень и друзей первого уровня",
   "Highlight links between selected nodes": "Выделить связи между выделенными узлами",
   " — emails, domains, social accounts, IPs, phone numbers, addresses, and more — into a single": " — электронную почту, домены, аккаунты, IP-адреса, телефоны и другие данные — в единый",
   " — fast graph rendering, clean UI, responsive enrichers.": " — быстрая отрисовка графов, понятный интерфейс и отзывчивые обогатители.",

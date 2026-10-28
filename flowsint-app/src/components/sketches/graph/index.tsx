@@ -26,6 +26,7 @@ import { useComputedHighlights } from './hooks/use-computed-highlights'
 import { useSelectionHighlights } from './hooks/use-selection-highlights'
 import { useTooltip } from './hooks/use-tooltip'
 import { transformGraphData } from './utils/graph-data-transformer'
+import { getNeighborhoodView } from './utils/neighborhood-view'
 import { useGraphLayout } from './hooks/use-graph-layout'
 import { useGraphEvents } from './hooks/use-graph-events'
 import { useGraphInitialization } from './hooks/use-graph-initialization'
@@ -82,6 +83,8 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const isSelectorModeActive = useGraphControls((s) => s.isSelectorModeActive)
   const selectionMode = useGraphControls((s) => s.selectionMode)
   const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
+  const hideRootLinks = useGraphControls((s) => s.hideRootLinks)
+  const onlyRootNeighborhood = useGraphControls((s) => s.onlyRootNeighborhood)
   const nodeColors = useNodesDisplaySettings((s) => s.colors)
   const customIcons = useNodesDisplaySettings((s) => s.customIcons)
   const setActions = useGraphControls((s) => s.setActions)
@@ -230,14 +233,52 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
     }
   }, [])
 
-  const graphData = useMemo(() => {
+  const fullGraphData = useMemo(() => {
     return transformGraphData({ nodes, edges, nodeColors })
   }, [nodes, edges, nodeColors])
+
+  const neighborhoodView = useMemo(
+    () =>
+      getNeighborhoodView(
+        nodes,
+        edges,
+        currentNodeId,
+        !showMinimalControls && onlyRootNeighborhood,
+        !showMinimalControls && hideRootLinks
+      ),
+    [nodes, edges, currentNodeId, showMinimalControls, onlyRootNeighborhood, hideRootLinks]
+  )
+
+  // Preserve the full adjacency and existing node objects/positions when
+  // toggling the view. All graph controls, minimap and selectors use this subset.
+  const graphData = useMemo(() => {
+    if (!neighborhoodView.active) return fullGraphData
+    const nodeIds = new Set(neighborhoodView.nodes.map((node) => node.id))
+    const edgeIds = new Set(neighborhoodView.edges.map((edge) => edge.id))
+    return {
+      nodes: fullGraphData.nodes.filter((node) => nodeIds.has(node.id)),
+      links: fullGraphData.links.filter((edge) => edgeIds.has(edge.id))
+    }
+  }, [fullGraphData, neighborhoodView])
+
+  // Position saving replaces the store's node list. Merge visible positions
+  // into the full stored graph so dragging/layout never drops hidden nodes.
+  const saveGraphNodePositions = useCallback(
+    (positionedNodes: GraphNode[], force = false) => {
+      const positions = new Map(positionedNodes.map((node) => [node.id, node]))
+      const allNodes = useGraphStore.getState().nodes.map((node) => {
+        const positioned = positions.get(node.id)
+        return positioned ? { ...node, x: positioned.x, y: positioned.y } : node
+      })
+      saveAllNodePositions(allNodes, force)
+    },
+    [saveAllNodePositions]
+  )
 
   const { isRegeneratingLayout, regenerateLayout } = useGraphLayout({
     forceSettings,
     containerSize,
-    saveAllNodePositions,
+    saveAllNodePositions: saveGraphNodePositions,
     graphRef,
     graphData
   })
@@ -292,25 +333,37 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   // Merge: hover is prioritary over persistent highlights
   const baseHighlightNodes = useMemo(() => {
+    if (neighborhoodView.active) return currentNodeHighlights.nodes
     if (hoverHighlightNodes.size > 0) return hoverHighlightNodes
     const merged = new Set<string>(currentNodeHighlights.nodes)
     pathHighlightNodes.forEach((id) => merged.add(id))
     return merged
-  }, [hoverHighlightNodes, currentNodeHighlights.nodes, pathHighlightNodes])
+  }, [
+    neighborhoodView.active,
+    hoverHighlightNodes,
+    currentNodeHighlights.nodes,
+    pathHighlightNodes
+  ])
 
   const baseHighlightLinks = useMemo(() => {
+    if (neighborhoodView.active) return currentNodeHighlights.links
     if (hoverHighlightLinks.size > 0) return hoverHighlightLinks
     const merged = new Set<string>(currentNodeHighlights.links)
     pathHighlightLinks.forEach((id) => merged.add(id))
     return merged
-  }, [hoverHighlightLinks, currentNodeHighlights.links, pathHighlightLinks])
+  }, [
+    neighborhoodView.active,
+    hoverHighlightLinks,
+    currentNodeHighlights.links,
+    pathHighlightLinks
+  ])
 
   const { highlightNodes, highlightLinks } = useSelectionHighlights(
     baseHighlightNodes,
     baseHighlightLinks,
     selectedNodeIds,
-    edges,
-    highlightSelectionLinks && !showMinimalControls
+    neighborhoodView.edges,
+    (highlightSelectionLinks || neighborhoodView.active) && !showMinimalControls
   )
 
   const { tooltip, showTooltip, hideTooltip } = useTooltip(graphRef)
@@ -350,7 +403,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
     toggleEdgeSelection,
     setCurrentEdgeId,
     clearSelectedEdges,
-    saveAllNodePositions
+    saveAllNodePositions: saveGraphNodePositions
   })
 
   const wrappedHandleNodeDragEnd = useCallback(
@@ -393,7 +446,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   // Clear highlights when graph data changes
   useEffect(() => {
     clearHighlights()
-  }, [nodes, edges, clearHighlights])
+  }, [graphData, clearHighlights])
 
   const handleOpenNewAddItemDialog = useCallback(() => {
     setOpenMainDialog(true)
