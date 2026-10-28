@@ -11,6 +11,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { AnimatePresence, motion } from 'framer-motion'
 import { DynamicForm } from '@/components/sketches/dynamic-form'
+import { SocialAccountForm } from '@/components/sketches/social-account-form'
+import { enricherService } from '@/api/enricher-service'
 import { Badge } from '@/components/ui/badge'
 import { useGraphStore } from '@/stores/graph-store'
 import { sketchService } from '@/api/sketch-service'
@@ -81,7 +83,7 @@ export default function AddItemDialog() {
     setImportModalOpen(true)
   }, [setOpenMainDialog, setImportModalOpen])
 
-  const handleAddNode = async (data: any) => {
+  const handleAddNode = async (data: any, loadFriends = false) => {
     if (!currentNodeType || !sketch_id) {
       toast.error(t('Invalid node type or sketch ID.'))
       return
@@ -92,7 +94,7 @@ export default function AddItemDialog() {
       currentNodeType.fields[0].name
 
     const type = currentNodeType.type
-    let label = data[label_key as keyof typeof data]
+    let label = data.nodeLabel || data[label_key as keyof typeof data]
 
     // if no value, fallback to fist key
     if (!label) label = data[Object.keys(data)[0] as keyof typeof data]
@@ -178,6 +180,25 @@ export default function AddItemDialog() {
           }
           // Make API call to persist the edge
           await sketchService.addEdge(sketch_id as string, JSON.stringify(relationPayload))
+        }
+        if (loadFriends && type.toLowerCase() === 'socialaccount') {
+          toast.promise(
+            enricherService.launch(
+              'socialaccount_to_vk_friends',
+              JSON.stringify({
+                node_ids: [newNode.id],
+                sketch_id,
+                params: { max_friends: '1000' }
+              })
+            ),
+            {
+              loading: t('Starting friend loading...'),
+              success: t('Friend loading has been started.'),
+              error: t(
+                'Profile added, but friend loading could not be started. Try it from the profile menu.'
+              )
+            }
+          )
         }
       }
     } catch (error) {
@@ -303,11 +324,19 @@ export default function AddItemDialog() {
           </DialogDescription>
           {currentNodeType && (
             <div className="min-h-0 grow overflow-y-auto">
-              <DynamicForm
-                currentNodeType={currentNodeType}
-                isForm={true}
-                onSubmit={handleAddNode}
-              />
+              {currentNodeType.type.toLowerCase() === 'socialaccount' && sketch_id ? (
+                <SocialAccountForm
+                  currentNodeType={currentNodeType}
+                  sketchId={sketch_id}
+                  onSubmit={handleAddNode}
+                />
+              ) : (
+                <DynamicForm
+                  currentNodeType={currentNodeType}
+                  isForm={true}
+                  onSubmit={handleAddNode}
+                />
+              )}
             </div>
           )}
         </DialogContent>

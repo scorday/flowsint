@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from flowsint_core.core.enricher_base import Enricher, InvalidEnricherParams
 from flowsint_core.core.logger import Logger
+from flowsint_core.core.vault import VaultProtocol
 from flowsint_types import SocialAccount
 
 from ._client import VKError
@@ -13,6 +14,29 @@ from ._mapping import profile_identifier
 SECRET = "VK_SERVICE_TOKEN"
 TOKEN_DESCRIPTION = "VK service token from Vault; falls back to server VK_SERVICE_TOKEN"
 KEY_NOTES = "Requires a VK service token in Vault (VK_SERVICE_TOKEN) or the server environment. Privacy restrictions still apply. The token is sent only to api.vk.ru."
+
+
+def resolve_vk_token(
+    vault: VaultProtocol | None = None, reference: str | None = None
+) -> str:
+    """Resolve project credentials without accepting a public literal token."""
+    secret = None
+    if vault is not None:
+        if reference:
+            secret = vault.get_secret(reference)
+        if secret is None:
+            secret = vault.get_secret(SECRET)
+    if secret is None:
+        secret = os.getenv(SECRET)
+    if (
+        not isinstance(secret, str)
+        or not secret.strip()
+        or any(c.isspace() for c in secret)
+    ):
+        raise InvalidEnricherParams(
+            "Configure VK_SERVICE_TOKEN in Vault or the server environment"
+        )
+    return secret
 
 
 class VKEnricher(Enricher):
@@ -38,23 +62,7 @@ class VKEnricher(Enricher):
     def resolve_params(self) -> dict[str, Any]:
         # Resolve the selected project Vault entry first. Never use a literal key
         # provided through public launch parameters as a credential.
-        secret = None
-        if self.vault is not None:
-            reference = self.params.get(SECRET)
-            if reference:
-                secret = self.vault.get_secret(reference)
-            if secret is None:
-                secret = self.vault.get_secret(SECRET)
-        if secret is None:
-            secret = os.getenv(SECRET)
-        if (
-            not isinstance(secret, str)
-            or not secret.strip()
-            or any(c.isspace() for c in secret)
-        ):
-            raise InvalidEnricherParams(
-                "Configure VK_SERVICE_TOKEN in Vault or the server environment"
-            )
+        secret = resolve_vk_token(self.vault, self.params.get(SECRET))
         resolved = {
             param["name"]: self.params.get(param["name"], param.get("default"))
             for param in self.params_schema

@@ -17,13 +17,22 @@ vi.hoisted(() => {
   })
 })
 
-const fixtures = vi.hoisted(() => ({ items: [] as ActionItem[] }))
+const fixtures = vi.hoisted(() => ({
+  items: [] as ActionItem[],
+  addNode: vi.fn(),
+  launch: vi.fn(),
+  resolve: vi.fn()
+}))
 vi.mock('@/hooks/use-action-items', () => ({
   useActionItems: () => ({ actionItems: fixtures.items, isLoading: false })
 }))
 vi.mock('@/hooks/use-icon', () => ({ useIcon: () => () => null }))
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ id: 'sketch-id' }) }))
-vi.mock('@/api/sketch-service', () => ({ sketchService: {} }))
+vi.mock('@/api/sketch-service', () => ({ sketchService: { addNode: fixtures.addNode } }))
+vi.mock('@/api/enricher-service', () => ({ enricherService: { launch: fixtures.launch } }))
+vi.mock('@/api/social-account-service', () => ({
+  socialAccountService: { resolve: fixtures.resolve }
+}))
 
 const makeType = (type: string, description: string, count: number): ActionItem => ({
   id: count,
@@ -134,3 +143,55 @@ it('opens the translated creation form with the original type and preserves ente
   expect((screen.getByLabelText('Value') as HTMLInputElement).value).toBe('User data')
   expect(fixtures.items[0].description).toBe('Represents a phrase or text content.')
 })
+
+it.each([false, true])(
+  'adds a canonical VK social account with friend loading=%s',
+  async (friends) => {
+    fixtures.items = [makeType('SocialAccount', '', 1)]
+    const profile = {
+      id: 'id515596@vk.ru',
+      nodeLabel: 'id515596@vk.ru',
+      username: { value: 'id515596' },
+      platform: 'vk.ru',
+      profile_url: 'https://vk.ru/id515596',
+      vk_profile_status: 'open'
+    }
+    fixtures.resolve.mockResolvedValue(profile)
+    fixtures.addNode.mockReset().mockImplementation(async (_id, body) => ({
+      node: { ...JSON.parse(body), id: 'server-node-id' }
+    }))
+    fixtures.launch.mockReset().mockResolvedValue({ id: 'task-id' })
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodesMapping: new Map(),
+      edgesMapping: new Map()
+    })
+    render(<AddItemDialog />)
+    fireEvent.click(screen.getByText('Аккаунт в соцсети'))
+    fireEvent.change(await screen.findByLabelText('Ссылка на профиль'), {
+      target: { value: 'https://vk.ru/alias' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Получить профиль' }))
+    await screen.findByRole('button', { name: 'Добавить профиль' })
+    if (friends) fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить профиль' }))
+    await waitFor(() => expect(fixtures.addNode).toHaveBeenCalledOnce())
+    const node = JSON.parse(fixtures.addNode.mock.calls[0][1])
+    expect(node.nodeType).toBe('socialaccount')
+    expect(node.nodeLabel).toBe('id515596@vk.ru')
+    expect(node.nodeProperties['username.value']).toBe('id515596')
+    expect(node.nodeProperties.profile_url).toBe('https://vk.ru/id515596')
+    if (friends) {
+      await waitFor(() => expect(fixtures.launch).toHaveBeenCalledOnce())
+      expect(fixtures.launch.mock.calls[0][0]).toBe('socialaccount_to_vk_friends')
+      expect(JSON.parse(fixtures.launch.mock.calls[0][1])).toEqual({
+        node_ids: ['server-node-id'],
+        sketch_id: 'sketch-id',
+        params: { max_friends: '1000' }
+      })
+    } else {
+      expect(fixtures.launch).not.toHaveBeenCalled()
+    }
+  }
+)
