@@ -23,6 +23,7 @@ import { renderLink } from './edge/link-renderer'
 import { createRenderContext, RenderContext } from './utils/render-context'
 import { useHighlightState } from './hooks/use-highlight-state'
 import { useComputedHighlights } from './hooks/use-computed-highlights'
+import { useSelectionHighlights } from './hooks/use-selection-highlights'
 import { useTooltip } from './hooks/use-tooltip'
 import { transformGraphData } from './utils/graph-data-transformer'
 import { useGraphLayout } from './hooks/use-graph-layout'
@@ -80,6 +81,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const isSelectorModeActive = useGraphControls((s) => s.isSelectorModeActive)
   const selectionMode = useGraphControls((s) => s.selectionMode)
+  const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
   const nodeColors = useNodesDisplaySettings((s) => s.colors)
   const customIcons = useNodesDisplaySettings((s) => s.customIcons)
   const setActions = useGraphControls((s) => s.setActions)
@@ -289,19 +291,27 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
     useComputedHighlights(highlightedNodeIds, edges)
 
   // Merge: hover is prioritary over persistent highlights
-  const highlightNodes = useMemo(() => {
+  const baseHighlightNodes = useMemo(() => {
     if (hoverHighlightNodes.size > 0) return hoverHighlightNodes
     const merged = new Set<string>(currentNodeHighlights.nodes)
     pathHighlightNodes.forEach((id) => merged.add(id))
     return merged
   }, [hoverHighlightNodes, currentNodeHighlights.nodes, pathHighlightNodes])
 
-  const highlightLinks = useMemo(() => {
+  const baseHighlightLinks = useMemo(() => {
     if (hoverHighlightLinks.size > 0) return hoverHighlightLinks
     const merged = new Set<string>(currentNodeHighlights.links)
     pathHighlightLinks.forEach((id) => merged.add(id))
     return merged
   }, [hoverHighlightLinks, currentNodeHighlights.links, pathHighlightLinks])
+
+  const { highlightNodes, highlightLinks } = useSelectionHighlights(
+    baseHighlightNodes,
+    baseHighlightLinks,
+    selectedNodeIds,
+    edges,
+    highlightSelectionLinks && !showMinimalControls
+  )
 
   const { tooltip, showTooltip, hideTooltip } = useTooltip(graphRef)
 

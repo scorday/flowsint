@@ -18,7 +18,8 @@ import {
   Download,
   LassoSelect,
   ChevronDown,
-  SquareDashed
+  SquareDashed,
+  Share2
 } from 'lucide-react'
 import { memo, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -64,6 +65,8 @@ export const ToolbarButton = memo(function ToolbarButton({
         <div>
           <Button
             onClick={onClick}
+            aria-label={typeof tooltip === 'string' ? tooltip : undefined}
+            aria-pressed={toggled ?? undefined}
             disabled={disabled}
             variant="ghost"
             size={showLabel ? 'sm' : 'icon'}
@@ -124,6 +127,8 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
   const selectionMode = useGraphControls((s) => s.selectionMode)
   const setSelectionMode = useGraphControls((s) => s.setSelectionMode)
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
+  const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
+  const setHighlightSelectionLinks = useGraphControls((s) => s.setHighlightSelectionLinks)
   const setOpenAddRelationDialog = useGraphStore((state) => state.setOpenAddRelationDialog)
   const setOpenMergeDialog = useGraphStore((state) => state.setOpenMergeDialog)
   const filters = useGraphStore((s) => s.filters)
@@ -336,6 +341,12 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
             </DropdownMenu>
           </div>
           <Separator className="w-full" />
+          <ToolbarButton
+            icon={<Share2 className="h-4 w-4 opacity-70" />}
+            tooltip={t('Highlight links between selected nodes')}
+            toggled={highlightSelectionLinks}
+            onClick={() => setHighlightSelectionLinks(!highlightSelectionLinks)}
+          />
           <ToolbarButton
             icon={<GitPullRequestArrow className="h-4 w-4 opacity-70" />}
             tooltip={t('Connect')}

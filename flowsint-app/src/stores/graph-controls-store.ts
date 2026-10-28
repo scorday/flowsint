@@ -9,6 +9,8 @@ type GraphControlsStore = {
   view: ViewType
   isSelectorModeActive: boolean
   selectionMode: SelectionMode
+  highlightSelectionLinks: boolean
+  setHighlightSelectionLinks: (enabled: boolean) => void
   currentLayoutType: LayoutType
   zoomToFit: () => void
   zoomIn: () => void
@@ -32,6 +34,8 @@ export const useGraphControls = create<GraphControlsStore>()(
       view: 'graph',
       isSelectorModeActive: false,
       selectionMode: 'lasso',
+      highlightSelectionLinks: false,
+      setHighlightSelectionLinks: (enabled) => set({ highlightSelectionLinks: enabled }),
       currentLayoutType: 'force',
       zoomToFit: () => {},
       zoomIn: () => {},
@@ -53,7 +57,8 @@ export const useGraphControls = create<GraphControlsStore>()(
       partialize: (state) => ({
         view: state.view,
         currentLayoutType: state.currentLayoutType,
-        selectionMode: state.selectionMode
+        selectionMode: state.selectionMode,
+        highlightSelectionLinks: state.highlightSelectionLinks
       })
     }
   )
