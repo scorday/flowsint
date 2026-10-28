@@ -358,14 +358,14 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
             icon={<Unlink className="h-4 w-4 opacity-70" />}
             tooltip={t('Hide root links and show links between its neighbors')}
             toggled={hideRootLinks}
-            disabled={!currentNodeId && !hideRootLinks}
+            disabled={!currentNodeId && !hideRootLinks && !onlyRootNeighborhood}
             onClick={() => setHideRootLinks(!hideRootLinks)}
           />
           <ToolbarButton
             icon={<ScanEye className="h-4 w-4 opacity-70" />}
             tooltip={t('Show only root and first-level neighbors')}
             toggled={onlyRootNeighborhood}
-            disabled={!currentNodeId && !onlyRootNeighborhood}
+            disabled={!currentNodeId && !onlyRootNeighborhood && !hideRootLinks}
             onClick={() => setOnlyRootNeighborhood(!onlyRootNeighborhood)}
           />
           <ToolbarButton

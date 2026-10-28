@@ -24,6 +24,7 @@ import { createRenderContext, RenderContext } from './utils/render-context'
 import { useHighlightState } from './hooks/use-highlight-state'
 import { useComputedHighlights } from './hooks/use-computed-highlights'
 import { useSelectionHighlights } from './hooks/use-selection-highlights'
+import { useNeighborhoodRoot } from './hooks/use-neighborhood-root'
 import { useTooltip } from './hooks/use-tooltip'
 import { transformGraphData } from './utils/graph-data-transformer'
 import { getNeighborhoodView } from './utils/neighborhood-view'
@@ -137,6 +138,13 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const { theme } = useTheme()
 
+  const neighborhoodRootId = useNeighborhoodRoot(
+    currentNodeId,
+    !showMinimalControls && (onlyRootNeighborhood || hideRootLinks),
+    sketchId ?? instanceId
+  )
+  const highlightedRootId = neighborhoodRootId ?? currentNodeId
+
   const selectedNodeIds = useMemo(() => new Set(selectedNodes.map((n) => n.id)), [selectedNodes])
 
   const selectedNodeIdsRef = useRef(selectedNodeIds)
@@ -146,7 +154,10 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const edgeMap = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges])
 
-  const isCurrent = useCallback((nodeId: string) => nodeId === currentNodeId, [currentNodeId])
+  const isCurrent = useCallback(
+    (nodeId: string) => nodeId === highlightedRootId,
+    [highlightedRootId]
+  )
 
   const isSelected = useCallback((nodeId: string) => selectedNodeIds.has(nodeId), [selectedNodeIds])
 
@@ -242,11 +253,11 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
       getNeighborhoodView(
         nodes,
         edges,
-        currentNodeId,
+        neighborhoodRootId,
         !showMinimalControls && onlyRootNeighborhood,
         !showMinimalControls && hideRootLinks
       ),
-    [nodes, edges, currentNodeId, showMinimalControls, onlyRootNeighborhood, hideRootLinks]
+    [nodes, edges, neighborhoodRootId, showMinimalControls, onlyRootNeighborhood, hideRootLinks]
   )
 
   // Preserve the full adjacency and existing node objects/positions when
@@ -304,9 +315,9 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const currentNodeHighlights = useMemo(() => {
     const nodeSet = new Set<string>()
     const linkSet = new Set<string>()
-    if (!currentNodeId) return { nodes: nodeSet, links: linkSet }
+    if (!highlightedRootId) return { nodes: nodeSet, links: linkSet }
 
-    nodeSet.add(currentNodeId)
+    nodeSet.add(highlightedRootId)
     edges.forEach((edge) => {
       // GraphEdge.source/target are typed as plain id strings, but at
       // runtime this array can be the same reference react-force-graph
@@ -316,16 +327,16 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
         typeof edge.source === 'object' ? (edge.source as { id: string }).id : edge.source
       const targetId =
         typeof edge.target === 'object' ? (edge.target as { id: string }).id : edge.target
-      if (sourceId === currentNodeId) {
+      if (sourceId === highlightedRootId) {
         nodeSet.add(targetId)
         linkSet.add(`${sourceId}-${targetId}`)
-      } else if (targetId === currentNodeId) {
+      } else if (targetId === highlightedRootId) {
         nodeSet.add(sourceId)
         linkSet.add(`${sourceId}-${targetId}`)
       }
     })
     return { nodes: nodeSet, links: linkSet }
-  }, [currentNodeId, edges])
+  }, [highlightedRootId, edges])
 
   // Path highlights from pathfinder
   const { highlightNodes: pathHighlightNodes, highlightLinks: pathHighlightLinks } =

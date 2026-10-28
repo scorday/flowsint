@@ -22,7 +22,11 @@ const capture = vi.hoisted(() => {
     }
   )
   return {
-    graph: null as null | { graphData: GraphData; onNodeDragEnd: (node: GraphNode) => void },
+    graph: null as null | {
+      graphData: GraphData
+      onNodeDragEnd: (node: GraphNode) => void
+      onBackgroundClick: (event: MouseEvent) => void
+    },
     layout: null as null | {
       graphData: GraphData
       saveAllNodePositions: (nodes: GraphNode[], force?: boolean) => void
@@ -102,12 +106,20 @@ beforeEach(() => {
   capture.save.mockClear()
   useGraphStore.getState().updateGraphData(nodes, edges)
   useGraphStore.getState().setCurrentNodeId('root')
-  useGraphControls.setState({ hideRootLinks: false, onlyRootNeighborhood: false })
+  useGraphControls.setState({
+    highlightSelectionLinks: false,
+    hideRootLinks: false,
+    onlyRootNeighborhood: false
+  })
 })
 afterEach(() => {
   cleanup()
   useGraphStore.getState().reset()
-  useGraphControls.setState({ hideRootLinks: false, onlyRootNeighborhood: false })
+  useGraphControls.setState({
+    highlightSelectionLinks: false,
+    hideRootLinks: false,
+    onlyRootNeighborhood: false
+  })
 })
 
 it('filters the actual renderer, minimap and lasso together, restores the graph, and preserves hidden nodes on save', () => {
@@ -165,4 +177,48 @@ it('keeps the separate neighbors preview unaffected by main graph view toggles',
   )
   expect(capture.graph!.graphData.nodes).toHaveLength(4)
   expect(capture.graph!.graphData.links).toHaveLength(4)
+})
+
+it.each([
+  [true, false],
+  [false, true],
+  [true, true]
+])('keeps neighborhood=%s and hidden root links=%s after clicking the canvas', (only, hide) => {
+  render(
+    <GraphViewer
+      nodes={nodes}
+      edges={edges}
+      showIcons={false}
+      showMinimap
+      allowLasso
+      sketchId="sketch"
+      onBackgroundClick={() => {
+        const store = useGraphStore.getState()
+        store.setCurrentNodeId(null)
+        store.clearSelectedNodes()
+        store.clearSelectedEdges()
+        store.setCurrentEdgeId(null)
+      }}
+    />
+  )
+  act(() =>
+    useGraphControls.setState({
+      highlightSelectionLinks: true,
+      onlyRootNeighborhood: only,
+      hideRootLinks: hide
+    })
+  )
+  const before = capture.graph!.graphData
+  act(() => capture.graph!.onBackgroundClick(new MouseEvent('click')))
+  expect(useGraphStore.getState().currentNodeId).toBeNull()
+    expect(capture.graph!.graphData).toBe(before)
+  expect(capture.graph!.graphData.nodes.map((n) => n.id)).toEqual(before.nodes.map((n) => n.id))
+  expect(capture.graph!.graphData.links.map((e) => e.id)).toEqual(before.links.map((e) => e.id))
+  expect(capture.minimap).toEqual(before.nodes.map((n) => n.id))
+  expect(capture.selector).toEqual(before.nodes.map((n) => n.id))
+  expect(useGraphControls.getState().onlyRootNeighborhood).toBe(only)
+  expect(useGraphControls.getState().hideRootLinks).toBe(hide)
+    act(() => useGraphControls.setState({ onlyRootNeighborhood: false, hideRootLinks: false }))
+    expect(capture.graph!.graphData.nodes.map((n) => n.id)).toEqual(nodes.map((n) => n.id))
+    expect(capture.graph!.graphData.links.map((e) => e.id)).toEqual(edges.map((e) => e.id))
 })
