@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { GraphNode, GraphEdge } from '@/types'
 import type { GraphData } from './utils/types'
 import { useGraphControls } from '@/stores/graph-controls-store'
 import { useGraphStore } from '@/stores/graph-store'
 import GraphViewer from './index'
+import { NeighborhoodRootAction, NeighborhoodRootStatus } from '../neighborhood-root-controls'
+import { setLanguage } from '@/i18n'
 
 const capture = vi.hoisted(() => {
   const storage = new Map<string, string>()
@@ -26,6 +28,7 @@ const capture = vi.hoisted(() => {
       graphData: GraphData
       onNodeDragEnd: (node: GraphNode) => void
       onBackgroundClick: (event: MouseEvent) => void
+      onNodeClick: (node: GraphNode, event: MouseEvent) => void
     },
     layout: null as null | {
       graphData: GraphData
@@ -33,7 +36,9 @@ const capture = vi.hoisted(() => {
     },
     minimap: [] as string[],
     selector: [] as string[],
-    save: vi.fn()
+    save: vi.fn(),
+    centerAt: vi.fn(),
+    zoom: vi.fn()
   }
 })
 
@@ -72,7 +77,11 @@ vi.mock('react-force-graph-2d', async () => {
   return {
     default: forwardRef((props: NonNullable<typeof capture.graph>, ref) => {
       capture.graph = props
-      useImperativeHandle(ref, () => ({ zoomToFit: vi.fn() }))
+      useImperativeHandle(ref, () => ({
+        zoomToFit: vi.fn(),
+        centerAt: capture.centerAt,
+        zoom: capture.zoom
+      }))
       return null
     })
   }
@@ -104,23 +113,99 @@ const edges: GraphEdge[] = [
 
 beforeEach(() => {
   capture.save.mockClear()
+  capture.centerAt.mockClear()
+  capture.zoom.mockClear()
+  setLanguage('en')
   useGraphStore.getState().updateGraphData(nodes, edges)
   useGraphStore.getState().setCurrentNodeId('root')
   useGraphControls.setState({
     highlightSelectionLinks: false,
     hideRootLinks: false,
-    onlyRootNeighborhood: false
+    onlyRootNeighborhood: false,
+    neighborhoodRoot: null
   })
 })
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   useGraphStore.getState().reset()
   useGraphControls.setState({
     highlightSelectionLinks: false,
     hideRootLinks: false,
-    onlyRootNeighborhood: false
+    onlyRootNeighborhood: false,
+    neighborhoodRoot: null
   })
 })
+
+it.each(['en', 'ru'] as const)(
+  'inspects friends without changing the graph and switches root explicitly in %s',
+  (language) => {
+    setLanguage(language)
+    const Inspector = () => {
+      const node = useGraphStore((s) => s.getCurrentNode())
+      return node ? (
+        <section aria-label="Inspector">
+          <p>{node.nodeLabel}</p>
+          <NeighborhoodRootAction node={node} graphId="sketch" />
+        </section>
+      ) : null
+    }
+    render(
+      <>
+        <GraphViewer
+          nodes={nodes}
+          edges={edges}
+          showIcons={false}
+          showMinimap
+          allowLasso
+          sketchId="sketch"
+          onNodeClick={(node) => useGraphStore.getState().setCurrentNodeId(node.id)}
+        />
+        <NeighborhoodRootStatus graphId="sketch" />
+        <Inspector />
+      </>
+    )
+    act(() => useGraphControls.getState().setOnlyRootNeighborhood(true))
+    const before = capture.graph!.graphData
+    const rootLabel = language === 'ru' ? 'Показать корень фильтра: root' : 'Show filter root: root'
+    const makeRoot = language === 'ru' ? 'Сделать корнем фильтра' : 'Make filter root'
+    expect(screen.getByRole('button', { name: rootLabel })).toBeTruthy()
+    vi.useFakeTimers()
+    act(() => {
+      capture.graph!.onNodeClick(
+        before.nodes.find((node) => node.id === 'alice')!,
+        new MouseEvent('click')
+      )
+      vi.runAllTimers()
+    })
+    expect(useGraphStore.getState().currentNodeId).toBe('alice')
+    expect(capture.graph!.graphData).toBe(before)
+    expect(capture.minimap).toEqual(['root', 'alice', 'bob'])
+    expect(capture.selector).toEqual(['root', 'alice', 'bob'])
+    expect(capture.centerAt).not.toHaveBeenCalled()
+    expect(capture.zoom).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: rootLabel })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: makeRoot }))
+    expect(useGraphControls.getState().neighborhoodRoot).toEqual({
+      graphId: 'sketch',
+      nodeId: 'alice'
+    })
+    expect(capture.graph!.graphData.nodes.map((node) => node.id)).toEqual([
+      'root',
+      'alice',
+      'bob',
+      'second-hop'
+    ])
+    const pinnedLabel = language === 'ru' ? 'Корень фильтра закреплён' : 'Filter root pinned'
+    expect(screen.getByRole('button', { name: pinnedLabel }).hasAttribute('disabled')).toBe(true)
+    act(() => useGraphStore.getState().setCurrentNodeId('bob'))
+    const showRoot =
+      language === 'ru' ? 'Показать корень фильтра: alice' : 'Show filter root: alice'
+    fireEvent.click(screen.getByRole('button', { name: showRoot }))
+    expect(useGraphStore.getState().currentNodeId).toBe('alice')
+    expect(capture.save).not.toHaveBeenCalled()
+  }
+)
 
 it('filters the actual renderer, minimap and lasso together, restores the graph, and preserves hidden nodes on save', () => {
   render(

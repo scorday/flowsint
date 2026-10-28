@@ -1,4 +1,12 @@
 {
+  "Show filter root: {{name}}": "Показать корень фильтра: {{name}}",
+  "Filter root: {{name}}": "Корень фильтра: {{name}}",
+  "Select a node to pin the filter root": "Выберите узел для закрепления корня фильтра",
+  "Change the root with “Make filter root” in node properties.": "Смена корня — кнопкой «Сделать корнем фильтра» в свойствах узла.",
+  "Filter root pinned": "Корень фильтра закреплён",
+  "Make filter root": "Сделать корнем фильтра",
+  "Inspect other nodes without changing this root.": "Просмотр других узлов не меняет этот корень.",
+  "Rebuild the filtered graph around this node.": "Перестроить отфильтрованный граф вокруг этого узла.",
   "Hide root links and show links between its neighbors": "Скрыть связи корня и оставить связи между его друзьями",
   "Show only root and first-level neighbors": "Оставить только корень и друзей первого уровня",
   "Highlight links between selected nodes": "Выделить связи между выделенными узлами",

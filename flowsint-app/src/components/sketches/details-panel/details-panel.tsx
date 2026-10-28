@@ -47,6 +47,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { MinimalTiptapEditor } from '@/components/analyses/editor/minimal-tiptap'
 import type { Content } from '@tiptap/react'
 import { propertyUrl } from './property-url'
+import { NeighborhoodRootAction } from '../neighborhood-root-controls'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -548,6 +549,8 @@ const DetailsPanel = memo(() => {
           </LaunchFlow>
         </div>
       )}
+
+      <NeighborhoodRootAction node={node} graphId={sketchId} />
 
       {/* Tabs */}
       <Tabs

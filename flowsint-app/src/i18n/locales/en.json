@@ -1,4 +1,12 @@
 {
+  "Show filter root: {{name}}": "Show filter root: {{name}}",
+  "Filter root: {{name}}": "Filter root: {{name}}",
+  "Select a node to pin the filter root": "Select a node to pin the filter root",
+  "Change the root with “Make filter root” in node properties.": "Change the root with “Make filter root” in node properties.",
+  "Filter root pinned": "Filter root pinned",
+  "Make filter root": "Make filter root",
+  "Inspect other nodes without changing this root.": "Inspect other nodes without changing this root.",
+  "Rebuild the filtered graph around this node.": "Rebuild the filtered graph around this node.",
   "Hide root links and show links between its neighbors": "Hide root links and show links between its neighbors",
   "Show only root and first-level neighbors": "Show only root and first-level neighbors",
   "Highlight links between selected nodes": "Highlight links between selected nodes",

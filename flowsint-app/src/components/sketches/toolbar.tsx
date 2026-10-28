@@ -42,6 +42,7 @@ import { sketchService } from '@/api/sketch-service'
 import { useParams } from '@tanstack/react-router'
 import { exportToPNG } from './graph/utils/export-to-png'
 import { PathFinder } from './graph/actions/path-finder'
+import { NeighborhoodRootStatus } from './neighborhood-root-controls'
 
 // Tooltip wrapper component to avoid repetition
 export const ToolbarButton = memo(function ToolbarButton({
@@ -411,6 +412,12 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
           />
         </Filters>
       </FloatingBar>
+
+      {view === 'graph' && (hideRootLinks || onlyRootNeighborhood) && (
+        <FloatingBar className="top-14 left-1/2 -translate-x-1/2 max-w-sm">
+          <NeighborhoodRootStatus graphId={sketchId} />
+        </FloatingBar>
+      )}
 
       {/* Top right: Status, Export, Reload */}
       <FloatingBar className="top-3 right-3">

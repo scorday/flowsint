@@ -141,7 +141,8 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const neighborhoodRootId = useNeighborhoodRoot(
     currentNodeId,
     !showMinimalControls && (onlyRootNeighborhood || hideRootLinks),
-    sketchId ?? instanceId
+    sketchId ?? instanceId,
+    !showMinimalControls
   )
   const highlightedRootId = neighborhoodRootId ?? currentNodeId
 
@@ -155,8 +156,8 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const edgeMap = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges])
 
   const isCurrent = useCallback(
-    (nodeId: string) => nodeId === highlightedRootId,
-    [highlightedRootId]
+    (nodeId: string) => nodeId === (currentNodeId ?? neighborhoodRootId),
+    [currentNodeId, neighborhoodRootId]
   )
 
   const isSelected = useCallback((nodeId: string) => selectedNodeIds.has(nodeId), [selectedNodeIds])
@@ -407,7 +408,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
     onEdgeRightClick,
     onBackgroundClick,
     onBackgroundRightClick,
-    autoZoomOnCurrentNode,
+    autoZoomOnCurrentNode: autoZoomOnCurrentNode && !neighborhoodView.active,
     autoZoomOnNode,
     graphRef,
     edgeMap,
