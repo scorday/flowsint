@@ -16,7 +16,7 @@ def test_enricher_registry_enricher_not_found():
 
 def test_every_builtin_has_audited_public_metadata_in_every_registry_view():
     items = ENRICHER_REGISTRY.list()
-    assert len(items) == 56
+    assert len(items) == 57
     categorized = {
         item["name"]: item
         for category in ENRICHER_REGISTRY.list_by_categories().values()

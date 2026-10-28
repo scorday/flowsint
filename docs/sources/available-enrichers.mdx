@@ -46,6 +46,40 @@ Previously collected graph edges are not deleted by a refresh. Complete means
 the API-visible list was fetched during this run, not that all actual private
 friendships are known. Concurrent changes to VK lists may affect pagination.
 
+**socialaccount_to_vk_friend_graph**: Build the friendship graph within **two
+hops** of the selected VK SocialAccount(s). Fetches their friend lists, then
+the lists of the first-hop friends. Second-hop accounts are added as nodes but
+their lists are not expanded. Shared accounts and cycles reuse the same numeric
+VK identity; selected input labels and annotations remain attached to their
+original nodes. An account is expanded once per batch, including overlapping
+inputs. Each observed friendship pair produces one `FRIEND_OF` link per run;
+reciprocal observations and self-links do not produce extra links. Existing
+graph data is not deleted.
+
+Limits apply to the **whole batch**, except `max_friends`, which applies to each
+expanded account at either level:
+
+| Parameter | Default | Allowed range |
+| --- | --- | --- |
+| `max_friends` | 1000 | 1–10000 |
+| `max_requests` | 1000 | 1–5000, including seed profile lookups |
+| `max_nodes` | 50000 | 1–100000, including seeds |
+| `max_edges` | 100000 | 1–500000 unique friendship pairs |
+| `max_seconds` | 600 | 1–1800; an in-flight HTTP request may add up to 20 seconds |
+
+The roots record `vk_graph_scope=batch`, `vk_graph_depth=2`, `vk_graph_status`
+(`complete`, `partial`, `truncated` or `stopped`), `vk_graph_complete`, the stop
+reason, request/node/edge counts, scanned/pending account counts and private,
+failed, truncated and unresolved-root counts. These are **batch totals**, not
+per-root counts. Individual expanded accounts retain their `vk_friends_*`
+collection status; queued accounts are `pending`. Limits and VK restrictions
+retain the graph already collected. Private lists and failed branches make the
+overall result partial while other accessible branches continue. API restrictions
+stop the batch without retrying. Complete means all required API-visible lists
+were retrieved in this run, not that hidden friendships are known. Repeated,
+empty-inconsistent or changing-count pages do not become complete collections.
+Use the account's enricher menu and select `socialaccount_to_vk_friend_graph`.
+
 Create a Vault entry named **VK_SERVICE_TOKEN**, or select another project Vault
 entry in launch parameters. An empty selection falls back to the named Vault
 entry and then the server environment variable `VK_SERVICE_TOKEN`. The launch
@@ -56,7 +90,8 @@ pass it only to API/Celery, never to the browser. The local `.env` is ignored by
 
 The HTTP client sends the token only in the Authorization header to `api.vk.ru`,
 does not follow redirects, and never logs raw error bodies or request headers.
-Each batch has a maximum of 100 requests, 20-second HTTP timeouts and 8 MiB per
+The single-level enrichers have a maximum of 100 requests per batch; the two-hop
+graph has the configurable budget described above. All use 20-second HTTP timeouts and 8 MiB per
 response. Requests sharing a key are paced to 4 starts/second per worker process,
 including across separate Celery event loops. Multiple processes have independent
 gates; deployments must account for their combined use of the same application key.

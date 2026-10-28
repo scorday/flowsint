@@ -41,9 +41,14 @@ _gates_lock = threading.Lock()
 
 
 class VKClient:
-    def __init__(self, http: httpx.AsyncClient, token: str) -> None:
+    def __init__(
+        self, http: httpx.AsyncClient, token: str, *, max_requests: int = 100
+    ) -> None:
+        if type(max_requests) is not int or not 1 <= max_requests <= 5000:
+            raise ValueError("VK request budget must be between 1 and 5000")
         self.http = http
         self._token = token
+        self.max_requests = max_requests
         self.requests = 0
         fingerprint = hashlib.sha256(token.encode()).hexdigest()
         with _gates_lock:
@@ -71,8 +76,10 @@ class VKClient:
     async def call(self, method: str, params: dict[str, Any]) -> Any:
         if method not in {"users.get", "friends.get"}:
             raise VKError("VK: unsupported method")
-        if self.requests >= 100:
-            raise VKStopped("VK: batch request budget reached (100 calls)")
+        if self.requests >= self.max_requests:
+            raise VKStopped(
+                f"VK: batch request budget reached ({self.max_requests} calls)"
+            )
         await self._pace()
         self.requests += 1
         try:
