@@ -9,6 +9,66 @@ version: "1.2.8"
 last_updated_at: "2026-05-15"
 ---
 
+### VK
+
+**website_to_vk_profile**: Website with a direct `https://vk.ru/id515596`,
+`https://vk.com/vertman` or mobile VK profile URL → SocialAccount. Uses `users.get`
+with a server-side service token. Adds the numeric `vk_user_id`, available name,
+avatar, location, profile URL, retrieval time and `is_private`. The extra
+`vk_profile_status` is `open`, `closed`, `deactivated` or `unknown`.
+Missing `is_closed` is unknown, never proof that the profile is open. Deleted or
+banned accounts retain their deactivation status. Groups and non-profile URLs
+are not accepted as user profiles.
+New accounts use the stable graph label `id<user-id>@vk.ru`; display names are
+stored separately, so a name change does not create another node.
+
+**socialaccount_to_vk_profile**: Refresh an existing VK SocialAccount, preserving
+its graph identifier, label and user annotations. Accepts its VK `profile_url`,
+or a username/`id123` with platform `vk.ru`, `vk.com`, `VK` or `VKontakte`.
+Fresh profile fields replace the previous provider snapshot; failed lookups
+are logged and do not create an assumed-open account.
+
+**socialaccount_to_vk_friends**: VK SocialAccount → available friends as
+SocialAccount nodes, connected to the correct source by `FRIEND_OF`. The enricher
+does not recursively expand friends of friends: select discovered nodes to run
+it again. Batch inputs retain their own source relationships; failed inputs
+cannot shift the association to a different account.
+When an input is also returned as another input's friend, its existing label
+and full profile are reused. Partial friend records do not clear previously
+enriched fields omitted by `friends.get`.
+
+`max_friends` defaults to 1000 per input and accepts 1–10000. Pagination retains
+all returned unique IDs up to that limit. Source nodes record
+`vk_friends_status`, `vk_friends_reported_count`, `vk_friends_collected_count`,
+`vk_friends_complete` and retrieval time. A real empty list is complete; private
+profiles, malformed/repeated pages, limits and errors are explicitly distinct.
+Previously collected graph edges are not deleted by a refresh. Complete means
+the API-visible list was fetched during this run, not that all actual private
+friendships are known. Concurrent changes to VK lists may affect pagination.
+
+Create a Vault entry named **VK_SERVICE_TOKEN**, or select another project Vault
+entry in launch parameters. An empty selection falls back to the named Vault
+entry and then the server environment variable `VK_SERVICE_TOKEN`. The launch
+parameter contains a Vault reference, not a literal token. A key is always needed
+at execution; no public catalog or result contains the token. `.env.example`
+provides the empty environment slot, and the development/release Compose files
+pass it only to API/Celery, never to the browser. The local `.env` is ignored by Git.
+
+The HTTP client sends the token only in the Authorization header to `api.vk.ru`,
+does not follow redirects, and never logs raw error bodies or request headers.
+Each batch has a maximum of 100 requests, 20-second HTTP timeouts and 8 MiB per
+response. Requests sharing a key are paced to 4 starts/second per worker process,
+including across separate Celery event loops. Multiple processes have independent
+gates; deployments must account for their combined use of the same application key.
+HTTP 429 and restriction codes 6/9/14/17/29/32 stop the batch with a shared 60-second
+cooldown; authorization/application restrictions stop without retrying. Completed
+pages and earlier inputs remain in the graph with an incomplete/stopped status.
+Error 30 marks a private profile; it does not mean an empty friend list.
+
+Official contracts: [users.get](https://dev.vk.ru/ru/method/users.get),
+[friends.get](https://dev.vk.ru/ru/method/friends.get),
+[API limits](https://dev.vk.ru/ru/api/api-requests).
+
 ### Aviation
 
 **aircraft_to_details**: Registration or ICAO hex → aircraft model, manufacturer

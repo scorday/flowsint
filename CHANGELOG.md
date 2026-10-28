@@ -5,6 +5,14 @@ All notable changes to Flowsint will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [flowsint-vk-enrichers-20261028] - 2026-10-28 - staging
+
+### Добавлено
+
+- Энричеры VK: получение профиля из ссылки, обновление существующего аккаунта и проверка открытости, получение друзей со связями `FRIEND_OF`. Сервисный ключ берётся из Vault или серверного окружения; пагинация, ограничения объёма, статусы неполного списка и остановка при ограничениях VK сохраняют уже полученные данные.
+
 ### [1.2.12](https://github.com/reconurge/flowsint/compare/v1.2.11...v1.2.12) (2026-08-26)
 
 
