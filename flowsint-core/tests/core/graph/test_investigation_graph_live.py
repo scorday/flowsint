@@ -157,10 +157,7 @@ def test_exploration_preserves_arrows_and_respects_filters(graph):
     assert boundary in [e["id"] for e in neighborhood["edges"]]
 
 
-def test_exploration_is_scoped_ignores_tombstones_and_bounds_results(
-    graph, monkeypatch
-):
-    from flowsint_core.core.graph.exploration import InvestigationExplorer
+def test_exploration_is_scoped_and_ignores_tombstones(graph):
 
     repo, connection = graph
     ids, links = exploration_chain(repo)
@@ -180,16 +177,6 @@ def test_exploration_is_scoped_ignores_tombstones_and_bounds_results(
         assert repo.explore_graph({"root_id": ids[0], "depth": 5}, "view-a")[
             "distances"
         ] == {ids[0]: 0, ids[1]: 1}
-        monkeypatch.setattr(InvestigationExplorer, "NODE_LIMIT", 1)
-        partial = repo.explore_graph({"root_id": ids[0], "depth": 5}, "view-a")
-        assert partial["truncated"]
-        assert len(partial["nodes"]) == 1
-        monkeypatch.setattr(InvestigationExplorer, "SCAN_LIMIT", 1)
-        partial = repo.explore_graph(
-            {"root_id": ids[-1], "mode": "path", "target_id": ids[0], "depth": 5},
-            "view-a",
-        )
-        assert partial["truncated"] and partial["paths"] == []
     finally:
         connection.execute_write(
             "MATCH (n) WHERE n.scope_key = $scope DETACH DELETE n",
@@ -200,10 +187,7 @@ def test_exploration_is_scoped_ignores_tombstones_and_bounds_results(
         )
 
 
-def test_exploration_returns_parallel_paths_without_cycles_and_reports_limit(
-    graph, monkeypatch
-):
-    from flowsint_core.core.graph.exploration import InvestigationExplorer
+def test_exploration_returns_all_parallel_paths_without_cycles(graph):
 
     repo, _ = graph
     ids, links = exploration_chain(repo, 2)
@@ -213,13 +197,7 @@ def test_exploration_returns_parallel_paths_without_cycles_and_reports_limit(
     ]
     options = {"root_id": ids[0], "mode": "path", "target_id": ids[2], "depth": 5}
     result = repo.explore_graph(options, "view-a")
-    assert result["paths"] == [
-        {"node_ids": [ids[0], ids[2]], "edge_ids": [direct]},
-        {"node_ids": ids, "edge_ids": links},
-    ]
-    monkeypatch.setattr(InvestigationExplorer, "PATH_LIMIT", 1)
-    result = repo.explore_graph(options, "view-a")
-    assert result["truncated"] and len(result["paths"]) == 1
+    assert {tuple(p["edge_ids"]) for p in result["paths"]} == {(direct,), tuple(links)}
 
 
 def test_manual_matches_find_known_alias_across_views_without_writes(graph):
@@ -960,3 +938,108 @@ def test_deleted_view_and_investigation_reject_writes_from_previously_admitted_t
     with pytest.raises(PermissionError, match="Investigation graph has been deleted"):
         repo.create_node(vk(789), "view-b")
     assert not repo.get_investigation_graph()["nodes"]
+
+
+def test_complete_search_and_atomic_apply_above_old_limits(graph):
+    from flowsint_core.core.graph.exploration import (
+        ExplorationOptions,
+        InvestigationExplorer,
+    )
+
+    repo, connection = graph
+    root = repo.create_node(vk(987654), "view-a")
+    # Seed a star efficiently: >200 objects, >500 edges and >5000 scanned
+    # relationships, without touching any other scope.
+    connection.execute_write(
+        """MATCH (a:GraphEntity {scope_key: $scope, uid: $root})
+        UNWIND range(1, 12050) AS i
+        CREATE (b:GraphEntity {scope_key: $scope, uid: 'large-' + toString(i),
+          nodeType: 'socialaccount', nodeLabel: 'Person ' + toString(i)})
+        CREATE (a)-[:FRIEND_OF {scope_key: $scope, uid: 'edge-' + toString(i), view_ids: ['view-b']}]->(b)""",
+        {"scope": repo.scope.key, "root": root},
+    )
+    explorer = InvestigationExplorer(connection, repo.scope)
+    resources = {kind: {} for kind in ("nodes", "edges", "paths")}
+    for kind, rows in explorer.iter_results(
+        ExplorationOptions(root_id=root, depth=1), "view-a"
+    ):
+        assert len(rows) <= 500
+        resources[kind].update({row["id"]: row for row in rows})
+    assert len(resources["nodes"]) == 12051
+    assert len(resources["edges"]) == 12050
+
+    # The final batch contains an invalidated item: earlier batches must roll back.
+    def invalid():
+        yield "nodes", list(resources["nodes"].values())[:500]
+        yield "nodes", [{"id": "deleted-or-foreign"}]
+
+    before = repo.get_sketch_graph("view-b")
+    with pytest.raises(ValueError, match="changed"):
+        repo.attach_result_batches(invalid, "view-b")
+    assert repo.get_sketch_graph("view-b") == before
+
+    def valid():
+        for kind in ("nodes", "edges"):
+            rows = list(resources[kind].values())
+            for offset in range(0, len(rows), 500):
+                yield kind, rows[offset : offset + 500]
+
+    repo.attach_result_batches(valid, "view-b")
+    created = repo.get_sketch_graph("view-b")
+    assert len(created["nodes"]) == 12051
+    assert len(created["edges"]) == 12050
+    assert len(repo.get_sketch_graph("view-a")["nodes"]) == 1
+
+
+def test_complete_path_search_exceeds_twenty_paths(graph):
+    from flowsint_core.core.graph.exploration import (
+        ExplorationOptions,
+        InvestigationExplorer,
+    )
+
+    repo, connection = graph
+    root, target = [repo.create_node(vk(998800 + i), "view-a") for i in range(2)]
+    connection.execute_write(
+        """MATCH (a:GraphEntity {scope_key: $scope, uid: $root}),
+                  (z:GraphEntity {scope_key: $scope, uid: $target})
+        UNWIND range(1, 75) AS i
+        CREATE (b:GraphEntity {scope_key: $scope, uid: 'via-' + toString(i),
+            nodeType: 'socialaccount', nodeLabel: 'Via ' + toString(i)})
+        CREATE (a)-[:FRIEND_OF {scope_key: $scope, uid: 'first-' + toString(i)}]->(b)
+        CREATE (b)-[:FRIEND_OF {scope_key: $scope, uid: 'second-' + toString(i)}]->(z)""",
+        {"scope": repo.scope.key, "root": root, "target": target},
+    )
+    paths = [
+        p
+        for kind, rows in InvestigationExplorer(connection, repo.scope).iter_results(
+            ExplorationOptions(root_id=root, target_id=target, mode="path", depth=2),
+            "view-a",
+        )
+        if kind == "paths"
+        for p in rows
+    ]
+    assert len(paths) == 75
+    assert all(len(p["node_ids"]) == len(set(p["node_ids"])) for p in paths)
+
+
+def test_graph_keyset_pages_are_complete_and_reject_mixed_revisions(graph):
+    repo, _ = graph
+    ids, edges = exploration_chain(repo, 4)
+    repo.attach_subgraph(ids, edges, "view-a")
+    revision = None
+    for kind, expected in (("nodes", set(ids)), ("edges", set(edges))):
+        after, found = "", []
+        while True:
+            page = repo.get_sketch_graph_page("view-a", kind, after, 2, revision)
+            revision = page["revision"]
+            assert len(page[kind]) <= 2
+            found.extend(row["id"] for row in page[kind])
+            if not page["has_more"]:
+                break
+            assert page["after"] > after
+            after = page["after"]
+        assert set(found) == expected
+        assert len(found) == len(expected)
+    repo.create_node(vk(99887766), "view-a")
+    with pytest.raises(ValueError, match="changed"):
+        repo.get_sketch_graph_page("view-a", "nodes", "", 2, revision)

@@ -90,8 +90,21 @@ class GraphRepositoryProtocol(Protocol):
     ) -> List[GraphDict]: ...
 
     def get_investigation_graph(
-        self, limit: int = 100000
+        self, limit: int | None = None
     ) -> Dict[str, List[Dict[str, Any]]]: ...
+
+    def get_sketch_graph_page(
+        self,
+        sketch_id: str,
+        kind: str,
+        after: str,
+        size: int,
+        revision: int | None = None,
+    ) -> GraphDict: ...
+
+    def iter_exploration(self, options: GraphDict, sketch_id: str) -> Any: ...
+
+    def attach_result_batches(self, batches: Any, sketch_id: str) -> None: ...
 
     def attach_subgraph(
         self, node_ids: List[str], edge_ids: List[str], sketch_id: str
@@ -104,7 +117,7 @@ class GraphRepositoryProtocol(Protocol):
     def delete_investigation_graph(self, sketch_id: str) -> None: ...
 
     def get_sketch_graph(
-        self, sketch_id: str, limit: int = 100000
+        self, sketch_id: str, limit: int | None = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Get all nodes and edges for a sketch."""
         ...

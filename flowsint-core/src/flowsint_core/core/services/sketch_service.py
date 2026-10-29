@@ -71,6 +71,7 @@ class SketchService(BaseService):
         owner_id: ActorID,
         node_ids: Optional[List[str]] = None,
         edge_ids: Optional[List[str]] = None,
+        result_batches: Any = None,
     ) -> Sketch:
         if not investigation_id:
             raise ValidationError("Investigation not found")
@@ -87,12 +88,15 @@ class SketchService(BaseService):
         graph = None
         attached = False
         try:
-            if node_ids or edge_ids:
+            if node_ids or edge_ids or result_batches:
                 self._flush()
                 graph = create_graph_service(
                     str(sketch.id), enable_batching=False, db=self.db
                 )
-                graph.attach_subgraph(node_ids or [], edge_ids or [])
+                if result_batches:
+                    graph.attach_result_batches(result_batches)
+                else:
+                    graph.attach_subgraph(node_ids or [], edge_ids or [])
                 attached = True
             self._commit()
         except Exception as exc:
@@ -214,6 +218,25 @@ class SketchService(BaseService):
 
         graph = graph_data.model_dump(mode="json", serialize_as_any=True)
         return {"nds": graph["nodes"], "rls": graph["edges"]}
+
+    def get_graph_page(
+        self,
+        sketch_id: UUID,
+        actor: ActorID,
+        kind: str,
+        after: str,
+        size: int,
+        revision: int | None = None,
+    ) -> Dict[str, Any]:
+        self.get_by_id(sketch_id, actor)
+        resolver = (
+            self._type_registry.build_type_resolver(actor)
+            if self._type_registry
+            else None
+        )
+        return create_graph_service(
+            str(sketch_id), type_resolver=resolver
+        ).get_sketch_graph_page(kind, after, size, revision)
 
     def add_node(
         self, sketch_id: UUID, user_id: ActorID, node: GraphNode

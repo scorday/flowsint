@@ -1,8 +1,8 @@
-"""Bounded, read-only exploration of an investigation's canonical graph."""
+"""Complete, read-only exploration of an investigation's canonical graph."""
 
 from __future__ import annotations
 
-from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from .connection import GraphConnectionProtocol
@@ -33,12 +33,6 @@ class ExplorationOptions:
 
 
 class InvestigationExplorer:
-    NODE_LIMIT = 200
-    EDGE_LIMIT = 500
-    SCAN_LIMIT = 5000
-    PATH_LIMIT = 20
-    PATH_STATE_LIMIT = 10000
-
     def __init__(self, connection: GraphConnectionProtocol, scope: GraphScope) -> None:
         self.connection = connection
         self.scope = scope
@@ -78,155 +72,207 @@ class InvestigationExplorer:
             "truncated": len(nodes) > 100 or len(edges) > 100,
         }
 
-    def explore(self, options: ExplorationOptions, sketch_id: str) -> GraphDict:
+    BATCH_SIZE = 500
+
+    def revision(self) -> int:
+        rows = self.connection.query(
+            "MATCH (g:GraphScope {key: $scope}) RETURN coalesce(g.revision, 0) AS revision",
+            {"scope": self.scope.key},
+        )
+        return rows[0]["revision"] if rows else 0
+
+    def _neighbors(
+        self,
+        origins: list[str],
+        options: ExplorationOptions,
+        sketch_id: str,
+        *,
+        outgoing: bool = False,
+    ) -> Iterator[list[GraphDict]]:
+        """Keyset batches bound each query, without limiting the overall result."""
+        cursor_origin, cursor_edge = "", ""
+        while True:
+            rows = self.connection.query(
+                """MATCH (a:GraphEntity {scope_key: $scope})-[r]-(b:GraphEntity {scope_key: $scope})
+                WHERE a.uid IN $origins AND a.deleted_at IS NULL AND b.deleted_at IS NULL
+                  AND r.scope_key = $scope AND r.deleted_at IS NULL
+                  AND (NOT $directed OR startNode(r) = a)
+                  AND (size($node_types) = 0 OR b.nodeType IN $node_types OR b.uid IN $endpoints)
+                  AND (size($edge_types) = 0 OR type(r) IN $edge_types)
+                  AND (a.uid > $cursor_origin OR (a.uid = $cursor_origin AND r.uid > $cursor_edge))
+                OPTIONAL MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[m:SHOWS]->(b)
+                RETURN DISTINCT a.uid AS origin, b.uid AS neighbor,
+                  b.nodeLabel AS nodeLabel, b.nodeType AS nodeType, m IS NOT NULL AS on_sketch,
+                  r.uid AS id, type(r) AS label, startNode(r).uid AS source, endNode(r).uid AS target,
+                  startNode(r).nodeLabel AS sourceLabel, endNode(r).nodeLabel AS targetLabel,
+                  [v IN coalesce(r.view_ids, []) WHERE v IN $views] AS views
+                ORDER BY origin, id LIMIT $batch""",
+                {
+                    "scope": self.scope.key,
+                    "sketch": sketch_id,
+                    "views": list(self.scope.sketch_ids),
+                    "origins": origins,
+                    "directed": outgoing or options.directed,
+                    "node_types": options.node_types,
+                    "edge_types": options.edge_types,
+                    "endpoints": [options.root_id, options.target_id],
+                    "cursor_origin": cursor_origin,
+                    "cursor_edge": cursor_edge,
+                    "batch": self.BATCH_SIZE,
+                },
+            )
+            if not rows:
+                return
+            yield rows
+            cursor_origin, cursor_edge = rows[-1]["origin"], rows[-1]["id"]
+
+    @staticmethod
+    def _node(row: GraphDict, distance: int) -> GraphDict:
+        return {
+            "id": row.get("neighbor", row.get("id")),
+            "nodeLabel": row["nodeLabel"],
+            "nodeType": row["nodeType"],
+            "on_sketch": row["on_sketch"],
+            "distance": distance,
+        }
+
+    @staticmethod
+    def _edge(row: GraphDict) -> GraphDict:
+        return {
+            key: row[key]
+            for key in (
+                "id",
+                "source",
+                "target",
+                "label",
+                "sourceLabel",
+                "targetLabel",
+                "views",
+            )
+        }
+
+    def iter_results(
+        self, options: ExplorationOptions, sketch_id: str
+    ) -> Iterator[tuple[str, list[GraphDict]]]:
+        """Stream every match. The caller persists batches and checks cancellation."""
         endpoints = [options.root_id] + (
             [options.target_id] if options.mode == "path" and options.target_id else []
         )
         known = self.search("", endpoints, sketch_id)["nodes"]
         if {n["id"] for n in known} != set(endpoints):
             raise ValueError("Object not found in this investigation")
+        root = next(n for n in known if n["id"] == options.root_id)
+        if options.mode == "path":
+            # Depth-first iteration keeps only depth <= 5 cursors in memory;
+            # parallel edges are separate paths, cycles never repeat a node.
+            def visit(
+                ids: list[str], edges: list[GraphDict], nodes: list[GraphDict]
+            ) -> Iterator[tuple[str, list[GraphDict]]]:
+                for rows in self._neighbors([ids[-1]], options, sketch_id):
+                    yield "checkpoint", []
+                    for row in rows:
+                        neighbor = row["neighbor"]
+                        if neighbor in ids:
+                            continue
+                        next_ids = [*ids, neighbor]
+                        next_edges = [*edges, self._edge(row)]
+                        next_nodes = [*nodes, self._node(row, len(edges) + 1)]
+                        if neighbor == options.target_id:
+                            yield "nodes", next_nodes
+                            yield "edges", next_edges
+                            yield (
+                                "paths",
+                                [
+                                    {
+                                        "id": ":".join(e["id"] for e in next_edges),
+                                        "node_ids": next_ids,
+                                        "edge_ids": [e["id"] for e in next_edges],
+                                        "nodes": next_nodes,
+                                        "edges": next_edges,
+                                    }
+                                ],
+                            )
+                        elif len(next_edges) < options.depth:
+                            yield from visit(next_ids, next_edges, next_nodes)
+
+            yield from visit([options.root_id], [], [self._node(root, 0)])
+            return
         distances = {options.root_id: 0}
         frontier = [options.root_id]
-        edges: dict[str, GraphDict] = {}
-        scanned = 0
-        truncated = False
-        node_budget = 2000 if options.mode == "path" else self.NODE_LIMIT
+        yield "nodes", [self._node(root, 0)]
         for step in range(1, options.depth + 1):
+            following = []
+            for offset in range(0, len(frontier), self.BATCH_SIZE):
+                for rows in self._neighbors(
+                    frontier[offset : offset + self.BATCH_SIZE], options, sketch_id
+                ):
+                    nodes = []
+                    for row in rows:
+                        if row["neighbor"] not in distances:
+                            distances[row["neighbor"]] = step
+                            following.append(row["neighbor"])
+                            nodes.append(self._node(row, step))
+                    yield "nodes", nodes
+            frontier = following
             if not frontier:
                 break
-            remaining = self.SCAN_LIMIT - scanned
-            rows = self.connection.query(
-                """MATCH (a:GraphEntity {scope_key: $scope})-[r]-(b:GraphEntity {scope_key: $scope})
-                WHERE a.uid IN $frontier AND a.deleted_at IS NULL AND b.deleted_at IS NULL
-                    AND r.scope_key = $scope AND r.deleted_at IS NULL
-                    AND (NOT $directed OR startNode(r) = a)
-                    AND (size($node_types) = 0 OR b.nodeType IN $node_types OR b.uid IN $endpoints)
-                    AND (size($edge_types) = 0 OR type(r) IN $edge_types)
-                RETURN a.uid AS origin, b.uid AS neighbor, r.uid AS id, type(r) AS type,
-                    startNode(r).uid AS source, endNode(r).uid AS target, properties(r) AS data
-                ORDER BY r.uid, a.uid LIMIT $limit""",
-                {
-                    "scope": self.scope.key,
-                    "frontier": frontier,
-                    "directed": options.directed,
-                    "node_types": options.node_types,
-                    "edge_types": options.edge_types,
-                    "endpoints": endpoints,
-                    "limit": remaining + 1,
-                },
-            )
-            if len(rows) > remaining:
-                truncated = True
-            frontier = []
-            for row in rows[:remaining]:
-                neighbor = row["neighbor"]
-                if neighbor not in distances:
-                    if len(distances) >= node_budget:
-                        truncated = True
-                        continue
-                    distances[neighbor] = step
-                    frontier.append(neighbor)
-                edges[row["id"]] = row
-            scanned += min(len(rows), remaining)
-            if scanned >= self.SCAN_LIMIT:
-                truncated = True
-                break
-
-        paths: list[GraphDict] = []
-        if options.mode == "path":
-            adjacency: dict[str, list[tuple[str, str]]] = {}
-            for edge in edges.values():
-                adjacency.setdefault(edge["source"], []).append(
-                    (edge["target"], edge["id"])
+        # Include every recorded relation between the discovered objects,
+        # including relations connecting two boundary objects.
+        ids = list(distances)
+        for offset in range(0, len(ids), self.BATCH_SIZE):
+            for rows in self._neighbors(
+                ids[offset : offset + self.BATCH_SIZE],
+                options,
+                sketch_id,
+                outgoing=True,
+            ):
+                yield (
+                    "edges",
+                    [self._edge(row) for row in rows if row["neighbor"] in distances],
                 )
-                if not options.directed:
-                    adjacency.setdefault(edge["target"], []).append(
-                        (edge["source"], edge["id"])
-                    )
-            queue: deque[tuple[list[str], list[str]]] = deque([([options.root_id], [])])
-            states = 0
-            while queue:
-                path_nodes, links = queue.popleft()
-                states += 1
-                if path_nodes[-1] == options.target_id:
-                    if len(paths) == self.PATH_LIMIT:
-                        truncated = True
-                        break
-                    paths.append({"node_ids": path_nodes, "edge_ids": links})
-                    continue
-                if states >= self.PATH_STATE_LIMIT:
-                    truncated = True
-                    break
-                if len(links) >= options.depth:
-                    continue
-                for neighbor, edge_id in adjacency.get(path_nodes[-1], []):
-                    if neighbor not in path_nodes:
-                        if states + len(queue) >= self.PATH_STATE_LIMIT:
-                            truncated = True
-                            break
-                        queue.append(([*path_nodes, neighbor], [*links, edge_id]))
-            node_ids = {uid for path in paths for uid in path["node_ids"]}
-            edge_ids = {uid for path in paths for uid in path["edge_ids"]}
-            edges = {uid: edge for uid, edge in edges.items() if uid in edge_ids}
-        else:
-            node_ids = set(distances)
-            # Include relations between boundary nodes, not only discovery edges.
-            rows = self.connection.query(
-                """MATCH (a:GraphEntity {scope_key: $scope})-[r]->(b:GraphEntity {scope_key: $scope})
-                WHERE a.uid IN $ids AND b.uid IN $ids AND a.deleted_at IS NULL AND b.deleted_at IS NULL
-                    AND r.scope_key = $scope AND r.deleted_at IS NULL
-                    AND (size($edge_types) = 0 OR type(r) IN $edge_types)
-                RETURN r.uid AS id, type(r) AS type, a.uid AS source, b.uid AS target, properties(r) AS data
-                ORDER BY r.uid LIMIT $limit""",
-                {
-                    "scope": self.scope.key,
-                    "ids": sorted(node_ids),
-                    "edge_types": options.edge_types,
-                    "limit": self.EDGE_LIMIT + 1,
-                },
-            )
-            truncated |= len(rows) > self.EDGE_LIMIT
-            edges = {row["id"]: row for row in rows[: self.EDGE_LIMIT]}
+
+    def explore(self, options: ExplorationOptions, sketch_id: str) -> GraphDict:
+        """Compatibility adapter. Interactive callers use persisted paged jobs."""
+        revision = self.revision()
+        resources: dict[str, dict[str, GraphDict]] = {
+            kind: {} for kind in ("nodes", "edges", "paths")
+        }
+        for kind, rows in self.iter_results(options, sketch_id):
+            if kind in resources:
+                resources[kind].update({row["id"]: row for row in rows})
+        node_ids = list(resources["nodes"])
+        edge_ids = list(resources["edges"])
         nodes = self.connection.query(
             """MATCH (n:GraphEntity {scope_key: $scope}) WHERE n.uid IN $ids AND n.deleted_at IS NULL
-            OPTIONAL MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[m:SHOWS]->(n)
-            RETURN n.uid AS id, labels(n) AS labels, properties(n) AS data,
-                m IS NOT NULL AS on_sketch ORDER BY n.nodeLabel, n.uid""",
-            {"scope": self.scope.key, "sketch": sketch_id, "ids": sorted(node_ids)},
+            RETURN n.uid AS id, labels(n) AS labels, properties(n) AS data ORDER BY n.nodeLabel, n.uid""",
+            {"scope": self.scope.key, "ids": node_ids},
         )
-        live_ids = {node["id"] for node in nodes}
-        if live_ids != node_ids:
-            # Concurrent deletion: never present a stale path as a complete result.
-            truncated = True
-            paths = [p for p in paths if set(p["node_ids"]) <= live_ids]
-        edges = {
-            uid: e
-            for uid, e in edges.items()
-            if e["source"] in live_ids and e["target"] in live_ids
-        }
+        edges = self.connection.query(
+            """MATCH (a:GraphEntity {scope_key: $scope})-[r]->(b:GraphEntity {scope_key: $scope})
+            WHERE r.scope_key = $scope AND r.uid IN $ids AND r.deleted_at IS NULL
+              AND a.deleted_at IS NULL AND b.deleted_at IS NULL
+            RETURN r.uid AS id, type(r) AS type, a.uid AS source, b.uid AS target, properties(r) AS data""",
+            {"scope": self.scope.key, "ids": edge_ids},
+        )
+        if (
+            self.revision() != revision
+            or len(nodes) != len(node_ids)
+            or len(edges) != len(edge_ids)
+        ):
+            raise ValueError("Investigation changed during search. Retry.")
         return {
             "nodes": nodes,
-            "edges": list(edges.values()),
-            "paths": paths,
-            "distances": {
-                uid: distance for uid, distance in distances.items() if uid in live_ids
-            },
-            "on_sketch": [n["id"] for n in nodes if n["on_sketch"]],
-            "edge_views": {
-                uid: [
-                    view
-                    for view in e["data"].get("view_ids", [])
-                    if view in self.scope.sketch_ids
-                ]
-                for uid, e in edges.items()
-            },
-            "truncated": truncated,
+            "edges": edges,
+            "paths": [
+                {k: p[k] for k in ("node_ids", "edge_ids")}
+                for p in resources["paths"].values()
+            ],
+            "distances": {uid: n["distance"] for uid, n in resources["nodes"].items()},
+            "on_sketch": [
+                uid for uid, n in resources["nodes"].items() if n["on_sketch"]
+            ],
+            "edge_views": {uid: e["views"] for uid, e in resources["edges"].items()},
+            "truncated": False,
             "depth": options.depth,
-            "scanned": scanned,
-            "limits": {
-                "nodes": self.NODE_LIMIT,
-                "edges": self.EDGE_LIMIT,
-                "paths": self.PATH_LIMIT,
-                "scanned": self.SCAN_LIMIT,
-            },
+            "limits": {},
         }

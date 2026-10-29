@@ -8,6 +8,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
@@ -330,6 +331,137 @@ def explore_graph(
     current_user: Profile = Depends(get_current_user),
 ) -> Dict[str, Any]:
     return _exploration(sketch_id, current_user, db, "explore", data.model_dump())
+
+
+class ExplorationSelectionInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    kind: Literal["nodes", "edges", "paths", "all"]
+    checked: bool
+    ids: list[str] | None = Field(default=None, max_length=1000)
+    revision: int = Field(ge=0)
+
+
+class ExplorationApplyInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    action: Literal["create", "attach"]
+    title: str = Field(default="", max_length=200)
+    revision: int = Field(ge=0)
+
+
+def _search_job(sketch_id, current_user, db, operation, data, result_id=None):
+    from flowsint_core.core.services.exploration_service import ExplorationService
+
+    service = ExplorationService(create_sketch_service(db))
+    try:
+        if operation == "start":
+            return service.start(sketch_id, current_user.id, data)
+        return service.access(
+            sketch_id, current_user.id, str(result_id), operation, data
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{sketch_id}/exploration/jobs", status_code=202)
+def start_exploration_job(
+    sketch_id: UUID,
+    data: ExplorationInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _search_job(sketch_id, current_user, db, "start", data.model_dump())
+
+
+@router.get("/{sketch_id}/exploration/jobs/{result_id}")
+def exploration_job_status(
+    sketch_id: UUID,
+    result_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _search_job(sketch_id, current_user, db, "status", {}, result_id)
+
+
+@router.get("/{sketch_id}/exploration/jobs/{result_id}/page")
+def exploration_job_page(
+    sketch_id: UUID,
+    result_id: UUID,
+    kind: Literal["nodes", "edges", "paths"],
+    page: int = Query(default=0, ge=0),
+    size: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _search_job(
+        sketch_id,
+        current_user,
+        db,
+        "page",
+        {"kind": kind, "page": page, "size": size},
+        result_id,
+    )
+
+
+@router.post("/{sketch_id}/exploration/jobs/{result_id}/selection")
+def select_exploration_results(
+    sketch_id: UUID,
+    result_id: UUID,
+    data: ExplorationSelectionInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _search_job(
+        sketch_id, current_user, db, "select", data.model_dump(), result_id
+    )
+
+
+@router.post("/{sketch_id}/exploration/jobs/{result_id}/cancel")
+def cancel_exploration_job(
+    sketch_id: UUID,
+    result_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _search_job(sketch_id, current_user, db, "cancel", {}, result_id)
+
+
+@router.post("/{sketch_id}/exploration/jobs/{result_id}/apply", status_code=202)
+def apply_exploration_job(
+    sketch_id: UUID,
+    result_id: UUID,
+    data: ExplorationApplyInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _search_job(
+        sketch_id, current_user, db, "apply", data.model_dump(), result_id
+    )
+
+
+@router.get("/{sketch_id}/graph/page")
+def get_graph_page(
+    sketch_id: UUID,
+    kind: Literal["nodes", "edges"],
+    after: str = Query(default="", max_length=200),
+    size: int = Query(default=500, ge=1, le=1000),
+    revision: int | None = Query(default=None, ge=0),
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    try:
+        return create_sketch_service(db).get_graph_page(
+            sketch_id, current_user.id, kind, after, size, revision
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 @router.post("/{sketch_id}/nodes/matches")

@@ -144,6 +144,20 @@ class GraphService:
             edges=GraphSerializer.deserialize_edges(data["edges"]),
         )
 
+    def get_sketch_graph_page(
+        self, kind: str, after: str, size: int, revision: int | None = None
+    ) -> GraphDict:
+        data = self.repository.get_sketch_graph_page(
+            self.sketch_id, kind, after, size, revision
+        )
+        graph = GraphData(
+            nodes=GraphSerializer.deserialize_nodes(
+                data.pop("nodes"), type_resolver=self._type_resolver
+            ),
+            edges=GraphSerializer.deserialize_edges(data.pop("edges")),
+        ).model_dump(mode="json", serialize_as_any=True)
+        return {**data, "nds": graph["nodes"], "rls": graph["edges"]}
+
     def search_graph_nodes(self, query: str, ids: List[str]) -> GraphDict:
         return self.repository.search_graph_nodes(query, ids, self.sketch_id)
 
@@ -170,6 +184,9 @@ class GraphService:
 
     def attach_subgraph(self, node_ids: List[str], edge_ids: List[str]) -> None:
         self.repository.attach_subgraph(node_ids, edge_ids, self.sketch_id)
+
+    def attach_result_batches(self, batches: Any) -> None:
+        self.repository.attach_result_batches(batches, self.sketch_id)
 
     def delete_from_investigation(
         self, node_ids: List[str], edge_ids: List[str]

@@ -8,6 +8,7 @@ upserts; two concurrent enrichers cannot create copies of the same entity.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 from uuid import uuid4
@@ -406,7 +407,7 @@ class Neo4jGraphRepository:
         return self._write(sketch_id, operation)
 
     def _graph(
-        self, sketch_id: str | None, limit: int = 100000
+        self, sketch_id: str | None, limit: int | None = None
     ) -> dict[str, list[GraphDict]]:
         if sketch_id is not None:
             self._params(sketch_id)
@@ -417,7 +418,8 @@ class Neo4jGraphRepository:
             OPTIONAL MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[m:SHOWS]->(n)
             WITH n, m WHERE $sketch IS NULL OR m IS NOT NULL
             RETURN n.uid AS id, labels(n) AS labels, properties(n) AS data, properties(m) AS presentation
-            ORDER BY n.uid LIMIT $limit""",
+            ORDER BY n.uid"""
+            + (" LIMIT $limit" if limit is not None else ""),
             {"scope": self.scope.key, "sketch": sketch_id, "limit": limit},
         )
         for node in nodes:
@@ -436,8 +438,68 @@ class Neo4jGraphRepository:
         )
         return {"nodes": nodes, "edges": edges}
 
+    def get_sketch_graph_page(
+        self,
+        sketch_id: str,
+        kind: str,
+        after: str,
+        size: int,
+        revision: int | None = None,
+    ) -> GraphDict:
+        self._params(sketch_id)
+        self._require_migrated()
+        explorer = InvestigationExplorer(self._connection, self.scope)
+        before = explorer.revision()
+        if revision is not None and revision != before:
+            raise ValueError("Graph changed while loading. Reload the sketch.")
+        if kind == "nodes":
+            query = """MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[m:SHOWS]->
+                (n:GraphEntity {scope_key: $scope})
+                WHERE n.deleted_at IS NULL AND n.uid > $after
+                RETURN n.uid AS id, labels(n) AS labels, properties(n) AS data,
+                    properties(m) AS presentation ORDER BY id LIMIT $size"""
+        else:
+            query = """MATCH (a:GraphEntity {scope_key: $scope})-[r]->(b:GraphEntity {scope_key: $scope})
+                WHERE r.scope_key = $scope AND $sketch IN r.view_ids AND r.uid > $after
+                  AND r.deleted_at IS NULL AND a.deleted_at IS NULL AND b.deleted_at IS NULL
+                  AND EXISTS { MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[:SHOWS]->(a) }
+                  AND EXISTS { MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[:SHOWS]->(b) }
+                RETURN r.uid AS id, type(r) AS type, a.uid AS source, b.uid AS target,
+                    properties(r) AS data ORDER BY id LIMIT $size"""
+        rows = self._connection.query(
+            query, self._params(sketch_id, after=after, size=size + 1)
+        )
+        if explorer.revision() != before:
+            raise ValueError("Graph changed while loading. Reload the sketch.")
+        more = len(rows) > size
+        rows = rows[:size]
+        if kind == "nodes":
+            for node in rows:
+                node["data"] = {
+                    **node["data"],
+                    **(node.pop("presentation", None) or {}),
+                }
+        return {
+            "nodes": rows if kind == "nodes" else [],
+            "edges": rows if kind == "edges" else [],
+            "after": rows[-1]["id"] if rows else after,
+            "has_more": more,
+            "revision": before,
+        }
+
+    def iter_exploration(
+        self, options: GraphDict, sketch_id: str
+    ) -> Iterator[tuple[str, list[GraphDict]]]:
+        self._params(sketch_id)
+        self._require_migrated()
+        explorer = InvestigationExplorer(self._connection, self.scope)
+        before = explorer.revision()
+        yield from explorer.iter_results(ExplorationOptions(**options), sketch_id)
+        if explorer.revision() != before:
+            raise ValueError("Investigation changed during search")
+
     def get_sketch_graph(
-        self, sketch_id: str, limit: int = 100000
+        self, sketch_id: str, limit: int | None = None
     ) -> dict[str, list[GraphDict]]:
         return self._graph(sketch_id, limit)
 
@@ -452,7 +514,7 @@ class Neo4jGraphRepository:
             raise RuntimeError("Investigation graph migration is required")
 
     def get_investigation_graph(
-        self, limit: int = 100000
+        self, limit: int | None = None
     ) -> dict[str, list[GraphDict]]:
         return self._graph(None, limit)
 
@@ -590,6 +652,46 @@ class Neo4jGraphRepository:
                     CASE WHEN v IN views THEN views ELSE views + v END)""",
                 self._params(sketch_id, ids=edge_ids),
             ).consume()
+
+        self._write(sketch_id, operation)
+
+    def attach_result_batches(self, batches: Callable, sketch_id: str) -> None:
+        """Attach an unbounded selection in one transaction using bounded inputs.
+
+        No per-node round trips and no giant UNWIND parameter. A missing/deleted
+        item aborts the whole transaction, so successful views are complete.
+        """
+
+        def operation(tx: Any) -> None:
+            self._view(tx, sketch_id)
+            for kind, rows in batches():
+                if kind == "nodes":
+                    result = tx.run(
+                        """UNWIND $rows AS row
+                        MATCH (n:GraphEntity {scope_key: $scope, uid: row.id})
+                        WHERE n.deleted_at IS NULL
+                        MATCH (v:GraphView {scope_key: $scope, sketch_id: $sketch})
+                        MERGE (v)-[:SHOWS]->(n) RETURN count(n) AS total""",
+                        self._params(sketch_id, rows=rows),
+                    ).single()
+                else:
+                    result = tx.run(
+                        """UNWIND $rows AS row
+                        MATCH (a:GraphEntity {scope_key: $scope, uid: row.source})-[r]->
+                              (b:GraphEntity {scope_key: $scope, uid: row.target})
+                        WHERE r.uid = row.id AND r.scope_key = $scope AND r.deleted_at IS NULL
+                          AND a.deleted_at IS NULL AND b.deleted_at IS NULL
+                        MATCH (v:GraphView {scope_key: $scope, sketch_id: $sketch})
+                        MERGE (v)-[:SHOWS]->(a) MERGE (v)-[:SHOWS]->(b)
+                        SET r.view_ids = CASE WHEN $sketch IN coalesce(r.view_ids, [])
+                            THEN r.view_ids ELSE coalesce(r.view_ids, []) + $sketch END
+                        RETURN count(r) AS total""",
+                        self._params(sketch_id, rows=rows),
+                    ).single()
+                if not result or result["total"] != len(rows):
+                    raise ValueError(
+                        "Search objects changed or were deleted. Run the search again."
+                    )
 
         self._write(sketch_id, operation)
 

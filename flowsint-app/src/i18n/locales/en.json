@@ -1442,5 +1442,22 @@
   "Add selected result to sketch": "Add selected result to sketch",
   "Not shown on a sketch": "Not shown on a sketch",
   "Sketch": "Sketch",
-  "Search settings": "Search settings"
+  "Search settings": "Search settings",
+  "Found: {{v0}} objects, {{v1}} relations, {{v2}} paths.": "Found: {{v0}} objects, {{v1}} relations, {{v2}} paths.",
+  "Selection applies to all pages. New sketches include every selected object and relation.": "Selection applies to all pages. New sketches include every selected object and relation.",
+  "Select all results": "Select all results",
+  "Clear all results": "Clear all results",
+  "Select page": "Select page",
+  "Clear page": "Clear page",
+  "Previous page": "Previous page",
+  "Next page": "Next page",
+  "Page {{v0}} of {{v1}}": "Page {{v0}} of {{v1}}",
+  "Paths to show": "Paths to show",
+  "Cancel search": "Cancel search",
+  "Could not update selection. Retry.": "Could not update selection. Retry.",
+  "Could not cancel search. Retry.": "Could not cancel search. Retry.",
+  "Creating the sketch with all selected results. This may take a while.": "Creating the sketch with all selected results. This may take a while.",
+  "Search did not complete. Run it again; partial results cannot be added to a sketch.": "Search did not complete. Run it again; partial results cannot be added to a sketch.",
+  "Search cancelled. Partial results cannot be added to a sketch.": "Search cancelled. Partial results cannot be added to a sketch.",
+  "No recent search progress. You can cancel and retry.": "No recent search progress. You can cancel and retry."
 }

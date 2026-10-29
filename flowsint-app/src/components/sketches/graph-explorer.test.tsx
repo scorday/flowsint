@@ -1,17 +1,22 @@
 // @vitest-environment jsdom
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { GraphExplorer } from './graph-explorer'
 import { useGraphExploration } from '@/stores/graph-exploration-store'
+import type { ExplorationJob, ExplorationNode } from '@/api/sketch-service'
 
 const mocks = vi.hoisted(() => ({
   search: vi.fn(),
   catalog: vi.fn(),
-  explore: vi.fn(),
-  attach: vi.fn(),
+  start: vi.fn(),
+  status: vi.fn(),
+  page: vi.fn(),
+  select: vi.fn(),
+  apply: vi.fn(),
+  cancel: vi.fn(),
   refresh: vi.fn(),
-  highlight: vi.fn(),
+  navigate: vi.fn(),
   canEdit: true,
   canCreate: true
 }))
@@ -19,15 +24,20 @@ vi.mock('@/api/sketch-service', () => ({
   sketchService: {
     searchGraphObjects: mocks.search,
     explorationCatalog: mocks.catalog,
-    explore: mocks.explore,
-    attachSubgraph: mocks.attach
+    startExploration: mocks.start,
+    explorationStatus: mocks.status,
+    explorationPage: mocks.page,
+    selectExploration: mocks.select,
+    applyExploration: mocks.apply,
+    cancelExploration: mocks.cancel
   }
 }))
 vi.mock('@/hooks/use-can', () => ({
   usePermissions: () => ({ canEdit: mocks.canEdit, canCreate: mocks.canCreate })
 }))
 vi.mock('@tanstack/react-router', () => ({
-  useParams: () => ({ id: 'friends', investigationId: 'case' })
+  useParams: () => ({ id: 'friends', investigationId: 'case' }),
+  useRouter: () => ({ navigate: mocks.navigate })
 }))
 vi.mock('@/i18n', () => ({
   useTranslation: () => ({
@@ -36,74 +46,106 @@ vi.mock('@/i18n', () => ({
   })
 }))
 vi.mock('@/stores/graph-store', () => ({
-  useGraphStore: Object.assign(
-    (select: (state: unknown) => unknown) => select({ selectedNodes: [], currentNodeId: 'masha' }),
-    { getState: () => ({ setHighlightedNodes: mocks.highlight }) }
-  )
+  useGraphStore: (select: (s: unknown) => unknown) =>
+    select({ selectedNodes: [], currentNodeId: 'n0' })
 }))
 vi.mock('@/stores/graph-controls-store', () => ({
   useGraphControls: { getState: () => ({ refetchGraph: mocks.refresh }) }
 }))
 vi.mock('./new-sketch', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>
+  default: ({
+    children,
+    onCreate
+  }: {
+    children: React.ReactNode
+    onCreate: (data: { title: string }) => Promise<void>
+  }) => <div onClick={() => onCreate({ title: 'Entire selection' })}>{children}</div>
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-
-const objects = [
-  { id: 'masha', nodeLabel: 'Masha', nodeType: 'individual' },
-  { id: 'sergey', nodeLabel: 'Sergey', nodeType: 'individual' },
-  { id: 'volodya', nodeLabel: 'Volodya', nodeType: 'individual' }
-]
-function result(depth = 2, path = false, truncated = false) {
-  return {
-    nds: objects.slice(0, depth === 1 ? 2 : 3),
-    rls: [
-      { id: 'friendship', source: 'masha', target: 'sergey', label: 'FRIEND_OF' },
-      ...(depth > 1
-        ? [{ id: 'employment', source: 'sergey', target: 'volodya', label: 'WORKS_WITH' }]
-        : [])
-    ],
-    paths: path
-      ? [{ node_ids: ['masha', 'sergey', 'volodya'], edge_ids: ['friendship', 'employment'] }]
-      : [],
-    distances: { masha: 0, sergey: 1, volodya: 2 },
-    on_sketch: ['masha', 'sergey'],
-    edge_views: { friendship: ['friends'], employment: ['work'] },
-    depth,
-    truncated,
-    limits: { nodes: 200, edges: 500, paths: 20, scanned: 5000 }
-  }
-}
+let job: ExplorationJob
+let rows: ExplorationNode[]
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.canEdit = true
   mocks.canCreate = true
+  rows = Array.from({ length: 12051 }, (_, i) => ({
+    id: `n${i}`,
+    nodeLabel: `Person ${i}`,
+    nodeType: 'individual',
+    distance: i ? 1 : 0,
+    on_sketch: i === 0,
+    selected: true
+  }))
+  job = {
+    id: 'server-snapshot',
+    status: 'completed',
+    revision: 0,
+    totals: { nodes: 12051, edges: 12050, paths: 0 },
+    selected: { nodes: 12051, edges: 12050, paths: 0 },
+    options: {
+      mode: 'neighborhood',
+      root_id: 'n0',
+      depth: 1,
+      node_types: [],
+      edge_types: [],
+      directed: false
+    },
+    updated_at: 0
+  }
   mocks.catalog.mockResolvedValue({
     node_types: ['individual'],
-    edge_types: ['FRIEND_OF', 'WORKS_WITH'],
-    sketches: [
-      { id: 'friends', title: 'Friends' },
-      { id: 'work', title: 'Work' }
-    ],
+    edge_types: ['FRIEND_OF'],
+    sketches: [],
     truncated: false
   })
   mocks.search.mockImplementation((_sketch, _query, ids: string[]) =>
     Promise.resolve({
-      nodes: ids.length ? objects.filter((n) => ids.includes(n.id)) : objects,
+      nodes: ids.map((id) => ({ id, nodeLabel: id, nodeType: 'individual', on_sketch: false })),
       has_more: false
     })
   )
-  mocks.explore.mockImplementation((_id, options) =>
-    Promise.resolve(result(options.depth, options.mode === 'path'))
+  mocks.start.mockImplementation((_sketch, options) => {
+    job = { ...job, options }
+    return Promise.resolve({ ...job })
+  })
+  mocks.status.mockImplementation(() => Promise.resolve({ ...job }))
+  mocks.page.mockImplementation((_sketch, _id, kind, page) =>
+    Promise.resolve({
+      ...job,
+      items: kind === 'nodes' ? rows.slice(page * 50, (page + 1) * 50) : [],
+      page,
+      size: 50
+    })
   )
-  mocks.attach.mockResolvedValue({})
+  mocks.select.mockImplementation((_sketch, _id, data) => {
+    rows = rows.map((row) =>
+      data.kind === 'all' ||
+      (data.kind === 'nodes' && (data.ids === null || data.ids.includes(row.id)))
+        ? { ...row, selected: data.checked }
+        : row
+    )
+    job = {
+      ...job,
+      revision: job.revision + 1,
+      selected: { ...job.selected, nodes: rows.filter((r) => r.selected).length }
+    }
+    return Promise.resolve({ ...job })
+  })
+  mocks.apply.mockImplementation(() => {
+    job = { ...job, status: 'applying' }
+    return Promise.resolve({ ...job })
+  })
+  mocks.cancel.mockImplementation(() => {
+    job = { ...job, status: 'cancelled' }
+    return Promise.resolve({ ...job })
+  })
   useGraphExploration.setState({ request: null })
 })
 afterEach(cleanup)
-function open(mode: 'path' | 'neighborhood' = 'neighborhood', autoRun = false) {
+function open() {
   useGraphExploration
     .getState()
-    .open({ sketchId: 'friends', rootId: 'masha', targetId: 'volodya', mode, depth: 1, autoRun })
+    .open({ sketchId: 'friends', rootId: 'n0', mode: 'neighborhood', depth: 1, autoRun: true })
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -112,104 +154,110 @@ function open(mode: 'path' | 'neighborhood' = 'neighborhood', autoRun = false) {
     </QueryClientProvider>
   )
 }
+function nodes() {
+  return within(screen.getByRole('region', { name: 'Objects to show' }))
+}
 
-describe('Investigation exploration', () => {
-  it('clears the old preview when filters change and submits the selected types and direction', async () => {
-    open('neighborhood', true)
-    await screen.findByText('Preview: 2 objects, 1 relations.')
-    fireEvent.click(screen.getByText(/Search settings/))
-    fireEvent.click(screen.getByText('Traversal filters'))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'WORKS_WITH' }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Follow relation direction' }))
-    expect(screen.queryByRole('button', { name: 'Add selected result to sketch' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Preview neighborhood' }))
+describe('Complete, paged investigation search', () => {
+  it('renders one page and keeps selection across pages', async () => {
+    open()
+    await screen.findByText('Found: 12051 objects, 12050 relations, 0 paths.')
+    await nodes().findByRole('checkbox', { name: 'Person 0' })
+    expect(nodes().getAllByRole('checkbox')).toHaveLength(50)
+    expect(screen.queryByRole('checkbox', { name: 'Person 50' })).toBeNull()
+    fireEvent.click(nodes().getByRole('checkbox', { name: 'Person 0' }))
     await waitFor(() =>
-      expect(mocks.explore.mock.calls.at(-1)?.[1]).toMatchObject({
-        edge_types: ['WORKS_WITH'],
-        directed: true
+      expect(nodes().getByRole('checkbox', { name: 'Person 0' }).getAttribute('aria-checked')).toBe(
+        'false'
+      )
+    )
+    fireEvent.click(nodes().getByRole('button', { name: 'Next page' }))
+    await nodes().findByRole('checkbox', { name: 'Person 50' })
+    fireEvent.click(nodes().getByRole('button', { name: 'Previous page' }))
+    await waitFor(() =>
+      expect(nodes().getByRole('checkbox', { name: 'Person 0' }).getAttribute('aria-checked')).toBe(
+        'false'
+      )
+    )
+    expect(mocks.start).toHaveBeenCalledOnce()
+  })
+  it('creates using the server selection, never visible-page IDs', async () => {
+    open()
+    await screen.findByRole('checkbox', { name: 'Person 0' })
+    fireEvent.click(nodes().getByRole('button', { name: 'Next page' }))
+    await nodes().findByRole('checkbox', { name: 'Person 50' })
+    fireEvent.click(nodes().getByRole('checkbox', { name: 'Person 50' }))
+    await waitFor(() => expect(job.revision).toBe(1))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Create sketch from result' }).hasAttribute('disabled')
+      ).toBe(false)
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Create sketch from result' }))
+    await waitFor(() =>
+      expect(mocks.apply).toHaveBeenCalledWith('friends', 'server-snapshot', {
+        action: 'create',
+        title: 'Entire selection',
+        revision: 1
+      })
+    )
+    expect(screen.getByText(/Creating the sketch with all selected/)).toBeTruthy()
+  })
+  it('offers separate page and whole-result group operations', async () => {
+    open()
+    await screen.findByRole('checkbox', { name: 'Person 0' })
+    fireEvent.click(nodes().getByRole('button', { name: 'Clear page' }))
+    await waitFor(() => expect(job.selected.nodes).toBe(12001))
+    await waitFor(() =>
+      expect(nodes().getByRole('button', { name: 'Select page' }).hasAttribute('disabled')).toBe(
+        false
+      )
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Select all results' }))
+    await waitFor(() =>
+      expect(mocks.select).toHaveBeenLastCalledWith('friends', 'server-snapshot', {
+        kind: 'all',
+        checked: true,
+        ids: null,
+        revision: 1
+      })
+    )
+    expect(job.selected.nodes).toBe(12051)
+  })
+  it('attaches without serializing a large ID list', async () => {
+    open()
+    await screen.findByRole('checkbox', { name: 'Person 0' })
+    fireEvent.click(screen.getByRole('button', { name: 'Add selected result to sketch' }))
+    await waitFor(() =>
+      expect(mocks.apply).toHaveBeenCalledWith('friends', 'server-snapshot', {
+        action: 'attach',
+        revision: 0
       })
     )
   })
-
-  it('keeps the result and selected objects after an attach error', async () => {
-    mocks.attach.mockRejectedValue(new Error('offline'))
-    open('neighborhood', true)
-    await screen.findByText('Preview: 2 objects, 1 relations.')
-    fireEvent.click(screen.getByRole('button', { name: 'Add selected result to sketch' }))
-    await waitFor(() => expect(mocks.attach).toHaveBeenCalledOnce())
-    await waitFor(() =>
-      expect(
-        screen
-          .getByRole('button', { name: 'Add selected result to sketch' })
-          .hasAttribute('disabled')
-      ).toBe(false)
-    )
-    expect(screen.getByRole('checkbox', { name: 'Masha' }).getAttribute('aria-checked')).toBe(
-      'true'
-    )
-    expect(mocks.refresh).not.toHaveBeenCalled()
-  })
-
-  it('previews one step, expands another step and attaches only selected nodes and relations', async () => {
-    open('neighborhood', true)
-    await screen.findByText('Preview: 2 objects, 1 relations.')
-    expect(mocks.attach).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand one more step' }))
-    await screen.findByText('Preview: 3 objects, 2 relations.')
-    expect(mocks.explore.mock.calls.at(-1)?.[1].depth).toBe(2)
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Volodya' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add selected result to sketch' }))
-    await waitFor(() =>
-      expect(mocks.attach).toHaveBeenCalledWith('friends', ['masha', 'sergey'], ['friendship'])
-    )
-  })
-
-  it('searches across views with a configurable depth, preserving typed steps and view names', async () => {
-    open('path')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Maximum steps' }), {
-      target: { value: '5' }
-    })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Find connections' }).at(-1)!)
-    await screen.findByText('Path 1: 2 steps')
-    expect(mocks.explore.mock.calls[0][1]).toMatchObject({
-      root_id: 'masha',
-      target_id: 'volodya',
-      depth: 5,
-      mode: 'path',
-      directed: false
-    })
-    expect(screen.getByText('→ WORKS_WITH (Work)')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Add selected result to sketch' }))
-    await waitFor(() =>
-      expect(mocks.attach).toHaveBeenCalledWith(
-        'friends',
-        ['masha', 'sergey', 'volodya'],
-        ['friendship', 'employment']
-      )
-    )
-  })
-
-  it('reports partial results, keeps viewer exploration read-only and disables a sixth step', async () => {
+  it('keeps viewer exploration read-only', async () => {
     mocks.canEdit = false
     mocks.canCreate = false
-    mocks.explore.mockResolvedValue(result(5, false, true))
-    open('neighborhood', true)
-    await screen.findByRole('alert')
-    expect(screen.getByText(/partial result/)).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Expand one more step' }).hasAttribute('disabled')
-    ).toBe(true)
-    expect(screen.queryByRole('button', { name: 'Add selected result to sketch' })).toBeNull()
+    open()
+    await screen.findByRole('checkbox', { name: 'Person 0' })
     expect(screen.queryByRole('button', { name: 'Create sketch from result' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add selected result to sketch' })).toBeNull()
   })
-
-  it('does not attach anything on a failed search and retains the inputs for retry', async () => {
-    mocks.explore.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(result())
-    open('neighborhood', true)
+  it('cannot apply partial running results and can cancel', async () => {
+    job.status = 'running'
+    open()
+    await screen.findByRole('button', { name: 'Cancel search' })
+    expect(screen.queryByRole('button', { name: 'Create sketch from result' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel search' }))
+    await screen.findByText('Search cancelled. Partial results cannot be added to a sketch.')
+    expect(mocks.apply).not.toHaveBeenCalled()
+  })
+  it('retries a failed start with the same inputs', async () => {
+    mocks.start.mockRejectedValueOnce(new Error('offline'))
+    open()
     await screen.findByRole('alert')
-    expect(mocks.attach).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Preview neighborhood' }))
-    await screen.findByText('Preview: 3 objects, 2 relations.')
-    expect(mocks.explore.mock.calls.at(-1)?.[1].root_id).toBe('masha')
+    await screen.findByRole('checkbox', { name: 'Person 0' })
+    expect(mocks.start.mock.calls.at(-1)?.[1].root_id).toBe('n0')
   })
 })

@@ -27,9 +27,10 @@ interface FormValues {
 interface NewSketchProps {
   children: ReactNode
   selection?: { nodeIds: string[]; edgeIds: string[] }
+  onCreate?: (data: FormValues) => Promise<void>
 }
 
-export default function NewSketch({ children, selection }: NewSketchProps) {
+export default function NewSketch({ children, selection, onCreate }: NewSketchProps) {
   const { t } = useTranslation()
 
   const [open, setOpen] = useState(false)
@@ -83,6 +84,12 @@ export default function NewSketch({ children, selection }: NewSketchProps) {
     }
 
     try {
+      if (onCreate) {
+        await onCreate(data)
+        setOpen(false)
+        reset()
+        return
+      }
       const payload = {
         ...data,
         investigation_id: investigationId,
@@ -148,7 +155,7 @@ export default function NewSketch({ children, selection }: NewSketchProps) {
         <DialogHeader>
           <DialogTitle>{t('New sketch')}</DialogTitle>
           <DialogDescription>
-            {selection
+            {selection || onCreate
               ? t(
                   'The selected objects will be shown on a new sketch. Their data remains shared across the investigation.'
                 )
