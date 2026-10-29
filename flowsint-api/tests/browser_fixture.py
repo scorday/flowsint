@@ -124,7 +124,7 @@ with SessionLocal() as db:
         )
         source.delete_nodes([company], str(friends.id))
         target = create_graph_service(str(work.id), enable_batching=False).repository
-        target.attach_subgraph([company], [], str(work.id))
+        target.attach_subgraph([company], [employment["id"]], str(work.id))
         metadata = {
             "investigation": str(case.id),
             "friends": str(friends.id),

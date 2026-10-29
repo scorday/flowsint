@@ -18,6 +18,32 @@ export type NodeMatch = {
   on_sketch: boolean
 }
 
+export type GraphObject = Pick<GraphNode, 'id' | 'nodeLabel' | 'nodeType'> & { on_sketch: boolean }
+export type ExplorationOptions = {
+  mode: 'path' | 'neighborhood'
+  root_id: string
+  target_id?: string
+  depth: number
+  node_types: string[]
+  edge_types: string[]
+  directed: boolean
+}
+export type GraphExploration = SketchGraphData & {
+  paths: { node_ids: string[]; edge_ids: string[] }[]
+  distances: Record<string, number>
+  on_sketch: string[]
+  edge_views: Record<string, string[]>
+  truncated: boolean
+  depth: number
+  limits: { nodes: number; edges: number; paths: number; scanned: number }
+}
+export type ExplorationCatalog = {
+  node_types: string[]
+  edge_types: string[]
+  sketches: { id: string; title: string }[]
+  truncated: boolean
+}
+
 // `inline=true` asks the backend for the relationships-already-joined
 // shape (used by the flat table view) instead of the default {nds, rls}
 // graph slice — the response shape genuinely depends on that flag, hence
@@ -45,6 +71,29 @@ export const sketchService = {
     })
   },
   getGraphDataById,
+  searchGraphObjects: (
+    sketchId: string,
+    query: string,
+    ids: string[] = [],
+    signal?: AbortSignal
+  ): Promise<{ nodes: GraphObject[]; has_more: boolean }> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/investigation-objects/search`, {
+      method: 'POST',
+      body: JSON.stringify({ query, ids }),
+      signal
+    }),
+  explorationCatalog: (sketchId: string, signal?: AbortSignal): Promise<ExplorationCatalog> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/exploration/catalog`, { signal }),
+  explore: (
+    sketchId: string,
+    options: ExplorationOptions,
+    signal?: AbortSignal
+  ): Promise<GraphExploration> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/exploration`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+      signal
+    }),
   findNodeMatches: async (sketchId: string, node: GraphNode): Promise<NodeMatch[]> =>
     fetchWithAuth(`/api/sketches/${sketchId}/nodes/matches`, {
       method: 'POST',

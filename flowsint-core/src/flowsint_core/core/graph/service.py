@@ -144,6 +144,30 @@ class GraphService:
             edges=GraphSerializer.deserialize_edges(data["edges"]),
         )
 
+    def search_graph_nodes(self, query: str, ids: List[str]) -> GraphDict:
+        return self.repository.search_graph_nodes(query, ids, self.sketch_id)
+
+    def exploration_catalog(self) -> GraphDict:
+        return self.repository.exploration_catalog(self.sketch_id)
+
+    def explore_graph(self, options: GraphDict) -> GraphDict:
+        data = self.repository.explore_graph(options, self.sketch_id)
+        graph = GraphData(
+            nodes=GraphSerializer.deserialize_nodes(
+                data["nodes"], type_resolver=self._type_resolver
+            ),
+            edges=GraphSerializer.deserialize_edges(data["edges"]),
+        ).model_dump(mode="json", serialize_as_any=True)
+        return {
+            **{
+                key: value
+                for key, value in data.items()
+                if key not in {"nodes", "edges"}
+            },
+            "nds": graph["nodes"],
+            "rls": graph["edges"],
+        }
+
     def attach_subgraph(self, node_ids: List[str], edge_ids: List[str]) -> None:
         self.repository.attach_subgraph(node_ids, edge_ids, self.sketch_id)
 

@@ -28,6 +28,7 @@ import BaseContextMenu from '@/components/xyflow/context-menu'
 import { useGraphStore } from '@/stores/graph-store'
 import { CopyButton } from '@/components/copy'
 import { usePermissions } from '@/hooks/use-can'
+import { useGraphExploration } from '@/stores/graph-exploration-store'
 import type { PendingEnricherLaunch } from '@/components/sketches/enricher-params-sheet'
 
 interface GraphContextMenuProps {
@@ -69,6 +70,7 @@ export default function ContextMenu({
 
   const { id: sketchId } = useParams({ strict: false })
   const { canEdit } = usePermissions()
+  const openExploration = useGraphExploration((s) => s.open)
   const [activeTab, setActiveTab] = useState('enrichers')
   const [enrichersSearchQuery, setEnrichersSearchQuery] = useState('')
   const [flowsSearchQuery, setFlowsSearchQuery] = useState('')
@@ -158,6 +160,33 @@ export default function ContextMenu({
         </div>
       </div>
 
+      <div className="px-3 py-2 border-b flex flex-wrap gap-1">
+        {[
+          { label: 'Find connections', mode: 'path' as const, depth: 2, autoRun: false },
+          { label: 'Expand neighborhood', mode: 'neighborhood' as const, depth: 2, autoRun: false },
+          { label: 'Expand one more step', mode: 'neighborhood' as const, depth: 1, autoRun: true }
+        ].map((action) => (
+          <Button
+            key={action.label}
+            variant="outline"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation()
+              if (sketchId)
+                openExploration({
+                  sketchId,
+                  rootId: node.id,
+                  mode: action.mode,
+                  depth: action.depth,
+                  autoRun: action.autoRun
+                })
+              setMenu(null)
+            }}
+          >
+            {t(action.label)}
+          </Button>
+        ))}
+      </div>
       {/* Tabs - editor+ only */}
       {canEdit && (
         <div className="px-3 py-2 border-b border-border shrink-0">

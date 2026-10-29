@@ -183,3 +183,92 @@ def test_manual_match_check_never_leaks_other_investigations(client, db_session,
     )
     assert response.status_code == 403
     graph.find_node_matches.assert_not_called()
+
+
+def test_viewer_can_preview_exploration_but_not_attach_it(client, db_session, graph):
+    headers, sketch = seed(db_session, Role.VIEWER)
+    graph.explore_graph.return_value = {
+        "nds": [],
+        "rls": [],
+        "paths": [],
+        "truncated": False,
+    }
+    graph.search_graph_nodes.return_value = {"nodes": [], "has_more": False}
+    graph.exploration_catalog.return_value = {
+        "node_types": [],
+        "edge_types": [],
+        "truncated": False,
+    }
+    url = f"/api/sketches/{sketch.id}"
+    assert (
+        client.post(
+            f"{url}/exploration", headers=headers, json={"root_id": "root", "depth": 5}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"{url}/investigation-objects/search",
+            headers=headers,
+            json={"query": "Alice"},
+        ).status_code
+        == 200
+    )
+    catalog = client.get(f"{url}/exploration/catalog", headers=headers)
+    assert catalog.status_code == 200
+    assert catalog.json()["sketches"] == [{"id": str(sketch.id), "title": "View"}]
+    assert (
+        client.post(
+            f"{url}/subgraph", headers=headers, json={"node_ids": ["root"]}
+        ).status_code
+        == 403
+    )
+    graph.attach_subgraph.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"root_id": "x", "depth": 0},
+        {"root_id": "x", "depth": 6},
+        {"root_id": "x", "scope_key": "foreign"},
+        {"root_id": "x", "mode": "cypher"},
+    ],
+)
+def test_exploration_rejects_unbounded_or_scope_overriding_requests(
+    client, db_session, graph, body
+):
+    headers, sketch = seed(db_session, Role.OWNER)
+    assert (
+        client.post(
+            f"/api/sketches/{sketch.id}/exploration", headers=headers, json=body
+        ).status_code
+        == 422
+    )
+    graph.explore_graph.assert_not_called()
+
+
+def test_exploration_checks_investigation_access_before_querying_graph(
+    client, db_session, graph
+):
+    headers, _ = seed(db_session, Role.OWNER)
+    _, foreign = seed(db_session, Role.OWNER)
+    url = f"/api/sketches/{foreign.id}"
+    assert (
+        client.post(
+            f"{url}/exploration", headers=headers, json={"root_id": "root"}
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            f"{url}/investigation-objects/search",
+            headers=headers,
+            json={"query": "Alice"},
+        ).status_code
+        == 403
+    )
+    assert client.get(f"{url}/exploration/catalog", headers=headers).status_code == 403
+    graph.explore_graph.assert_not_called()
+    graph.search_graph_nodes.assert_not_called()
+    graph.exploration_catalog.assert_not_called()

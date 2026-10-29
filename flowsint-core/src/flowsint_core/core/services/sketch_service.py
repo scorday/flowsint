@@ -251,6 +251,37 @@ class SketchService(BaseService):
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
+    def explore_investigation(
+        self, sketch_id: UUID, user_id: ActorID, operation: str, options: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        sketch = self._get_sketch_with_permission(sketch_id, user_id, ["read"])
+        resolver = (
+            self._type_registry.build_type_resolver(user_id)
+            if self._type_registry
+            else None
+        )
+        graph = create_graph_service(str(sketch_id), type_resolver=resolver)
+        try:
+            if operation == "search":
+                return graph.search_graph_nodes(
+                    options.get("query", ""), options.get("ids", [])
+                )
+            if operation == "catalog":
+                return {
+                    **graph.exploration_catalog(),
+                    "sketches": [
+                        {"id": str(view.id), "title": view.title}
+                        for view in self._sketch_repo.get_by_investigation(
+                            sketch.investigation_id
+                        )
+                    ],
+                }
+            if operation == "explore":
+                return graph.explore_graph(options)
+            raise ValueError("Unknown exploration operation")
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
     def add_relationship(
         self,
         sketch_id: UUID,

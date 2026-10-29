@@ -76,6 +76,152 @@ def vk(user_id=123, **extra):
     }
 
 
+def exploration_chain(repo, length=5):
+    ids = [
+        repo.create_node(vk(1000 + i), "view-a" if i < 2 else "view-b")
+        for i in range(length + 1)
+    ]
+    repo.attach_subgraph([ids[1]], [], "view-b")
+    edges = [
+        repo.create_relationship_by_element_id(
+            ids[i],
+            ids[i + 1],
+            "FRIEND_OF" if i == 0 else "WORKS_WITH",
+            "view-a" if i == 0 else "view-b",
+        )["id"]
+        for i in range(length)
+    ]
+    return ids, edges
+
+
+def test_exploration_crosses_views_up_to_five_steps_without_mutation(graph):
+    repo, _ = graph
+    ids, links = exploration_chain(repo)
+    before = repo.get_investigation_graph()
+    result = repo.explore_graph(
+        {"root_id": ids[0], "mode": "path", "target_id": ids[-1], "depth": 5}, "view-a"
+    )
+    assert result["paths"] == [{"node_ids": ids, "edge_ids": links}]
+    assert set(result["on_sketch"]) == set(ids[:2])
+    assert result["edge_views"][links[0]] == ["view-a"]
+    assert result["edge_views"][links[1]] == ["view-b"]
+    assert not result["truncated"]
+    assert (
+        repo.explore_graph(
+            {"root_id": ids[0], "mode": "path", "target_id": ids[-1], "depth": 4},
+            "view-a",
+        )["paths"]
+        == []
+    )
+    for depth in range(1, 6):
+        result = repo.explore_graph({"root_id": ids[0], "depth": depth}, "view-a")
+        assert {n["id"] for n in result["nodes"]} == set(ids[: depth + 1])
+        assert result["distances"][ids[depth]] == depth
+    assert repo.get_investigation_graph() == before
+
+
+def test_exploration_preserves_arrows_and_respects_filters(graph):
+    repo, _ = graph
+    ids, links = exploration_chain(repo, 2)
+    options = {"root_id": ids[-1], "target_id": ids[0], "mode": "path", "depth": 2}
+    reverse = repo.explore_graph(options, "view-b")
+    assert reverse["paths"][0]["node_ids"] == list(reversed(ids))
+    assert (
+        next(edge for edge in reverse["edges"] if edge["id"] == links[0])["source"]
+        == ids[0]
+    )
+    assert repo.explore_graph({**options, "directed": True}, "view-b")["paths"] == []
+    assert (
+        repo.explore_graph({**options, "edge_types": ["FRIEND_OF"]}, "view-b")["paths"]
+        == []
+    )
+    assert (
+        repo.explore_graph({**options, "node_types": ["organization"]}, "view-b")[
+            "paths"
+        ]
+        == []
+    )
+    assert (
+        len(
+            repo.explore_graph({**options, "node_types": ["socialaccount"]}, "view-b")[
+                "paths"
+            ]
+        )
+        == 1
+    )
+    repo.attach_subgraph([ids[0]], [], "view-b")
+    boundary = repo.create_relationship_by_element_id(
+        ids[0], ids[2], "OTHER", "view-b"
+    )["id"]
+    neighborhood = repo.explore_graph({"root_id": ids[1], "depth": 1}, "view-a")
+    assert boundary in [e["id"] for e in neighborhood["edges"]]
+
+
+def test_exploration_is_scoped_ignores_tombstones_and_bounds_results(
+    graph, monkeypatch
+):
+    from flowsint_core.core.graph.exploration import InvestigationExplorer
+
+    repo, connection = graph
+    ids, links = exploration_chain(repo)
+    other = Neo4jGraphRepository(
+        connection,
+        scope=GraphScope("foreign-project", repo.scope.investigation_id, ("foreign",)),
+    )
+    try:
+        foreign_id = other.create_node(vk(), "foreign")
+        assert repo.search_graph_nodes("", [foreign_id], "view-a")["nodes"] == []
+        with pytest.raises(ValueError, match="Object not found"):
+            repo.explore_graph(
+                {"root_id": ids[0], "mode": "path", "target_id": foreign_id}, "view-a"
+            )
+        repo.delete_from_investigation([ids[2]], [], "view-a")
+        assert repo.search_graph_nodes("", [ids[2]], "view-a")["nodes"] == []
+        assert repo.explore_graph({"root_id": ids[0], "depth": 5}, "view-a")[
+            "distances"
+        ] == {ids[0]: 0, ids[1]: 1}
+        monkeypatch.setattr(InvestigationExplorer, "NODE_LIMIT", 1)
+        partial = repo.explore_graph({"root_id": ids[0], "depth": 5}, "view-a")
+        assert partial["truncated"]
+        assert len(partial["nodes"]) == 1
+        monkeypatch.setattr(InvestigationExplorer, "SCAN_LIMIT", 1)
+        partial = repo.explore_graph(
+            {"root_id": ids[-1], "mode": "path", "target_id": ids[0], "depth": 5},
+            "view-a",
+        )
+        assert partial["truncated"] and partial["paths"] == []
+    finally:
+        connection.execute_write(
+            "MATCH (n) WHERE n.scope_key = $scope DETACH DELETE n",
+            {"scope": other.scope.key},
+        )
+        connection.execute_write(
+            "MATCH (n:GraphScope {key: $scope}) DELETE n", {"scope": other.scope.key}
+        )
+
+
+def test_exploration_returns_parallel_paths_without_cycles_and_reports_limit(
+    graph, monkeypatch
+):
+    from flowsint_core.core.graph.exploration import InvestigationExplorer
+
+    repo, _ = graph
+    ids, links = exploration_chain(repo, 2)
+    repo.attach_subgraph([ids[0]], [], "view-b")
+    direct = repo.create_relationship_by_element_id(ids[0], ids[2], "KNOWS", "view-b")[
+        "id"
+    ]
+    options = {"root_id": ids[0], "mode": "path", "target_id": ids[2], "depth": 5}
+    result = repo.explore_graph(options, "view-a")
+    assert result["paths"] == [
+        {"node_ids": [ids[0], ids[2]], "edge_ids": [direct]},
+        {"node_ids": ids, "edge_ids": links},
+    ]
+    monkeypatch.setattr(InvestigationExplorer, "PATH_LIMIT", 1)
+    result = repo.explore_graph(options, "view-a")
+    assert result["truncated"] and len(result["paths"]) == 1
+
+
 def test_manual_matches_find_known_alias_across_views_without_writes(graph):
     repo, connection = graph
     uid = repo.create_node(

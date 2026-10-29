@@ -56,6 +56,22 @@ class SubgraphInput(BaseModel):
     edge_ids: list[str] = Field(default_factory=list, max_length=20000)
 
 
+class GraphSearchInput(BaseModel):
+    query: str = Field(default="", max_length=200)
+    ids: list[str] = Field(default_factory=list, max_length=50)
+
+
+class ExplorationInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    root_id: str = Field(min_length=1, max_length=200)
+    target_id: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    mode: Literal["path", "neighborhood"] = "neighborhood"
+    depth: int = Field(default=2, ge=1, le=5)
+    node_types: list[str] = Field(default_factory=list, max_length=50)
+    edge_types: list[str] = Field(default_factory=list, max_length=50)
+    directed: bool = False
+
+
 class RelationshipDeleteInput(BaseModel):
     relationshipIds: List[str]
 
@@ -269,6 +285,51 @@ def delete_investigation_elements(
         raise HTTPException(status_code=404, detail="Sketch not found")
     except PermissionDeniedError:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+
+def _exploration(
+    sketch_id: UUID, user: Profile, db: Session, operation: str, options: Dict[str, Any]
+) -> Dict[str, Any]:
+    try:
+        result: Dict[str, Any] = create_sketch_service(db).explore_investigation(
+            sketch_id, user.id, operation, options
+        )
+        return result
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{sketch_id}/investigation-objects/search")
+def search_graph_objects(
+    sketch_id: UUID,
+    data: GraphSearchInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _exploration(sketch_id, current_user, db, "search", data.model_dump())
+
+
+@router.get("/{sketch_id}/exploration/catalog")
+def exploration_catalog(
+    sketch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _exploration(sketch_id, current_user, db, "catalog", {})
+
+
+@router.post("/{sketch_id}/exploration")
+def explore_graph(
+    sketch_id: UUID,
+    data: ExplorationInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
+    return _exploration(sketch_id, current_user, db, "explore", data.model_dump())
 
 
 @router.post("/{sketch_id}/nodes/matches")

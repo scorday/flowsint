@@ -16,6 +16,7 @@ import { FieldType, FormField, findActionItemByKey } from '@/lib/action-items'
 import { CopyButton } from '@/components/copy'
 import {
   Rocket,
+  Network,
   Link2,
   MousePointer,
   ArrowDownLeft,
@@ -48,6 +49,7 @@ import { MinimalTiptapEditor } from '@/components/analyses/editor/minimal-tiptap
 import type { Content } from '@tiptap/react'
 import { propertyUrl } from './property-url'
 import { NeighborhoodRootAction } from '../neighborhood-root-controls'
+import { useGraphExploration } from '@/stores/graph-exploration-store'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -309,6 +311,7 @@ const DetailsPanel = memo(() => {
   const { t, language } = useTranslation()
 
   const { id: sketchId, investigationId } = useParams({ strict: false })
+  const openExploration = useGraphExploration((s) => s.open)
   const { canEdit } = usePermissions()
   const nodesLength = useGraphStore((s) => s.nodesLength)
   const node = useGraphStore((s) => s.getCurrentNode())
@@ -533,6 +536,17 @@ const DetailsPanel = memo(() => {
             <span className="min-w-0 flex-1 text-2xl font-bold truncate">{formData.nodeLabel}</span>
           )}
           <div className="shrink-0 mt-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              title={t('Explore investigation connections')}
+              onClick={() =>
+                sketchId && openExploration({ sketchId, rootId: node.id, mode: 'neighborhood' })
+              }
+            >
+              <Network className="h-4 w-4" />
+              <span className="sr-only">{t('Explore investigation connections')}</span>
+            </Button>
             <NodeActions node={node} />
           </div>
         </div>

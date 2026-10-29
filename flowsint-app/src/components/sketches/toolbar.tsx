@@ -386,7 +386,6 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
             disabled={!canEdit || !areMergeable}
             badge={areMergeable ? selectedNodes.length : null}
           />
-          <PathFinder />
           <Separator className="w-full" />
           <ToolbarButton
             icon={<NetworkIcon className="h-4 w-4 opacity-70" />}
@@ -424,6 +423,7 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
 
       {/* Top right: Status, Export, Reload */}
       <FloatingBar className="top-3 right-3">
+        <PathFinder />
         {canEdit && <InvestigationObjects />}
         {canEdit && selectedNodes.length > 0 && (
           <NewSketch

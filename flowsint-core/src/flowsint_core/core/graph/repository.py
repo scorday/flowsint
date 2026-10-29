@@ -13,6 +13,7 @@ from typing import Any, Callable, TypeVar
 from uuid import uuid4
 
 from .connection import GraphConnectionProtocol, Neo4jConnection
+from .exploration import ExplorationOptions, InvestigationExplorer
 from .identity import (
     RESERVED,
     GraphScope,
@@ -454,6 +455,27 @@ class Neo4jGraphRepository:
         self, limit: int = 100000
     ) -> dict[str, list[GraphDict]]:
         return self._graph(None, limit)
+
+    def search_graph_nodes(
+        self, query: str, ids: list[str], sketch_id: str
+    ) -> GraphDict:
+        self._params(sketch_id)
+        self._require_migrated()
+        return InvestigationExplorer(self._connection, self.scope).search(
+            query, ids, sketch_id
+        )
+
+    def exploration_catalog(self, sketch_id: str) -> GraphDict:
+        self._params(sketch_id)
+        self._require_migrated()
+        return InvestigationExplorer(self._connection, self.scope).catalog()
+
+    def explore_graph(self, options: GraphDict, sketch_id: str) -> GraphDict:
+        self._params(sketch_id)
+        self._require_migrated()
+        return InvestigationExplorer(self._connection, self.scope).explore(
+            ExplorationOptions(**options), sketch_id
+        )
 
     def get_nodes_by_ids(self, node_ids: list[str], sketch_id: str) -> list[GraphDict]:
         self._params(sketch_id)
