@@ -78,7 +78,6 @@ def account_from_profile(
     friends = counters.get("friends")
     friends = friends if type(friends) is int and friends >= 0 else None
     values: dict[str, Any] = dict(
-        nodeLabel=f"id{user_id}@vk.ru",
         username=f"id{user_id}",
         platform="vk.ru",
         display_name=name or None,

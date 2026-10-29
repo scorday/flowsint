@@ -5,7 +5,7 @@ import { sketchService } from '@/api/sketch-service'
 import { useGraphStore } from '@/stores/graph-store'
 import { useTranslation } from '@/i18n'
 
-export function usePromoteNode(nodeId: string) {
+export function useNodeRole(nodeId: string) {
   const { id: sketchId } = useParams({ strict: false })
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
@@ -17,24 +17,27 @@ export function usePromoteNode(nodeId: string) {
     }
   }, [sketchId])
 
-  async function promote() {
+  async function setRole(nodeRole: 'primary' | 'secondary') {
     if (!sketchId || pending) return
     setPending(true)
     try {
-      await sketchService.updateNode(
-        sketchId,
-        JSON.stringify({ nodeId, updates: { nodeRole: 'primary' } })
-      )
+      await sketchService.updateNode(sketchId, JSON.stringify({ nodeId, updates: { nodeRole } }))
       // A response from a previously open sketch must not change the new view.
       if (currentSketch.current === sketchId) {
-        useGraphStore.getState().updateNode(nodeId, { nodeRole: 'primary' })
+        useGraphStore.getState().updateNode(nodeId, { nodeRole })
       }
     } catch {
-      toast.error(t('Could not make the object primary.'))
+      toast.error(
+        t(
+          nodeRole === 'primary'
+            ? 'Could not make the object primary.'
+            : 'Could not make the object secondary.'
+        )
+      )
     } finally {
       setPending(false)
     }
   }
 
-  return { promote, pending }
+  return { setRole, pending }
 }

@@ -1463,5 +1463,8 @@
   "Primary objects": "Основные объекты",
   "Secondary objects": "Второстепенные объекты",
   "Make primary": "Сделать основным",
-  "Could not make the object primary.": "Не удалось сделать объект основным."
+  "Could not make the object primary.": "Не удалось сделать объект основным.",
+  "Make secondary": "Сделать второстепенным",
+  "Could not make the object secondary.": "Не удалось сделать объект второстепенным.",
+  "Node actions": "Действия узла"
 }

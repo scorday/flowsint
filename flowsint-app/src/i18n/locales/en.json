@@ -1463,5 +1463,8 @@
   "Primary objects": "Primary objects",
   "Secondary objects": "Secondary objects",
   "Make primary": "Make primary",
-  "Could not make the object primary.": "Could not make the object primary."
+  "Could not make the object primary.": "Could not make the object primary.",
+  "Make secondary": "Make secondary",
+  "Could not make the object secondary.": "Could not make the object secondary.",
+  "Node actions": "Node actions"
 }

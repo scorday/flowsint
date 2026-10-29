@@ -1,8 +1,8 @@
 import { useTranslation } from '@/i18n'
 import React, { memo, useCallback, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Trash2, Sparkles, Plus, MoreHorizontal, Flag, Star } from 'lucide-react'
-import { usePromoteNode } from '@/components/sketches/use-promote-node'
+import { Trash2, Sparkles, Plus, MoreHorizontal, Flag, Star, StarOff } from 'lucide-react'
+import { useNodeRole } from '@/components/sketches/use-node-role'
 import { useGraphStore } from '@/stores/graph-store'
 import { useParams } from '@tanstack/react-router'
 import { useConfirm } from '@/components/use-confirm-dialog'
@@ -38,7 +38,8 @@ type FlagColor = keyof typeof flagColors
 const NodeActions = memo(
   ({ node, setMenu }: { node: GraphNode; setMenu?: (menu: any | null) => void }) => {
     const { t } = useTranslation()
-    const { promote, pending: promoting } = usePromoteNode(node.id)
+    const { setRole, pending: changingRole } = useNodeRole(node.id)
+    const isSecondary = node.nodeRole === 'secondary'
 
     const { id: sketchId, investigationId } = useParams({ strict: false })
     const { canEdit, canDelete } = usePermissions()
@@ -125,17 +126,22 @@ const NodeActions = memo(
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6">
+          <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={t('Node actions')}>
             <MoreHorizontal className="h-3.5 w-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[140px]">
-          {node.nodeRole === 'secondary' && (
-            <DropdownMenuItem disabled={promoting} onClick={() => void promote()}>
+          <DropdownMenuItem
+            disabled={changingRole}
+            onClick={() => void setRole(isSecondary ? 'primary' : 'secondary')}
+          >
+            {isSecondary ? (
               <Star className="h-3.5 w-3.5 mr-2" />
-              {t('Make primary')}
-            </DropdownMenuItem>
-          )}
+            ) : (
+              <StarOff className="h-3.5 w-3.5 mr-2" />
+            )}
+            {t(isSecondary ? 'Make primary' : 'Make secondary')}
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={handleOpenMainDialog}>
             <Plus className="h-3.5 w-3.5 mr-2" />
             {t('Add relation')}

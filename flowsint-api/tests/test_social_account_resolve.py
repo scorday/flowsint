@@ -45,7 +45,7 @@ def test_preview_returns_canonical_profile_without_graph_writes(preview):
     )
     vault_service.for_user.assert_called_once_with(user.id)
     resolve.assert_awaited_once_with("https://vk.ru/test", vault)
-    assert result["nodeLabel"] == "id515596@vk.ru"
+    assert result["nodeLabel"] == "Test (@id515596)"
     assert result["id"] == "id515596@vk.ru"
     assert result["username"]["value"] == "id515596"
     assert result["vk_profile_status"] == "open"

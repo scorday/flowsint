@@ -11,6 +11,41 @@ from flowsint_core.core.graph import (
 from flowsint_types import Domain, Ip, Website
 
 
+@pytest.mark.parametrize(
+    "stored_label,display_name,expected",
+    [
+        ("id2111327@vk.ru", "Example Person", "Example Person (@id2111327)"),
+        ("My account", "Example Person", "My account"),
+        ("Old name (@id2111327)", "Example Person", "Old name (@id2111327)"),
+        ("id2111327@vk.ru", None, "id2111327@vk.ru"),
+    ],
+)
+def test_social_account_graph_and_properties_share_label(
+    stored_label, display_name, expected
+):
+    record = {
+        "id": "canonical-uuid",
+        "data": {
+            "nodeType": "socialaccount",
+            "nodeLabel": stored_label,
+            "nodeProperties.id": "id2111327@vk.ru",
+            "nodeProperties.username.value": "id2111327",
+            "nodeProperties.platform": "vk.ru",
+            "nodeProperties.display_name": display_name,
+            "nodeMetadata.created_at": datetime.now().isoformat(),
+        },
+    }
+
+    restored = GraphSerializer.neo4j_dict_to_graph_node(record)
+    assert restored.nodeLabel == restored.nodeProperties.nodeLabel == expected
+    assert restored.id == restored.nodeProperties._graph_uid == "canonical-uuid"
+    assert restored.nodeProperties.id == "id2111327@vk.ru"
+    # The normal API round trip must keep the resolved label and stable identity.
+    serialized = GraphSerializer.graph_node_to_neo4j_dict(restored)
+    assert serialized["nodeLabel"] == expected
+    assert serialized["nodeProperties.id"] == "id2111327@vk.ru"
+
+
 def test_invalid_stored_observation_remains_readable_without_weakening_input_validation():
     from pydantic import ValidationError
 

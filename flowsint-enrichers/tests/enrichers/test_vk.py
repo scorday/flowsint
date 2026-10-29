@@ -346,7 +346,7 @@ def test_mapping_deactivated_and_unknown_flags():
     assert account_from_profile({"id": 1}).is_private is None
     assert (
         account_from_profile(profile(1, first_name="Changed name")).nodeLabel
-        == "id1@vk.ru"
+        == "Changed name User (@id1)"
     )
     partial = account_from_profile({"id": 1}, partial=True).model_dump(
         exclude_unset=True
@@ -355,6 +355,18 @@ def test_mapping_deactivated_and_unknown_flags():
     assert profile_identifier(Website(url="https://vk.com/vertman")) == "vertman"
     with pytest.raises(VKError):
         profile_identifier(SocialAccount(username="someone", platform="twitter.com"))
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_profile_label_uses_name_without_changing_account_identity(partial):
+    named = account_from_profile(profile(7), partial=partial)
+    renamed = account_from_profile(profile(7, first_name="Updated"), partial=partial)
+    unnamed = account_from_profile({"id": 7}, partial=partial)
+
+    assert named.nodeLabel == "Example User (@id7)"
+    assert renamed.nodeLabel == "Updated User (@id7)"
+    assert unnamed.nodeLabel == "id7@vk.ru"
+    assert named.id == renamed.id == unnamed.id == "id7@vk.ru"
 
 
 @pytest.mark.asyncio

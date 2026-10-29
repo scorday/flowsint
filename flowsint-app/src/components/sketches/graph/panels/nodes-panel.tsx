@@ -8,8 +8,7 @@ import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TypeBadge } from '@/components/type-badge'
-import { Search, FunnelPlus, XIcon, ChevronDown, ChevronRight, Star } from 'lucide-react'
-import { usePromoteNode } from '@/components/sketches/use-promote-node'
+import { Search, FunnelPlus, XIcon, ChevronDown, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import {
@@ -30,23 +29,6 @@ type PanelRow =
   | { kind: 'section'; role: Role; count: number; total: number }
   | { kind: 'node'; node: GraphNode }
 
-function PromoteButton({ nodeId }: { nodeId: string }) {
-  const { t } = useTranslation()
-  const { promote, pending } = usePromoteNode(nodeId)
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-7 w-7 shrink-0 mr-1"
-      title={t('Make primary')}
-      aria-label={t('Make primary')}
-      disabled={pending}
-      onClick={() => void promote()}
-    >
-      <Star className="h-3.5 w-3.5" />
-    </Button>
-  )
-}
 // Mémoiser le composant NodeRenderer
 const NodeRenderer = memo(
   ({
@@ -110,7 +92,6 @@ const NodeRenderer = memo(
           <div className="grow truncate text-ellipsis">{node?.nodeLabel}</div>
           <TypeBadge className="ml-1" type={node?.nodeType} />
         </button>
-        {canEdit && node.nodeRole === 'secondary' && <PromoteButton nodeId={node.id} />}
       </div>
     )
   }

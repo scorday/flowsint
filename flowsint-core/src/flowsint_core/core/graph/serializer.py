@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 from pydantic import BaseModel, ValidationError
 
 from flowsint_core.utils import flatten, unflatten
-from flowsint_types import FlowsintType
+from flowsint_types import FlowsintType, SocialAccount
 
 from .identity import RESERVED
 from .types import GraphEdge, GraphNode, NodeMetadata
@@ -131,6 +131,14 @@ class GraphSerializer:
             type_resolver=type_resolver,
             stored_observation=True,
         )
+        if isinstance(entity, SocialAccount):
+            # Older VK imports stored username@platform as the graph label even
+            # when a display name was available. Resolve that generated fallback
+            # on read, so existing graphs need no data rewrite. Explicit labels
+            # remain authoritative, including the label in the properties panel.
+            if nodeLabel == entity.id and entity.display_name:
+                nodeLabel = entity.nodeLabel or nodeLabel
+            entity.nodeLabel = nodeLabel
         entity._graph_uid = node_id
         return GraphNode(
             id=node_id,
