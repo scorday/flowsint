@@ -292,3 +292,45 @@ Operations MCP вернул staging/unavailable (`snapshot_publisher_not_configu
 `releases/flowsint-search-pagination-20261029-r2/final-verification.json`,
 `graph-readiness.json`, `installed-graph-check.json`, `queues-before-apply.json`,
 `before-containers.json`, `previous.json`. Production не затрагивался.
+
+## Исправление отправки Celery-задач в режиме AVL4
+
+После r2 реальный пользовательский запрос завершился HTTP 500 до постановки
+в очередь: сгенерированная Celery-проверка сигнатуры не принимала
+`avl4_context`. Worker ещё не начинал обход графа. Предыдущая проверка проверяла
+обход и регистрацию задач, но подменяла producer и не выявила эту ошибку.
+Одинаковый дефект затрагивал поиск и создание схемы. В сигнатуры обеих задач
+добавлен служебный аргумент: `Avl4ProjectTask` по-прежнему извлекает его,
+перепроверяет доступ через Auth и устанавливает область проекта перед телом задачи.
+
+Новый regression test сначала воспроизвёл TypeError для обеих задач, затем
+проверил реальный `apply_async` с memory broker и JSON-сообщением, Celery tracer,
+проверку доступа на worker и отказ после отзыва членства. Неизвестные аргументы
+по-прежнему отклоняются. Проверки задач и снимков: 16 passed; API: 98 passed;
+Ruff/format и mypy изменённого task-модуля без ошибок. Offline deploy validator
+прошёл; конфигурация сервисов не менялась.
+
+Релиз `flowsint-search-pagination-20261029-r3` применён
+2026-10-29T18:59:19+03:00 (`manifest.applied_at=2026-10-29T15:59:19Z`).
+Backend/config SHA `7d4b5259b419877a3704056f7c4de47f22909301`, UI/SDK SHA
+`0ad04a3fb97430273ae358924d9673efd514581d`, Flowsint SHA
+`c32c622deec7f20344566c70fbe60855f4ae86fb`. API и worker обновлены на image
+`sha256:d31b35aaac5b602a215373e65149bca7d4600e571297064b7452a395ad5c9c7d`,
+оба healthy, restart count 0, env совпал с прежним снимком. Остальные 67
+постоянных Compose-контейнеров, включая UI и базы, сохранили ID/images.
+
+На установленном API service повторены сохранённые параметры последнего
+упавшего раскрытия окружения на два шага с текущей проверкой Auth. Реальный
+producer отправил задачу в рабочую очередь, worker завершил поиск: 136 объектов,
+152 связи. Исключение объекта на третьей странице сохранило выбор. Отправка
+`apply_exploration` и worker admission проверены на отменённом временном снимке:
+задача завершилась без записи в граф и без создания схемы. Само создание схемы
+из всех выбранных batches проверено локальными API-тестами; авторизованная
+браузерная сессия staging здесь не создавалась.
+
+Все 9 расследований / 14 схем (5344 общих узла, 6416 связей) совпали с baseline
+по данным и ID. Временный Redis-снимок удалён. До apply очереди и выполняющиеся
+задачи были пусты; HTTPS health/runtime вернули 200. Приватные свидетельства:
+`releases/flowsint-search-pagination-20261029-r3/final-verification.json`,
+`live-search.json`, `preflight/`, `previous.json` и logs. Откатный релиз — r2.
+Production не затрагивался.
