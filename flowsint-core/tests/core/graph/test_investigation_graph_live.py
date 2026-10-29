@@ -1043,3 +1043,28 @@ def test_graph_keyset_pages_are_complete_and_reject_mixed_revisions(graph):
     repo.create_node(vk(99887766), "view-a")
     with pytest.raises(ValueError, match="changed"):
         repo.get_sketch_graph_page("view-a", "nodes", "", 2, revision)
+
+
+def test_neighborhood_type_filter_does_not_whitelist_a_previous_path_target(graph):
+    repo, _ = graph
+    root, neighbor = [repo.create_node(vk(775500 + i), "view-a") for i in range(2)]
+    organization = repo.create_node(
+        {
+            "nodeType": "organization",
+            "nodeLabel": "Excluded target",
+            "nodeProperties.name": "Excluded target",
+        },
+        "view-a",
+    )
+    repo.create_relationship_by_element_id(root, neighbor, "FRIEND_OF", "view-a")
+    repo.create_relationship_by_element_id(root, organization, "WORKS_AT", "view-a")
+    options = {
+        "mode": "neighborhood",
+        "root_id": root,
+        "target_id": organization,
+        "depth": 1,
+        "node_types": ["socialaccount"],
+    }
+    result = repo.explore_graph(options, "view-a")
+    assert {node["id"] for node in result["nodes"]} == {root, neighbor}
+    assert len(result["edges"]) == 1

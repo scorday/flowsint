@@ -115,7 +115,12 @@ class InvestigationExplorer:
                     "directed": outgoing or options.directed,
                     "node_types": options.node_types,
                     "edge_types": options.edge_types,
-                    "endpoints": [options.root_id, options.target_id],
+                    "endpoints": [options.root_id]
+                    + (
+                        [options.target_id]
+                        if options.mode == "path" and options.target_id
+                        else []
+                    ),
                     "cursor_origin": cursor_origin,
                     "cursor_edge": cursor_edge,
                     "batch": self.BATCH_SIZE,
