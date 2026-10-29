@@ -11,6 +11,38 @@ from flowsint_core.core.graph import (
 from flowsint_types import Domain, Ip, Website
 
 
+def test_invalid_stored_observation_remains_readable_without_weakening_input_validation():
+    from pydantic import ValidationError
+
+    from flowsint_types import FlowsintType
+
+    properties = {
+        "number": "not-a-valid-number",
+        "country": "observation",
+        "carrier": "original source",
+    }
+    record = {
+        "id": "canonical-uuid",
+        "data": {
+            "nodeType": "phone",
+            "nodeLabel": "Archived phone",
+            "nodeMetadata.created_at": datetime.now().isoformat(),
+            **{f"nodeProperties.{key}": value for key, value in properties.items()},
+        },
+    }
+    restored = GraphSerializer.neo4j_dict_to_graph_node(record)
+    assert type(restored.nodeProperties) is FlowsintType
+    assert restored.nodeType == "phone"
+    assert restored.nodeLabel == "Archived phone"
+    assert restored.nodeProperties._graph_uid == "canonical-uuid"
+    assert all(
+        restored.nodeProperties.model_dump()[key] == value
+        for key, value in properties.items()
+    )
+    with pytest.raises(ValidationError):
+        GraphSerializer.parse_flowsint_type(properties, "phone")
+
+
 def test_serializer():
     created_at = datetime.now()
     node = GraphNode(

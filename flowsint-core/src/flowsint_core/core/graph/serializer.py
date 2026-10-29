@@ -64,6 +64,8 @@ class GraphSerializer:
         entity: Dict,
         nodeType: str,
         type_resolver: Optional[TypeResolver] = None,
+        *,
+        stored_observation: bool = False,
     ) -> FlowsintType:
         if not type_resolver:
             from flowsint_core.core.services.type_registry_service import (
@@ -78,6 +80,11 @@ class GraphSerializer:
         try:
             return DetectedType(**properties)
         except ValidationError as e:
+            if stored_observation:
+                # Historical observations may no longer satisfy a provider's
+                # current schema. Keep raw attributes readable without weakening
+                # validation of new inputs or discarding the original evidence.
+                return FlowsintType(**entity)
             # if fields fail let's still return the object with problematic fields filtered
             invalid_fields = {err["loc"][0] for err in e.errors()}
             cleaned_props = {
@@ -119,7 +126,10 @@ class GraphSerializer:
         )  # remove nodeLabel from original pydantic
 
         entity = GraphSerializer.parse_flowsint_type(
-            node_properties, node_type, type_resolver=type_resolver
+            node_properties,
+            node_type,
+            type_resolver=type_resolver,
+            stored_observation=True,
         )
         entity._graph_uid = node_id
         return GraphNode(
