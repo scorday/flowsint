@@ -84,8 +84,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const isSelectorModeActive = useGraphControls((s) => s.isSelectorModeActive)
   const selectionMode = useGraphControls((s) => s.selectionMode)
   const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
-  const hideRootLinks = useGraphControls((s) => s.hideRootLinks)
-  const onlyRootNeighborhood = useGraphControls((s) => s.onlyRootNeighborhood)
+  const hideRootAndIsolated = useGraphControls((s) => s.hideRootAndIsolated)
   const nodeColors = useNodesDisplaySettings((s) => s.colors)
   const customIcons = useNodesDisplaySettings((s) => s.customIcons)
   const setActions = useGraphControls((s) => s.setActions)
@@ -140,7 +139,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const neighborhoodRootId = useNeighborhoodRoot(
     currentNodeId,
-    !showMinimalControls && (onlyRootNeighborhood || hideRootLinks),
+    !showMinimalControls && hideRootAndIsolated,
     sketchId ?? instanceId,
     !showMinimalControls
   )
@@ -255,10 +254,9 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
         nodes,
         edges,
         neighborhoodRootId,
-        !showMinimalControls && onlyRootNeighborhood,
-        !showMinimalControls && hideRootLinks
+        !showMinimalControls && hideRootAndIsolated
       ),
-    [nodes, edges, neighborhoodRootId, showMinimalControls, onlyRootNeighborhood, hideRootLinks]
+    [nodes, edges, neighborhoodRootId, showMinimalControls, hideRootAndIsolated]
   )
 
   // Preserve the full adjacency and existing node objects/positions when

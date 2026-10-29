@@ -20,8 +20,7 @@ import {
   ChevronDown,
   SquareDashed,
   Share2,
-  Unlink,
-  ScanEye
+  Unlink
 } from 'lucide-react'
 import { memo, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -136,10 +135,8 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
   const currentNodeId = useGraphStore((s) => s.currentNodeId)
   const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
   const setHighlightSelectionLinks = useGraphControls((s) => s.setHighlightSelectionLinks)
-  const hideRootLinks = useGraphControls((s) => s.hideRootLinks)
-  const setHideRootLinks = useGraphControls((s) => s.setHideRootLinks)
-  const onlyRootNeighborhood = useGraphControls((s) => s.onlyRootNeighborhood)
-  const setOnlyRootNeighborhood = useGraphControls((s) => s.setOnlyRootNeighborhood)
+  const hideRootAndIsolated = useGraphControls((s) => s.hideRootAndIsolated)
+  const setHideRootAndIsolated = useGraphControls((s) => s.setHideRootAndIsolated)
   const setOpenAddRelationDialog = useGraphStore((state) => state.setOpenAddRelationDialog)
   const setOpenMergeDialog = useGraphStore((state) => state.setOpenMergeDialog)
   const filters = useGraphStore((s) => s.filters)
@@ -360,17 +357,10 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
           />
           <ToolbarButton
             icon={<Unlink className="h-4 w-4 opacity-70" />}
-            tooltip={t('Hide root links and show links between its neighbors')}
-            toggled={hideRootLinks}
-            disabled={!currentNodeId && !hideRootLinks && !onlyRootNeighborhood}
-            onClick={() => setHideRootLinks(!hideRootLinks)}
-          />
-          <ToolbarButton
-            icon={<ScanEye className="h-4 w-4 opacity-70" />}
-            tooltip={t('Show only root and first-level neighbors')}
-            toggled={onlyRootNeighborhood}
-            disabled={!currentNodeId && !onlyRootNeighborhood && !hideRootLinks}
-            onClick={() => setOnlyRootNeighborhood(!onlyRootNeighborhood)}
+            tooltip={t('Hide root and disconnected nodes')}
+            toggled={hideRootAndIsolated}
+            disabled={!currentNodeId && !hideRootAndIsolated}
+            onClick={() => setHideRootAndIsolated(!hideRootAndIsolated)}
           />
           <ToolbarButton
             icon={<GitPullRequestArrow className="h-4 w-4 opacity-70" />}
@@ -415,7 +405,7 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
         </Filters>
       </FloatingBar>
 
-      {view === 'graph' && (hideRootLinks || onlyRootNeighborhood) && (
+      {view === 'graph' && hideRootAndIsolated && (
         <FloatingBar className="top-14 left-1/2 -translate-x-1/2 max-w-sm">
           <NeighborhoodRootStatus graphId={sketchId} />
         </FloatingBar>

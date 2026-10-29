@@ -12,10 +12,8 @@ type GraphControlsStore = {
   selectionMode: SelectionMode
   highlightSelectionLinks: boolean
   setHighlightSelectionLinks: (enabled: boolean) => void
-  hideRootLinks: boolean
-  setHideRootLinks: (enabled: boolean) => void
-  onlyRootNeighborhood: boolean
-  setOnlyRootNeighborhood: (enabled: boolean) => void
+  hideRootAndIsolated: boolean
+  setHideRootAndIsolated: (enabled: boolean) => void
   neighborhoodRoot: NeighborhoodRoot
   setNeighborhoodRoot: (root: NeighborhoodRoot) => void
   currentLayoutType: LayoutType
@@ -43,17 +41,11 @@ export const useGraphControls = create<GraphControlsStore>()(
       selectionMode: 'lasso',
       highlightSelectionLinks: false,
       setHighlightSelectionLinks: (enabled) => set({ highlightSelectionLinks: enabled }),
-      hideRootLinks: false,
-      setHideRootLinks: (enabled) =>
+      hideRootAndIsolated: false,
+      setHideRootAndIsolated: (enabled) =>
         set((state) => ({
-          hideRootLinks: enabled,
-          neighborhoodRoot: enabled || state.onlyRootNeighborhood ? state.neighborhoodRoot : null
-        })),
-      onlyRootNeighborhood: false,
-      setOnlyRootNeighborhood: (enabled) =>
-        set((state) => ({
-          onlyRootNeighborhood: enabled,
-          neighborhoodRoot: enabled || state.hideRootLinks ? state.neighborhoodRoot : null
+          hideRootAndIsolated: enabled,
+          neighborhoodRoot: enabled ? state.neighborhoodRoot : null
         })),
       neighborhoodRoot: null,
       setNeighborhoodRoot: (root) => set({ neighborhoodRoot: root }),
@@ -75,13 +67,27 @@ export const useGraphControls = create<GraphControlsStore>()(
     }),
     {
       name: 'graph-controls-storage',
+      version: 1,
+      migrate: (persistedState) => {
+        const { hideRootLinks, onlyRootNeighborhood, ...settings } =
+          persistedState as Partial<GraphControlsStore> & {
+            hideRootLinks?: boolean
+            onlyRootNeighborhood?: boolean
+          }
+        return {
+          view: settings.view ?? 'graph',
+          currentLayoutType: settings.currentLayoutType ?? 'force',
+          selectionMode: settings.selectionMode ?? 'lasso',
+          highlightSelectionLinks: settings.highlightSelectionLinks ?? false,
+          hideRootAndIsolated: Boolean(hideRootLinks || onlyRootNeighborhood)
+        }
+      },
       partialize: (state) => ({
         view: state.view,
         currentLayoutType: state.currentLayoutType,
         selectionMode: state.selectionMode,
         highlightSelectionLinks: state.highlightSelectionLinks,
-        hideRootLinks: state.hideRootLinks,
-        onlyRootNeighborhood: state.onlyRootNeighborhood
+        hideRootAndIsolated: state.hideRootAndIsolated
       })
     }
   )

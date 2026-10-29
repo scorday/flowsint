@@ -51,19 +51,39 @@ it('allows a secondary preview without releasing the main graph root', () => {
   expect(useGraphControls.getState().neighborhoodRoot).toBe(anchor)
 })
 
-it('releases the root when the last filter is disabled and never persists node IDs', () => {
+it('releases the root when the filter is disabled and never persists node IDs', () => {
   const store = useGraphControls.getState()
-  store.setOnlyRootNeighborhood(true)
-  store.setHideRootLinks(true)
+  store.setHideRootAndIsolated(true)
   store.setNeighborhoodRoot({ graphId: 'main', nodeId: 'root' })
-  store.setOnlyRootNeighborhood(false)
   expect(useGraphControls.getState().neighborhoodRoot?.nodeId).toBe('root')
   expect(
     useGraphControls.persist.getOptions().partialize!(useGraphControls.getState())
   ).not.toHaveProperty('neighborhoodRoot')
-  store.setHideRootLinks(false)
+  store.setHideRootAndIsolated(false)
   expect(useGraphControls.getState().neighborhoodRoot).toBeNull()
 })
+
+it.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true]
+])(
+  'migrates saved filters only=%s hide=%s to the unified mode',
+  async (onlyRootNeighborhood, hideRootLinks) => {
+    const migrated = await useGraphControls.persist.getOptions().migrate!(
+      { onlyRootNeighborhood, hideRootLinks, view: 'table', highlightSelectionLinks: true },
+      0
+    )
+    expect(migrated).toEqual({
+      view: 'table',
+      currentLayoutType: 'force',
+      selectionMode: 'lasso',
+      highlightSelectionLinks: true,
+      hideRootAndIsolated: onlyRootNeighborhood || hideRootLinks
+    })
+  }
+)
 
 it('never carries a retained root into another graph or reuses it when returning', () => {
   const { result, rerender } = renderHook(

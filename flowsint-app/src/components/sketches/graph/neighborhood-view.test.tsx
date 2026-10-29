@@ -120,8 +120,7 @@ beforeEach(() => {
   useGraphStore.getState().setCurrentNodeId('root')
   useGraphControls.setState({
     highlightSelectionLinks: false,
-    hideRootLinks: false,
-    onlyRootNeighborhood: false,
+    hideRootAndIsolated: false,
     neighborhoodRoot: null
   })
 })
@@ -131,8 +130,7 @@ afterEach(() => {
   useGraphStore.getState().reset()
   useGraphControls.setState({
     highlightSelectionLinks: false,
-    hideRootLinks: false,
-    onlyRootNeighborhood: false,
+    hideRootAndIsolated: false,
     neighborhoodRoot: null
   })
 })
@@ -165,7 +163,7 @@ it.each(['en', 'ru'] as const)(
         <Inspector />
       </>
     )
-    act(() => useGraphControls.getState().setOnlyRootNeighborhood(true))
+    act(() => useGraphControls.getState().setHideRootAndIsolated(true))
     const before = capture.graph!.graphData
     const rootLabel = language === 'ru' ? 'Показать корень фильтра: root' : 'Show filter root: root'
     const makeRoot = language === 'ru' ? 'Сделать корнем фильтра' : 'Make filter root'
@@ -180,8 +178,8 @@ it.each(['en', 'ru'] as const)(
     })
     expect(useGraphStore.getState().currentNodeId).toBe('alice')
     expect(capture.graph!.graphData).toBe(before)
-    expect(capture.minimap).toEqual(['root', 'alice', 'bob'])
-    expect(capture.selector).toEqual(['root', 'alice', 'bob'])
+    expect(capture.minimap).toEqual(['alice', 'bob', 'second-hop'])
+    expect(capture.selector).toEqual(['alice', 'bob', 'second-hop'])
     expect(capture.centerAt).not.toHaveBeenCalled()
     expect(capture.zoom).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: rootLabel })).toBeTruthy()
@@ -190,12 +188,7 @@ it.each(['en', 'ru'] as const)(
       graphId: 'sketch',
       nodeId: 'alice'
     })
-    expect(capture.graph!.graphData.nodes.map((node) => node.id)).toEqual([
-      'root',
-      'alice',
-      'bob',
-      'second-hop'
-    ])
+    expect(capture.graph!.graphData.nodes.map((node) => node.id)).toEqual(['root', 'bob'])
     const pinnedLabel = language === 'ru' ? 'Корень фильтра закреплён' : 'Filter root pinned'
     expect(screen.getByRole('button', { name: pinnedLabel }).hasAttribute('disabled')).toBe(true)
     act(() => useGraphStore.getState().setCurrentNodeId('bob'))
@@ -219,38 +212,35 @@ it('filters the actual renderer, minimap and lasso together, restores the graph,
     />
   )
   expect(capture.graph!.graphData.nodes).toHaveLength(4)
-  act(() => useGraphControls.getState().setOnlyRootNeighborhood(true))
+  act(() => useGraphControls.getState().setHideRootAndIsolated(true))
   const visible = capture.graph!.graphData
-  expect(visible.nodes.map((n) => n.id)).toEqual(['root', 'alice', 'bob'])
-  expect(visible.links.map((e) => e.id)).toEqual(['root-alice', 'bob-root', 'alice-bob'])
-  expect(capture.minimap).toEqual(['root', 'alice', 'bob'])
-  expect(capture.selector).toEqual(['root', 'alice', 'bob'])
+  expect(visible.nodes.map((n) => n.id)).toEqual(['alice', 'bob', 'second-hop'])
+  expect(visible.links.map((e) => e.id)).toEqual(['alice-bob', 'second'])
+  expect(capture.minimap).toEqual(['alice', 'bob', 'second-hop'])
+  expect(capture.selector).toEqual(['alice', 'bob', 'second-hop'])
   expect(capture.save).not.toHaveBeenCalled()
 
-  act(() => useGraphControls.getState().setHideRootLinks(true))
-  expect(capture.graph!.graphData.links.map((e) => e.id)).toEqual(['alice-bob'])
-  expect(capture.graph!.graphData.nodes[0]).toBe(visible.nodes[0])
-
-  const root = capture.graph!.graphData.nodes[0]
-  root.x = 77
-  root.y = 88
-  act(() => capture.graph!.onNodeDragEnd(root))
+  const alice = capture.graph!.graphData.nodes[0]
+  alice.x = 77
+  alice.y = 88
+  act(() => capture.graph!.onNodeDragEnd(alice))
   const saved: GraphNode[] = capture.save.mock.calls[0][0]
   expect(saved.map((n) => n.id)).toEqual(nodes.map((n) => n.id))
-  expect(saved[0]).toMatchObject({ x: 77, y: 88, nodeProperties: { original: 'root' } })
-  expect(saved[3]).toBe(nodes[3])
+  expect(saved[1]).toMatchObject({ x: 77, y: 88, nodeProperties: { original: 'alice' } })
+  expect(saved[0]).toBe(nodes[0])
+  expect(saved[3]).toEqual(nodes[3])
 
   act(() => capture.layout!.saveAllNodePositions(capture.graph!.graphData.nodes, true))
   expect(capture.save.mock.lastCall![0]).toHaveLength(4)
   expect(capture.save.mock.lastCall![1]).toBe(true)
 
-  act(() => useGraphControls.setState({ hideRootLinks: false, onlyRootNeighborhood: false }))
+  act(() => useGraphControls.getState().setHideRootAndIsolated(false))
   expect(capture.graph!.graphData.nodes.map((n) => n.id)).toEqual(nodes.map((n) => n.id))
   expect(capture.graph!.graphData.links.map((e) => e.id)).toEqual(edges.map((e) => e.id))
 })
 
 it('keeps the separate neighbors preview unaffected by main graph view toggles', () => {
-  useGraphControls.setState({ hideRootLinks: true, onlyRootNeighborhood: true })
+  useGraphControls.setState({ hideRootAndIsolated: true })
   render(
     <GraphViewer
       nodes={nodes}
@@ -264,11 +254,7 @@ it('keeps the separate neighbors preview unaffected by main graph view toggles',
   expect(capture.graph!.graphData.links).toHaveLength(4)
 })
 
-it.each([
-  [true, false],
-  [false, true],
-  [true, true]
-])('keeps neighborhood=%s and hidden root links=%s after clicking the canvas', (only, hide) => {
+it('keeps the root and isolated nodes hidden after clicking the canvas', () => {
   render(
     <GraphViewer
       nodes={nodes}
@@ -289,8 +275,7 @@ it.each([
   act(() =>
     useGraphControls.setState({
       highlightSelectionLinks: true,
-      onlyRootNeighborhood: only,
-      hideRootLinks: hide
+      hideRootAndIsolated: true
     })
   )
   const before = capture.graph!.graphData
@@ -301,9 +286,8 @@ it.each([
   expect(capture.graph!.graphData.links.map((e) => e.id)).toEqual(before.links.map((e) => e.id))
   expect(capture.minimap).toEqual(before.nodes.map((n) => n.id))
   expect(capture.selector).toEqual(before.nodes.map((n) => n.id))
-  expect(useGraphControls.getState().onlyRootNeighborhood).toBe(only)
-  expect(useGraphControls.getState().hideRootLinks).toBe(hide)
-  act(() => useGraphControls.setState({ onlyRootNeighborhood: false, hideRootLinks: false }))
+  expect(useGraphControls.getState().hideRootAndIsolated).toBe(true)
+  act(() => useGraphControls.getState().setHideRootAndIsolated(false))
   expect(capture.graph!.graphData.nodes.map((n) => n.id)).toEqual(nodes.map((n) => n.id))
   expect(capture.graph!.graphData.links.map((e) => e.id)).toEqual(edges.map((e) => e.id))
 })

@@ -7,7 +7,7 @@ import type { GraphNode } from '@/types'
 
 export const NeighborhoodRootStatus = ({ graphId }: { graphId?: string }) => {
   const { t } = useTranslation()
-  const enabled = useGraphControls((s) => s.onlyRootNeighborhood || s.hideRootLinks)
+  const enabled = useGraphControls((s) => s.hideRootAndIsolated)
   const anchor = useGraphControls((s) => s.neighborhoodRoot)
   const rootId = anchor?.graphId === graphId ? anchor?.nodeId : null
   const root = useGraphStore((s) => (rootId ? s.getNode(rootId) : null))
@@ -48,7 +48,7 @@ export const NeighborhoodRootAction = ({
   graphId?: string
 }) => {
   const { t } = useTranslation()
-  const enabled = useGraphControls((s) => s.onlyRootNeighborhood || s.hideRootLinks)
+  const enabled = useGraphControls((s) => s.hideRootAndIsolated)
   const root = useGraphControls((s) => s.neighborhoodRoot)
   const setRoot = useGraphControls((s) => s.setNeighborhoodRoot)
   const isRoot = root?.graphId === graphId && root?.nodeId === node.id

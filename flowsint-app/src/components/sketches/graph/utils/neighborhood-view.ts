@@ -7,33 +7,26 @@ export const getNeighborhoodView = (
   nodes: GraphNode[],
   edges: GraphEdge[],
   rootId: string | null,
-  onlyRootNeighborhood: boolean,
-  hideRootLinks: boolean
+  hideRootAndIsolated: boolean
 ) => {
-  if ((!onlyRootNeighborhood && !hideRootLinks) || !rootId || !nodes.some((n) => n.id === rootId)) {
+  if (!hideRootAndIsolated || !rootId || !nodes.some((n) => n.id === rootId)) {
     return { nodes, edges, active: false }
   }
 
-  const availableIds = new Set(nodes.map((node) => node.id))
-  const neighborhood = new Set([rootId])
-  edges.forEach((edge) => {
+  const availableIds = new Set(nodes.filter((node) => node.id !== rootId).map((node) => node.id))
+  const connectedIds = new Set<string>()
+  const visibleEdges = edges.filter((edge) => {
     const source = endpointId(edge.source)
     const target = endpointId(edge.target)
-    if (source === rootId && availableIds.has(target)) neighborhood.add(target)
-    if (target === rootId && availableIds.has(source)) neighborhood.add(source)
+    if (!availableIds.has(source) || !availableIds.has(target)) return false
+    connectedIds.add(source)
+    connectedIds.add(target)
+    return true
   })
 
   return {
-    nodes: onlyRootNeighborhood ? nodes.filter((node) => neighborhood.has(node.id)) : nodes,
-    edges: edges.filter((edge) => {
-      const source = endpointId(edge.source)
-      const target = endpointId(edge.target)
-      return (
-        neighborhood.has(source) &&
-        neighborhood.has(target) &&
-        (!hideRootLinks || (source !== rootId && target !== rootId))
-      )
-    }),
+    nodes: nodes.filter((node) => connectedIds.has(node.id)),
+    edges: visibleEdges,
     active: true
   }
 }
