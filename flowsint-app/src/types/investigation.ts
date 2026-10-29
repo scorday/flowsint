@@ -12,8 +12,10 @@ export interface Investigation {
   analyses: Analysis[]
   created_at: string
   last_updated_at: string
-  owner: Profile
-  owner_id: string
+  owner: Profile | null
+  owner_id: string | null
+  project_id?: string
+  created_by?: string | null
   status: string
   current_user_role: InvestigationRole | null
 }

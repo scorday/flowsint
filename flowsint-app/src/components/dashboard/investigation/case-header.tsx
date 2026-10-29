@@ -1,3 +1,5 @@
+import { useTranslation } from '@/i18n'
+import { isAvl4 } from '@/platform/runtime-config'
 import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -64,7 +66,10 @@ type CaseOverviewPageProps = {
 }
 
 export function CaseHeader({ investigation }: CaseOverviewPageProps) {
+  const { t, dateLocale } = useTranslation()
+
   const lastUpdated = formatDistanceToNow(new Date(investigation.last_updated_at), {
+    locale: dateLocale,
     addSuffix: true
   })
   const router = useRouter()
@@ -75,13 +80,17 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
 
   const { data: collaborators = [] } = useQuery<Collaborator[]>({
     queryKey: queryKeys.investigations.collaborators(investigation.id),
-    queryFn: () => investigationService.getCollaborators(investigation.id)
+    queryFn: () => investigationService.getCollaborators(investigation.id),
+    enabled: !isAvl4
   })
 
   const handleDeleteInvestigation = async () => {
     const confirmed = await confirm({
-      title: 'Delete Investigation',
-      message: `Are you sure you want to delete "${investigation.name}"? This will also delete all sketches within it. This action cannot be undone.`
+      title: t('Delete Investigation'),
+      message: t(
+        'Are you sure you want to delete "{{v0}}"? This will also delete all sketches within it. This action cannot be undone.',
+        { v0: investigation.name }
+      )
     })
 
     if (confirmed) {
@@ -106,9 +115,9 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
         })
 
       toast.promise(deletePromise, {
-        loading: 'Deleting investigation...',
-        success: () => `Investigation "${investigation.name}" has been deleted`,
-        error: 'Failed to delete investigation'
+        loading: t('Deleting investigation...'),
+        success: () => t('Investigation "{{v0}}" has been deleted', { v0: investigation.name }),
+        error: t('Failed to delete investigation')
       })
     }
   }
@@ -118,7 +127,7 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link to={'/dashboard'} className="hover:text-foreground cursor-pointer transition-colors">
-          Cases
+          {t('Cases')}
         </Link>
         <span>/</span>
         <span className="text-foreground">{investigation.name}</span>
@@ -142,17 +151,21 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
               return (
                 <Badge className={cn('gap-1 text-xs font-medium shadow-none', config.className)}>
                   <Icon className="w-3 h-3" />
-                  {config.label}
+                  {t(config.label)}
                 </Badge>
               )
             })()}
 
           {/* Inline properties */}
           <div className="flex items-center gap-4 text-sm">
-            <PropertyPill label="Status" value={investigation.status} valueClass="text-success" />
-            <PropertyPill label="Priority" value="Medium" valueClass="text-primary" />
             <PropertyPill
-              label="Updated"
+              label={t('Status')}
+              value={investigation.status}
+              valueClass="text-success"
+            />
+            <PropertyPill label={t('Priority')} value="Medium" valueClass="text-primary" />
+            <PropertyPill
+              label={t('Updated')}
               value={lastUpdated}
               icon={<Clock className="w-3 h-3" />}
             />
@@ -161,7 +174,7 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {canManage && (
+          {!isAvl4 && canManage && (
             <ShareDialog investigationId={investigation.id}>
               <Button variant="ghost" size="sm" className="text-muted-foreground h-8 px-2">
                 <Share className="w-4 h-4" />
@@ -178,7 +191,7 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={handleDeleteInvestigation} className="text-destructive">
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                  {t('Delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -187,19 +200,21 @@ export function CaseHeader({ investigation }: CaseOverviewPageProps) {
       </div>
 
       {/* Team */}
-      <div className="flex items-center gap-2">
-        <AvatarGroup users={collaborators.map((c) => c.user)} size="md" />
-        <span className="text-sm text-muted-foreground">
-          {collaborators.length} investigator{collaborators.length !== 1 ? 's' : ''}
-        </span>
-        {canManage && (
-          <ShareDialog investigationId={investigation.id}>
-            <button className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
-              + Invite
-            </button>
-          </ShareDialog>
-        )}
-      </div>
+      {!isAvl4 && (
+        <div className="flex items-center gap-2">
+          <AvatarGroup users={collaborators.map((c) => c.user)} size="md" />
+          <span className="text-sm text-muted-foreground">
+            {t('counts.investigators', { count: collaborators.length })}
+          </span>
+          {!isAvl4 && canManage && (
+            <ShareDialog investigationId={investigation.id}>
+              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
+                {t('+ Invite')}
+              </button>
+            </ShareDialog>
+          )}
+        </div>
+      )}
     </div>
   )
 }

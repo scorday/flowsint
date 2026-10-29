@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { FolderOpen, FileText, Network, Clock } from 'lucide-react'
 import { useMemo } from 'react'
 
@@ -7,14 +8,16 @@ type DashboardStatsProps = {
 }
 
 export function DashboardStats({ casesCount, activeCasesCount }: DashboardStatsProps) {
+  const { t } = useTranslation()
+
   const stats = useMemo(
     () => [
-      { label: 'Total Cases', value: casesCount, icon: FolderOpen },
-      { label: 'Active', value: activeCasesCount, icon: Clock },
-      { label: 'Analyses', value: '67', icon: FileText },
-      { label: 'Entities', value: '1,247', icon: Network }
+      { label: t('Total Cases'), value: casesCount, icon: FolderOpen },
+      { label: t('Active'), value: activeCasesCount, icon: Clock },
+      { label: t('Analyses'), value: '67', icon: FileText },
+      { label: t('Entities'), value: '1,247', icon: Network }
     ],
-    [casesCount, activeCasesCount]
+    [casesCount, activeCasesCount, t]
   )
 
   return (

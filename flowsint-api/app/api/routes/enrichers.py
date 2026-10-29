@@ -5,19 +5,31 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.schemas.enricher_catalog import (
+    EnricherCatalogAccess,
+    EnricherCatalogRead,
+    EnricherVisibilityUpdate,
+)
 from flowsint_core.core.celery import celery
 from flowsint_core.core.graph import create_graph_service
 from flowsint_core.core.models import Profile
 from flowsint_core.core.postgre_db import get_db
+from flowsint_core.core.project_scope import ProjectScope
 from flowsint_core.core.services import (
     NotFoundError,
     PermissionDeniedError,
     create_enricher_service,
     create_enricher_template_service,
 )
+from flowsint_core.core.services.enricher_catalog_service import (
+    EnricherCatalogService,
+    EnricherKind,
+    can_manage_enrichers,
+)
 from flowsint_core.core.services.type_registry_service import (
     create_type_registry_service,
 )
+from flowsint_core.tasks.project import task_context_kwargs
 from flowsint_enrichers import ENRICHER_REGISTRY, load_all_enrichers
 
 load_all_enrichers()
@@ -54,6 +66,48 @@ def get_enrichers(
     return enrichers
 
 
+@router.get("/administration/access", response_model=EnricherCatalogAccess)
+def get_administration_access(
+    current_user: Profile | ProjectScope = Depends(get_current_user),
+) -> EnricherCatalogAccess:
+    return EnricherCatalogAccess(can_manage=can_manage_enrichers(current_user))
+
+
+@router.get("/administration", response_model=List[EnricherCatalogRead])
+def get_administration_catalog(
+    current_user: Profile | ProjectScope = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[EnricherCatalogRead]:
+    try:
+        return [
+            EnricherCatalogRead.model_validate(item)
+            for item in EnricherCatalogService(db).list_all(
+                current_user, ENRICHER_REGISTRY
+            )
+        ]
+    except PermissionDeniedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
+
+
+@router.patch("/administration/{kind}/{identifier}", response_model=EnricherCatalogRead)
+def update_enricher_visibility(
+    kind: EnricherKind,
+    identifier: str,
+    payload: EnricherVisibilityUpdate,
+    current_user: Profile | ProjectScope = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EnricherCatalogRead:
+    try:
+        item = EnricherCatalogService(db).set_visibility(
+            current_user, ENRICHER_REGISTRY, kind, identifier, payload.is_visible
+        )
+        return EnricherCatalogRead.model_validate(item)
+    except PermissionDeniedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+
+
 @router.post("/{enricher_name}/launch")
 async def launch_enricher(
     enricher_name: str,
@@ -76,9 +130,7 @@ async def launch_enricher(
         entities = graph_service.get_nodes_by_ids_for_task(payload.node_ids)
 
         # Send deserialized nodes
-        entities = [
-            entity.model_dump(mode="json", serialize_as_any=True) for entity in entities
-        ]
+        entities = [entity.task_dump() for entity in entities]
         if not entities:
             raise HTTPException(
                 status_code=404, detail="No entities found with provided IDs"
@@ -110,7 +162,7 @@ async def launch_enricher(
             # a message already in flight still binds cleanly against the new
             # task. (Workers still have to roll out before the API either way —
             # a worker predating `params` rejects the keyword.)
-            kwargs={"params": payload.params or {}},
+            kwargs={"params": payload.params or {}, **task_context_kwargs()},
         )
         return {"id": task.id}
 

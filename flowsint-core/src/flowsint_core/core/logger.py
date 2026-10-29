@@ -21,6 +21,9 @@ from ..tasks.event import emit_event_task
 from .enums import EventLevel
 from .models import Log
 from .postgre_db import get_db
+from .project_scope import ProjectScope, current_scope, project_scope
+
+LogRecord = Tuple[int, datetime, str, EventLevel, Dict, Optional[ProjectScope]]
 
 
 class LoggerSingleton:
@@ -70,7 +73,7 @@ class LoggerSingleton:
         self._flush_interval = flush_interval
 
         # Queue for batch insertion (contains: sequence, timestamp, sketch_id, level, content)
-        self._log_queue: "Queue[Tuple[int, datetime, str, EventLevel, Dict]]" = Queue()
+        self._log_queue: "Queue[LogRecord]" = Queue()
 
         # Monotonic sequence counter for ordering (thread-safe with lock)
         self._sequence_counter = 0
@@ -125,7 +128,7 @@ class LoggerSingleton:
         if self._log_queue.empty():
             return
 
-        logs_to_insert: List[Tuple[int, datetime, str, EventLevel, Dict]] = []
+        logs_to_insert: List[LogRecord] = []
 
         # Collect logs from queue
         while not self._log_queue.empty() and (
@@ -142,6 +145,18 @@ class LoggerSingleton:
         # Sort logs by sequence number to maintain order
         logs_to_insert.sort(key=lambda x: x[0])  # x[0] is the sequence number
 
+        # A batch can contain several concurrent projects. ContextVars do not
+        # propagate to the background thread; restore each verified context
+        # explicitly and never combine projects in one transaction.
+        groups: Dict[Optional[ProjectScope], List[LogRecord]] = {}
+        for record in logs_to_insert:
+            groups.setdefault(record[5], []).append(record)
+        for scope, records in groups.items():
+            with project_scope(scope):
+                self._insert_log_batch(records)
+
+    def _insert_log_batch(self, logs_to_insert: List[LogRecord]) -> None:
+
         # Batch insert to database
         try:
             db = next(get_db())
@@ -154,9 +169,11 @@ class LoggerSingleton:
 
         try:
             log_objects = []
-            for sequence, timestamp, sketch_id, level, content in logs_to_insert:
+            for sequence, timestamp, sketch_id, level, content, scope in logs_to_insert:
                 log = Log(
-                    sketch_id=str(sketch_id),
+                    sketch_id=UUID(sketch_id)
+                    if sketch_id not in {"None", ""}
+                    else None,
                     type=level.value,
                     content=content,
                     created_at=timestamp,  # Use application-side timestamp
@@ -170,12 +187,12 @@ class LoggerSingleton:
             for log in log_objects:
                 db.refresh(log)
 
-        except Exception as e:
+        except Exception:
             db.rollback()
             # Log to standard logging as fallback
             import logging
 
-            logging.error(f"Failed to batch insert logs: {e}")
+            logging.error("Failed to batch insert logs")
         finally:
             db.close()
 
@@ -229,7 +246,9 @@ class LoggerSingleton:
 
         # 2. BATCHED: Queue for database insertion with ordering info
         # Format: (sequence, timestamp, sketch_id, level, content)
-        self._log_queue.put((sequence, timestamp, str(sketch_id), level, content))
+        self._log_queue.put(
+            (sequence, timestamp, str(sketch_id), level, content, current_scope())
+        )
 
         # 3. Check if we should flush immediately (batch size reached)
         if self._log_queue.qsize() >= self._batch_size:

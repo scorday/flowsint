@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -14,6 +15,8 @@ export interface LinkEditorProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const LinkEditBlock = React.forwardRef<HTMLDivElement, LinkEditorProps>(
   ({ onSave, defaultIsNewTab, defaultUrl, defaultText, className }, ref) => {
+    const { t } = useTranslation()
+
     const formRef = React.useRef<HTMLDivElement>(null)
     const [url, setUrl] = React.useState(defaultUrl || '')
     const [text, setText] = React.useState(defaultText || '')
@@ -51,30 +54,30 @@ export const LinkEditBlock = React.forwardRef<HTMLDivElement, LinkEditorProps>(
             <Input
               type="url"
               required
-              placeholder="Enter URL"
+              placeholder={t('Enter URL')}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
           </div>
 
           <div className="space-y-1">
-            <Label>Display Text (optional)</Label>
+            <Label>{t('Display Text (optional)')}</Label>
             <Input
               type="text"
-              placeholder="Enter display text"
+              placeholder={t('Enter display text')}
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
           </div>
 
           <div className="flex items-center space-x-2">
-            <Label>Open in New Tab</Label>
+            <Label>{t('Open in New Tab')}</Label>
             <Switch checked={isNewTab} onCheckedChange={setIsNewTab} />
           </div>
 
           <div className="flex justify-end space-x-2">
             <Button type="button" onClick={handleSave}>
-              Save
+              {t('Save')}
             </Button>
           </div>
         </div>

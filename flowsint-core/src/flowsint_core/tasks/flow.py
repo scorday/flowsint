@@ -12,13 +12,15 @@ from ..core.logger import Logger
 from ..core.models import Scan
 from ..core.orchestrator import FlowOrchestrator
 from ..core.postgre_db import SessionLocal, get_db
+from ..core.project_scope import current_scope
 from ..core.services import create_vault_service
 from ..core.types import FlowBranch
+from .project import Avl4ProjectTask
 
 db: Session = next(get_db())
 
 
-@celery.task(name="run_flow", bind=True)
+@celery.task(name="run_flow", bind=True, base=Avl4ProjectTask)
 def run_flow(
     self,
     enricher_branches,
@@ -46,7 +48,9 @@ def run_flow(
         vault = None
         if owner_id:
             try:
-                vault = create_vault_service(session).for_user(uuid.UUID(owner_id))
+                vault = create_vault_service(session).for_user(
+                    (owner_id if current_scope() else uuid.UUID(owner_id))
+                )
             except Exception as e:
                 Logger.error(
                     sketch_id, {"message": f"Failed to create vault: {str(e)}"}

@@ -1,3 +1,4 @@
+import { translate as t } from '@/i18n'
 import type { ImageOptions } from '@tiptap/extension-image'
 import { Image as TiptapImage } from '@tiptap/extension-image'
 import type { Editor } from '@tiptap/react'
@@ -62,7 +63,7 @@ const handleError = (
   props: ImageActionProps,
   errorHandler?: (error: Error, props: ImageActionProps) => void
 ): void => {
-  const typedError = error instanceof Error ? error : new Error('Unknown error')
+  const typedError = error instanceof Error ? error : new Error(t('Unknown error'))
   errorHandler?.(typedError, props)
 }
 

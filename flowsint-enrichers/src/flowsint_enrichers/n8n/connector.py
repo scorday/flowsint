@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 
@@ -13,6 +14,13 @@ class N8nConnector(Enricher):
     """
     Connect to your custom n8n workflows to process data through webhooks.
     """
+
+    metadata = EnricherMetadata(
+        description="Sends the input entities and configured payload to a user-specified n8n webhook so that an external workflow can process them. The actual enrichment and returned entity types depend on that workflow; no fixed data source is implied.",
+        providers=("n8n",),
+        api_key_requirement="optional",
+        api_key_notes="The webhook URL is required. An optional auth_token is sent as a Bearer token when configured; authentication requirements depend on the destination webhook.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Any

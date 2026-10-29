@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useRouter, useParams } from '@tanstack/react-router'
@@ -25,9 +26,13 @@ interface FormValues {
 
 interface NewSketchProps {
   children: ReactNode
+  selection?: { nodeIds: string[]; edgeIds: string[] }
+  onCreate?: (data: FormValues) => Promise<void>
 }
 
-export default function NewSketch({ children }: NewSketchProps) {
+export default function NewSketch({ children, selection, onCreate }: NewSketchProps) {
+  const { t } = useTranslation()
+
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const { investigationId, id: sketchId } = useParams({ strict: false })
@@ -45,7 +50,7 @@ export default function NewSketch({ children }: NewSketchProps) {
     mutationFn: sketchService.create,
     onSuccess: (result) => {
       if ('id' in result && result.id) {
-        toast.success('New sketch created.')
+        toast.success(t('New sketch created.'))
         router.navigate({
           to: `/dashboard/investigations/${investigationId}/graph/${result.id}`
         })
@@ -58,10 +63,13 @@ export default function NewSketch({ children }: NewSketchProps) {
           queryClient.invalidateQueries({
             queryKey: queryKeys.investigations.sketches(investigationId)
           })
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.sketches.dashboard(investigationId)
+          })
         }
         if (sketchId) setOpen(false)
       } else {
-        toast.error(('error' in result && result.error) || 'Failed to create sketch.')
+        toast.error(('error' in result && result.error) || t('Failed to create sketch.'))
       }
     },
     onError: (error) => {
@@ -71,14 +79,22 @@ export default function NewSketch({ children }: NewSketchProps) {
 
   async function onSubmit(data: FormValues) {
     if (!investigationId) {
-      toast.error('A sketch must be related to an investigation.')
+      toast.error(t('A sketch must be related to an investigation.'))
       return
     }
 
     try {
+      if (onCreate) {
+        await onCreate(data)
+        setOpen(false)
+        reset()
+        return
+      }
       const payload = {
         ...data,
-        investigation_id: investigationId
+        investigation_id: investigationId,
+        node_ids: selection?.nodeIds ?? [],
+        edge_ids: selection?.edgeIds ?? []
       }
       await createSketchMutation.mutateAsync(JSON.stringify(payload))
     } catch (error) {
@@ -90,11 +106,11 @@ export default function NewSketch({ children }: NewSketchProps) {
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="title">Sketch name</Label>
+          <Label htmlFor="title">{t('Sketch name')}</Label>
           <Input
             id="title"
             {...register('title', { required: 'Title is required' })}
-            placeholder="Fraud suspicion"
+            placeholder={t('Fraud suspicion')}
             aria-invalid={errors.title ? 'true' : 'false'}
           />
           {errors.title && (
@@ -104,11 +120,11 @@ export default function NewSketch({ children }: NewSketchProps) {
           )}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="description">{t('Description')}</Label>
           <Input
             id="description"
             {...register('description')}
-            placeholder="Phishing domain external scope"
+            placeholder={t('Phishing domain external scope')}
           />
         </div>
       </div>
@@ -123,10 +139,10 @@ export default function NewSketch({ children }: NewSketchProps) {
           }}
           disabled={isSubmitting}
         >
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : 'Save'}
+          {isSubmitting ? t('Saving...') : t('Save')}
         </Button>
       </DialogFooter>
     </form>
@@ -134,13 +150,17 @@ export default function NewSketch({ children }: NewSketchProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <span role="button">{children}</span>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>New sketch</DialogTitle>
-          <DialogDescription>Create a new blank sketch.</DialogDescription>
+          <DialogTitle>{t('New sketch')}</DialogTitle>
+          <DialogDescription>
+            {selection || onCreate
+              ? t(
+                  'The selected objects will be shown on a new sketch. Their data remains shared across the investigation.'
+                )
+              : t('Create a new blank sketch.')}
+          </DialogDescription>
         </DialogHeader>
         {formContent}
       </DialogContent>

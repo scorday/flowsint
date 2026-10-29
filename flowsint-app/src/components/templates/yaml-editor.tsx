@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useRef, useCallback } from 'react'
 import MonacoEditor, { OnMount, OnChange } from '@monaco-editor/react'
 import type { editor, Uri } from 'monaco-editor'
@@ -20,6 +21,8 @@ function useResolvedTheme() {
 }
 
 export function YamlEditor({ value, onChange, onValidate, readOnly = false }: YamlEditorProps) {
+  const { t } = useTranslation()
+
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const resolvedTheme = useResolvedTheme()
 
@@ -96,7 +99,7 @@ export function YamlEditor({ value, onChange, onValidate, readOnly = false }: Ya
           }}
           loading={
             <div className="flex items-center justify-center h-full text-muted-foreground">
-              Loading editor...
+              {t('Loading editor...')}
             </div>
           }
         />

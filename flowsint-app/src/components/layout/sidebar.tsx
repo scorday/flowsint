@@ -1,4 +1,15 @@
-import { Home, Lock, type LucideIcon, PanelLeft, Workflow, Shapes, Puzzle } from 'lucide-react'
+import { useTranslation } from '@/i18n'
+import { isAvl4 } from '@/platform/runtime-config'
+import {
+  Home,
+  Lock,
+  type LucideIcon,
+  PanelLeft,
+  Workflow,
+  Shapes,
+  Puzzle,
+  ShieldCheck
+} from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useLayoutStore } from '@/stores/layout-store'
 import { Button } from '../ui/button'
@@ -7,6 +18,7 @@ import { memo } from 'react'
 import { isMac } from '@/lib/utils'
 import { NavUser } from '../nav-user'
 import { CONFIG } from '@/config'
+import { useEnricherAdministrationAccess } from '@/hooks/use-enricher-administration-access'
 
 interface NavItem {
   icon: LucideIcon
@@ -15,17 +27,27 @@ interface NavItem {
 }
 
 export const Sidebar = memo(() => {
+  const { t } = useTranslation()
+
   const togglePanel = useLayoutStore((s) => s.togglePanel)
+  const { data: administrationAccess } = useEnricherAdministrationAccess()
 
   const navItems: NavItem[] = [
-    { icon: Home, label: 'Dashboard', href: '/dashboard/' },
-    { icon: Workflow, label: 'Flows', href: '/dashboard/flows' },
-    { icon: Shapes, label: 'Custom types', href: '/dashboard/custom-types' },
-    { icon: Lock, label: 'Vault', href: '/dashboard/vault' }
+    { icon: Home, label: t('Dashboard'), href: '/dashboard/' },
+    { icon: Workflow, label: t('Flows'), href: '/dashboard/flows' },
+    { icon: Shapes, label: t('Custom types'), href: '/dashboard/custom-types' },
+    { icon: Lock, label: t('Vault'), href: '/dashboard/vault' }
   ]
 
   if (CONFIG.ENRICHER_TEMPLATES_FEATURE_FLAG)
-    navItems.push({ icon: Puzzle, label: 'Enrichers', href: '/dashboard/enrichers' })
+    navItems.push({ icon: Puzzle, label: t('Enrichers'), href: '/dashboard/enrichers' })
+
+  if (administrationAccess?.can_manage)
+    navItems.push({
+      icon: ShieldCheck,
+      label: t('Enricher administration'),
+      href: '/dashboard/admin/enrichers'
+    })
 
   const commonClasses = 'flex items-center justify-center h-12 w-full rounded-sm hover:bg-muted'
 
@@ -43,6 +65,7 @@ export const Sidebar = memo(() => {
                 <TooltipTrigger asChild>
                   <Link
                     to={item.href}
+                    aria-label={item.label}
                     className={commonClasses}
                     activeProps={{ className: `${commonClasses}` }}
                   >
@@ -76,12 +99,12 @@ export const Sidebar = memo(() => {
               </div>
             </TooltipTrigger>
             <TooltipContent side="right">
-              Toggle panel
+              {t('Toggle panel')}
               <span className="text-[.7rem] ml-1 opacity-60">({isMac ? '⌘' : 'ctrl'}B)</span>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <NavUser />
+        {!isAvl4 && <NavUser />}
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from flowsint_types import FlowsintType
 
+from .identity import GraphScope
 from .repository import Neo4jGraphRepository
 from .repository_protocol import GraphRepositoryProtocol
 from .serializer import GraphSerializer, TypeResolver
@@ -95,18 +96,11 @@ class GraphService:
             )
 
         neo4j_node_dict: GraphDict = GraphSerializer.graph_node_to_neo4j_dict(node_obj)
+        neo4j_node_dict["nodeRole"] = "primary"
 
-        if self._enable_batching:
-            self._repository.add_to_batch(
-                "node",
-                node_obj=neo4j_node_dict,
-                sketch_id=self._sketch_id,
-            )
-        else:
-            return self._repository.create_node(
-                node_obj=neo4j_node_dict,
-                sketch_id=self._sketch_id,
-            )
+        return self._repository.create_node(
+            node_obj=neo4j_node_dict, sketch_id=self._sketch_id
+        )
 
     def create_node_from_flowsint_type(self, node_obj: FlowsintType) -> str | None:
         """
@@ -127,18 +121,13 @@ class GraphService:
         neo4j_node_dict: GraphDict = GraphSerializer.flowsint_type_to_neo4j_dict(
             node_obj
         )
+        neo4j_node_dict["nodeRole"] = "secondary"
 
-        if self._enable_batching:
-            self._repository.add_to_batch(
-                "node",
-                node_obj=neo4j_node_dict,
-                sketch_id=self._sketch_id,
-            )
-        else:
-            return self._repository.create_node(
-                node_obj=neo4j_node_dict,
-                sketch_id=self._sketch_id,
-            )
+        uid = self._repository.create_node(
+            node_obj=neo4j_node_dict, sketch_id=self._sketch_id
+        )
+        node_obj._graph_uid = uid
+        return uid
 
     def get_sketch_graph(self) -> GraphData:
         graph_data = self.repository.get_sketch_graph(self.sketch_id)
@@ -148,13 +137,89 @@ class GraphService:
         edges = GraphSerializer.deserialize_edges(graph_data.get("edges", []))
         return GraphData(nodes=nodes, edges=edges)
 
+    def get_investigation_graph(self) -> GraphData:
+        data = self.repository.get_investigation_graph()
+        return GraphData(
+            nodes=GraphSerializer.deserialize_nodes(
+                data["nodes"], type_resolver=self._type_resolver
+            ),
+            edges=GraphSerializer.deserialize_edges(data["edges"]),
+        )
+
+    def get_sketch_graph_page(
+        self, kind: str, after: str, size: int, revision: int | None = None
+    ) -> GraphDict:
+        data = self.repository.get_sketch_graph_page(
+            self.sketch_id, kind, after, size, revision
+        )
+        graph = GraphData(
+            nodes=GraphSerializer.deserialize_nodes(
+                data.pop("nodes"), type_resolver=self._type_resolver
+            ),
+            edges=GraphSerializer.deserialize_edges(data.pop("edges")),
+        ).model_dump(mode="json", serialize_as_any=True)
+        return {**data, "nds": graph["nodes"], "rls": graph["edges"]}
+
+    def search_graph_nodes(self, query: str, ids: List[str]) -> GraphDict:
+        return self.repository.search_graph_nodes(query, ids, self.sketch_id)
+
+    def exploration_catalog(self) -> GraphDict:
+        return self.repository.exploration_catalog(self.sketch_id)
+
+    def explore_graph(self, options: GraphDict) -> GraphDict:
+        data = self.repository.explore_graph(options, self.sketch_id)
+        graph = GraphData(
+            nodes=GraphSerializer.deserialize_nodes(
+                data["nodes"], type_resolver=self._type_resolver
+            ),
+            edges=GraphSerializer.deserialize_edges(data["edges"]),
+        ).model_dump(mode="json", serialize_as_any=True)
+        return {
+            **{
+                key: value
+                for key, value in data.items()
+                if key not in {"nodes", "edges"}
+            },
+            "nds": graph["nodes"],
+            "rls": graph["edges"],
+        }
+
+    def attach_subgraph(self, node_ids: List[str], edge_ids: List[str]) -> None:
+        self.repository.attach_subgraph(node_ids, edge_ids, self.sketch_id)
+
+    def attach_result_batches(self, batches: Any) -> None:
+        self.repository.attach_result_batches(batches, self.sketch_id)
+
+    def delete_from_investigation(
+        self, node_ids: List[str], edge_ids: List[str]
+    ) -> None:
+        self.repository.delete_from_investigation(node_ids, edge_ids, self.sketch_id)
+
+    def delete_investigation_graph(self) -> None:
+        self.repository.delete_investigation_graph(self.sketch_id)
+
     def get_nodes_by_ids(self, node_ids: List[str]) -> List[GraphNode]:
         nodes = self.repository.get_nodes_by_ids(node_ids, self.sketch_id)
         return GraphSerializer.deserialize_nodes(
             nodes, type_resolver=self._type_resolver
         )
 
-    def get_nodes_by_ids_for_task(self, node_ids: List[str]) -> List[BaseModel]:
+    def find_node_matches(self, node: GraphNode) -> List[Dict[str, Any]]:
+        records = self.repository.find_node_matches(
+            GraphSerializer.graph_node_to_neo4j_dict(node), self.sketch_id
+        )
+        return [
+            {
+                "node": GraphSerializer.neo4j_dict_to_graph_node(
+                    record, type_resolver=self._type_resolver
+                ).model_dump(mode="json", serialize_as_any=True),
+                "match": record["match"],
+                "on_sketch": record["on_sketch"],
+            }
+            for record in records
+        ]
+
+    def get_nodes_by_ids_for_task(self, node_ids: List[str]) -> List[FlowsintType]:
         nodes = self.get_nodes_by_ids(node_ids)
         return [GraphSerializer.graph_node_to_flowsint_type(node) for node in nodes]
 
@@ -340,10 +405,40 @@ class GraphService:
             self.flush()
 
 
+def resolve_graph_scope(sketch_id: str, *, db: Any = None) -> "GraphScope":
+    """Resolve the owning investigation and every view from checked SQL state."""
+    # Resolve scope from checked SQL state, never from browser-supplied graph
+    # properties. The Session event applies project isolation in API and tasks.
+    from contextlib import nullcontext
+    from uuid import UUID
+
+    from ..models import Sketch
+    from ..postgre_db import SessionLocal
+    from .identity import GraphScope
+
+    with SessionLocal() if db is None else nullcontext(db) as session:
+        sketch = session.query(Sketch).filter(Sketch.id == UUID(sketch_id)).first()
+        if sketch is None:
+            raise PermissionError("Sketch is not accessible in this project")
+        ids = (
+            session.query(Sketch.id)
+            .filter(Sketch.investigation_id == sketch.investigation_id)
+            .all()
+        )
+        scope = GraphScope(
+            sketch.project_id,
+            str(sketch.investigation_id),
+            tuple(str(r[0]) for r in ids),
+        )
+    return scope
+
+
 def create_graph_service(
     sketch_id: str,
     enable_batching: bool = True,
     type_resolver: Optional[TypeResolver] = None,
+    *,
+    db: Any = None,
 ) -> GraphService:
     """
     Factory function to create a GraphService instance with Neo4j repository.
@@ -359,11 +454,10 @@ def create_graph_service(
     Returns:
         Configured GraphService instance
     """
-    # Import Logger here to avoid circular imports
     from flowsint_core.core.logger import Logger
 
-    # Neo4jGraphRepository uses Neo4jConnection.get_instance() singleton
-    repository = Neo4jGraphRepository()
+    scope = resolve_graph_scope(sketch_id, db=db)
+    repository = Neo4jGraphRepository(scope=scope)
 
     return GraphService(
         sketch_id=sketch_id,

@@ -1,6 +1,7 @@
 """Test simplified API for create_node and create_relationship."""
 
 from typing import List
+from unittest.mock import MagicMock
 
 from flowsint_core.core.enricher_base import Enricher
 from flowsint_types.domain import Domain
@@ -31,7 +32,7 @@ class MockEnricher(Enricher):
 
 def test_create_relationship_with_pydantic_objects():
     """Test that create_relationship works with Pydantic objects."""
-    enricher = MockEnricher(sketch_id="test", scan_id="test")
+    enricher = MockEnricher(sketch_id="test", scan_id="test", graph_service=MagicMock())
 
     # Create objects
     individual = Individual(first_name="John", last_name="Doe", full_name="John Doe")
@@ -43,7 +44,7 @@ def test_create_relationship_with_pydantic_objects():
 
 def test_create_node_with_property_override():
     """Test that property overrides work with Pydantic objects."""
-    enricher = MockEnricher(sketch_id="test", scan_id="test")
+    enricher = MockEnricher(sketch_id="test", scan_id="test", graph_service=MagicMock())
 
     domain = Domain(domain="example.com")
 

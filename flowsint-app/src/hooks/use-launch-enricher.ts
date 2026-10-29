@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { toast } from 'sonner'
 import { useConfirm } from '@/components/use-confirm-dialog'
 import { enricherService } from '@/api/enricher-service'
@@ -6,6 +7,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/query-keys'
 
 export function useLaunchEnricher(askUser: boolean = false) {
+  const { t } = useTranslation()
+
   const { confirm } = useConfirm()
   const openClonsole = useLayoutStore((s) => s.openConsole)
   const queryClient = useQueryClient()
@@ -16,11 +19,14 @@ export function useLaunchEnricher(askUser: boolean = false) {
     sketch_id: string | null | undefined,
     params?: Record<string, string>
   ) => {
-    if (!sketch_id) return toast.error('Could not find the graph.')
+    if (!sketch_id) return toast.error(t('Could not find the graph.'))
     if (askUser) {
       const confirmed = await confirm({
         title: `${enricherName} scan`,
-        message: `You're about to launch ${enricherName} enricher on ${node_ids.length} items.`
+        message: t("You're about to launch {{v0}} enricher on {{v1}} items.", {
+          v0: enricherName,
+          v1: node_ids.length
+        })
       })
       if (!confirmed) return
     }
@@ -29,10 +35,14 @@ export function useLaunchEnricher(askUser: boolean = false) {
     const body = JSON.stringify(params ? { node_ids, sketch_id, params } : { node_ids, sketch_id })
     const count = node_ids.length
     toast.promise(enricherService.launch(enricherName, body), {
-      loading: 'Loading...',
+      loading: t('Loading...'),
       success: () =>
-        `Enricher ${enricherName} has been launched on ${count} node${count > 1 ? 's' : ''}.`,
-      error: () => `An error occurred launching enricher.`
+        t('Enricher {{v0}} has been launched on {{v1}} node{{v2}}.', {
+          v0: enricherName,
+          v1: count,
+          v2: count > 1 ? 's' : ''
+        }),
+      error: () => t('An error occurred launching enricher.')
     })
     queryClient.invalidateQueries({
       queryKey: queryKeys.scans.list

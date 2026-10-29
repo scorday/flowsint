@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useQuery } from '@tanstack/react-query'
 import {
   Select,
@@ -16,6 +17,8 @@ export default function KeySelector({
   onChange: (value: KeyType) => void
   value?: KeyType
 }) {
+  const { t } = useTranslation()
+
   // Fetch keys
   const { data: keys = [], isLoading } = useQuery<KeyType[]>({
     queryKey: ['keys'],
@@ -32,7 +35,7 @@ export default function KeySelector({
   return (
     <Select onValueChange={handleValueChange} value={value?.id || ''} disabled={isLoading}>
       <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select a key" />
+        <SelectValue placeholder={t('Select a key')} />
       </SelectTrigger>
       <SelectContent>
         {keys.map((key: KeyType) => (

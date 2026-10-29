@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import type { ElementDimensions } from '../hooks/use-drag-resize'
@@ -37,6 +38,8 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
   selected,
   updateAttributes
 }) => {
+  const { t } = useTranslation()
+
   const { src: initialSrc, width: initialWidth, height: initialHeight, fileName } = node.attrs
   const uploadAttemptedRef = React.useRef(false)
 
@@ -232,7 +235,7 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
               {imageState.error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <Info className="size-8 text-destructive" />
-                  <p className="mt-2 text-sm text-muted-foreground">Failed to load image</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t('Failed to load image')}</p>
                 </div>
               )}
 
@@ -290,7 +293,7 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
             <ActionWrapper>
               <ActionButton
                 icon={<Trash2 className="size-4" />}
-                tooltip="Remove image"
+                tooltip={t('Remove image')}
                 onClick={onRemoveImg}
               />
             </ActionWrapper>

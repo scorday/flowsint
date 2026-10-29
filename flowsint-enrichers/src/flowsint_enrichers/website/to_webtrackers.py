@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from recontrack import TrackingCodeExtractor
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
@@ -13,6 +14,13 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class WebsiteToWebtrackersEnricher(Enricher):
     """From website to webtrackers."""
+
+    metadata = EnricherMetadata(
+        description="Fetches the target website with ReconTrack and extracts supported tracking identifiers. Creates WebTracker records with the tracker source and code and links them to the website.",
+        providers=("ReconTrack",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses a local extraction library and contacts the target website directly; no provider API key is configured.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Website

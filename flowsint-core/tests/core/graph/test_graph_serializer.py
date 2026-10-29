@@ -11,6 +11,38 @@ from flowsint_core.core.graph import (
 from flowsint_types import Domain, Ip, Website
 
 
+def test_invalid_stored_observation_remains_readable_without_weakening_input_validation():
+    from pydantic import ValidationError
+
+    from flowsint_types import FlowsintType
+
+    properties = {
+        "number": "not-a-valid-number",
+        "country": "observation",
+        "carrier": "original source",
+    }
+    record = {
+        "id": "canonical-uuid",
+        "data": {
+            "nodeType": "phone",
+            "nodeLabel": "Archived phone",
+            "nodeMetadata.created_at": datetime.now().isoformat(),
+            **{f"nodeProperties.{key}": value for key, value in properties.items()},
+        },
+    }
+    restored = GraphSerializer.neo4j_dict_to_graph_node(record)
+    assert type(restored.nodeProperties) is FlowsintType
+    assert restored.nodeType == "phone"
+    assert restored.nodeLabel == "Archived phone"
+    assert restored.nodeProperties._graph_uid == "canonical-uuid"
+    assert all(
+        restored.nodeProperties.model_dump()[key] == value
+        for key, value in properties.items()
+    )
+    with pytest.raises(ValidationError):
+        GraphSerializer.parse_flowsint_type(properties, "phone")
+
+
 def test_serializer():
     created_at = datetime.now()
     node = GraphNode(
@@ -40,6 +72,7 @@ def test_serializer():
         "nodeImage": "nodeImage",
         "nodeIcon": "nodeIcon",
         "nodeShape": "circle",
+        "nodeRole": "primary",
         "x": 100.0,
         "y": 100.0,
         "nodeProperties.domain": "domain.com",
@@ -85,7 +118,8 @@ def test_deserializer():
     )
     output = GraphSerializer.neo4j_dict_to_graph_node(node)
 
-    assert output == graph_node
+    assert output.model_dump() == graph_node.model_dump()
+    assert output.nodeProperties._graph_uid == "id"
 
 
 def test_serialize_from_flowsint_type():
@@ -255,7 +289,10 @@ class TestGraphEdgeToGraphDict:
         from_obj = Domain(domain="source.com")
         to_obj = Domain(domain="target.com")
         result = GraphSerializer.graph_edge_to_neo4j_dict(from_obj, to_obj, "LINKS_TO")
-        assert result == {
+        assert {
+            k: result[k]
+            for k in ("from_type", "from_label", "to_type", "to_label", "rel_label")
+        } == {
             "from_type": "domain",
             "from_label": "source.com",
             "to_type": "domain",
@@ -279,7 +316,10 @@ class TestGraphEdgeToGraphDict:
             nodeMetadata=NodeMetadata(),
         )
         result = GraphSerializer.graph_edge_to_neo4j_dict(from_obj, to_obj, "RESOLVES")
-        assert result == {
+        assert {
+            k: result[k]
+            for k in ("from_type", "from_label", "to_type", "to_label", "rel_label")
+        } == {
             "from_type": "ip",
             "from_label": "source",
             "to_type": "domain",
@@ -297,7 +337,10 @@ class TestGraphEdgeToGraphDict:
             nodeMetadata=NodeMetadata(),
         )
         result = GraphSerializer.graph_edge_to_neo4j_dict(from_obj, to_obj, "HOSTS")
-        assert result == {
+        assert {
+            k: result[k]
+            for k in ("from_type", "from_label", "to_type", "to_label", "rel_label")
+        } == {
             "from_type": "domain",
             "from_label": "source.com",
             "to_type": "ip",

@@ -10,10 +10,6 @@ load_dotenv()
 
 # Get AUTH_SECRET after loading environment variables
 AUTH_SECRET = os.getenv("AUTH_SECRET")
-if not AUTH_SECRET:
-    raise ValueError(
-        "AUTH_SECRET environment variable is not set. Please set it in your .env file."
-    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 60
 
@@ -29,6 +25,8 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    if not AUTH_SECRET:
+        raise ValueError("AUTH_SECRET is required for standalone JWT authentication")
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

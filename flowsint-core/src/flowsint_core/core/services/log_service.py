@@ -3,12 +3,13 @@ Log service for managing event logs.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from ..models import Scan
+from ..models import Scan, Sketch
+from ..project_scope import ActorID
 from ..repositories import (
     InvestigationRepository,
     LogRepository,
@@ -32,8 +33,8 @@ class LogService(BaseService):
         sketch_repo: SketchRepository,
         scan_repo: ScanRepository,
         investigation_repo: InvestigationRepository,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(db, **kwargs)
         self._log_repo = log_repo
         self._sketch_repo = sketch_repo
@@ -41,9 +42,13 @@ class LogService(BaseService):
         self._investigation_repo = investigation_repo
 
     def _get_sketch_with_permission(
-        self, sketch_id: str, user_id: UUID, actions: List[str]
-    ):
-        sketch = self._sketch_repo.get_by_id(sketch_id)
+        self, sketch_id: str, user_id: ActorID, actions: List[str]
+    ) -> Sketch:
+        try:
+            parsed_id = UUID(str(sketch_id))
+        except (ValueError, TypeError, AttributeError):
+            raise NotFoundError("Sketch not found")
+        sketch = self._sketch_repo.get_by_id(parsed_id)
         if not sketch:
             raise NotFoundError(f"Sketch with id {sketch_id} not found")
         self._check_permission(user_id, sketch.investigation_id, actions)
@@ -52,13 +57,13 @@ class LogService(BaseService):
     def get_logs_by_sketch(
         self,
         sketch_id: str,
-        user_id: UUID,
+        user_id: ActorID,
         limit: int = 100,
         since: Optional[datetime] = None,
     ) -> List[Event]:
-        self._get_sketch_with_permission(sketch_id, user_id, ["read"])
+        sketch = self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
-        logs = self._log_repo.get_by_sketch(sketch_id, limit=limit, since=since)
+        logs = self._log_repo.get_by_sketch(sketch.id, limit=limit, since=since)
 
         # Reverse to show chronologically (oldest to newest)
         logs = list(reversed(logs))
@@ -86,19 +91,23 @@ class LogService(BaseService):
 
         return results
 
-    def delete_logs_by_sketch(self, sketch_id: str, user_id: UUID) -> dict:
-        self._get_sketch_with_permission(sketch_id, user_id, ["delete"])
+    def delete_logs_by_sketch(self, sketch_id: str, user_id: ActorID) -> dict:
+        sketch = self._get_sketch_with_permission(sketch_id, user_id, ["delete"])
 
         try:
-            self._log_repo.delete_by_sketch(sketch_id)
+            self._log_repo.delete_by_sketch(sketch.id)
             self._commit()
             return {"message": "All logs have been deleted successfully"}
         except Exception as e:
             self._rollback()
             raise DatabaseError(f"Failed to delete logs: {str(e)}")
 
-    def get_scan_with_permission(self, scan_id: str, user_id: UUID) -> Scan:
-        scan = self._scan_repo.get_by_id(scan_id)
+    def get_scan_with_permission(self, scan_id: str, user_id: ActorID) -> Scan:
+        try:
+            parsed_id = UUID(str(scan_id))
+        except (ValueError, TypeError, AttributeError):
+            raise NotFoundError("Scan not found")
+        scan = self._scan_repo.get_by_id(parsed_id)
         if not scan:
             raise NotFoundError(f"Scan with id {scan_id} not found")
 

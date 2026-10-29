@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useMemo, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Button } from '@/components/ui/button'
@@ -10,9 +11,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { AnimatePresence, motion } from 'framer-motion'
 import { DynamicForm } from '@/components/sketches/dynamic-form'
+import { SocialAccountForm } from '@/components/sketches/social-account-form'
+import { enricherService } from '@/api/enricher-service'
 import { Badge } from '@/components/ui/badge'
 import { useGraphStore } from '@/stores/graph-store'
-import { sketchService } from '@/api/sketch-service'
 import { useParams } from '@tanstack/react-router'
 import { useIcon } from '@/hooks/use-icon'
 import { useLayoutStore } from '@/stores/layout-store'
@@ -20,28 +22,27 @@ import { useActionItems } from '@/hooks/use-action-items'
 import { GraphNode } from '@/types'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { useGraphControls } from '@/stores/graph-controls-store'
+import { useManualNodeAdd } from './use-manual-node-add'
+import { NodeMatchDialog } from './node-match-dialog'
 
 export default function AddItemDialog() {
+  const { t } = useTranslation()
+
   const handleOpenFormModal = useGraphStore((state) => state.handleOpenFormModal)
   const currentNodeType = useGraphStore((state) => state.currentNodeType)
-  const setCurrentNodeId = useGraphStore((state) => state.setCurrentNodeId)
   const relatedNodeToAdd = useGraphStore((state) => state.relatedNodeToAdd)
   const setRelatedNodeToAdd = useGraphStore((state) => state.setRelatedNodeToAdd)
   const openMainDialog = useGraphStore((state) => state.openMainDialog)
   const setOpenMainDialog = useGraphStore((state) => state.setOpenMainDialog)
   const openFormDialog = useGraphStore((state) => state.openFormDialog)
   const setOpenFormDialog = useGraphStore((state) => state.setOpenFormDialog)
-  const regenerateLayout = useGraphControls((s) => s.regenerateLayout)
-  const currentLayoutType = useGraphControls((s) => s.currentLayoutType)
-  const addNode = useGraphStore((state) => state.addNode)
-  const addEdge = useGraphStore((state) => state.addEdge)
-  const replaceNode = useGraphStore((state) => state.replaceNode)
   const setActiveTab = useLayoutStore((state) => state.setActiveTab)
   const setImportModalOpen = useGraphSettingsStore((s) => s.setImportModalOpen)
   const getViewportCenter = useGraphControls((s) => s.getViewportCenter)
 
   const { id: sketch_id } = useParams({ strict: false })
   const { actionItems, isLoading } = useActionItems(true)
+  const manualAdd = useManualNodeAdd(sketch_id)
 
   const [search, setSearch] = useState('')
 
@@ -49,10 +50,12 @@ export default function AddItemDialog() {
     if (!actionItems) return actionItems
     const query = search.trim().toLowerCase()
     if (!query) return actionItems
-    return actionItems.filter(
-      (item) => item.label.toLowerCase().includes(query) || item.type.toLowerCase().includes(query)
+    return actionItems.filter((item) =>
+      [item.label, item.type, t(item.label), item.description, t(item.description)].some((text) =>
+        text.toLowerCase().includes(query)
+      )
     )
-  }, [actionItems, search])
+  }, [actionItems, search, t])
 
   const generateTempId = () => {
     // Generate a temporary ID in the format: temp:uuid:0
@@ -76,9 +79,9 @@ export default function AddItemDialog() {
     setImportModalOpen(true)
   }, [setOpenMainDialog, setImportModalOpen])
 
-  const handleAddNode = async (data: any) => {
+  const handleAddNode = async (data: any, loadFriends = false) => {
     if (!currentNodeType || !sketch_id) {
-      toast.error('Invalid node type or sketch ID.')
+      toast.error(t('Invalid node type or sketch ID.'))
       return
     }
 
@@ -87,10 +90,11 @@ export default function AddItemDialog() {
       currentNodeType.fields[0].name
 
     const type = currentNodeType.type
-    let label = data[label_key as keyof typeof data]
+    let label = data.nodeLabel || data[label_key as keyof typeof data]
 
-    // if no value, fallback to fist key
     if (!label) label = data[Object.keys(data)[0] as keyof typeof data]
+    if (typeof label === 'object') label = label?.value ?? label?.name ?? ''
+    label = String(label ?? '')
     // Get viewport center for positioning new node
     const center = getViewportCenter()
     const nodeX = center?.x ?? 0
@@ -114,73 +118,35 @@ export default function AddItemDialog() {
       nodeMetadata: {}
     }
 
-    if (addNode) {
-      addNode(nodeWithTempId)
-    }
-    // Optimistically add edge if we have a related node
-    let tempEdgeId: string | null = null
-    if (relatedNodeToAdd) {
-      const tempEdgePayload = {
-        type: 'custom',
-        label: `HAS_${nodeWithTempId.nodeType.toUpperCase()}`,
-        source: relatedNodeToAdd.id,
-        target: tempId
-      }
-      if (addEdge) {
-        const tempEdge = addEdge(tempEdgePayload)
-        tempEdgeId = tempEdge.id
-      }
-    }
-    // Set current node optimistically
-    if (setCurrentNodeId) {
-      setCurrentNodeId(nodeWithTempId.id)
-    }
-    setActiveTab('entities')
-    // Close dialogs immediately for better UX
-    setOpenMainDialog(false)
-    setOpenFormDialog(false)
-    // Show optimistic success message
-    toast(`New ${type.toLowerCase()} added to sketch.`, {
-      description: relatedNodeToAdd
-        ? `A new ${type.toLowerCase()} "${label}" was added to relation ${relatedNodeToAdd.nodeLabel}.`
-        : `A new ${type.toLowerCase()} "${label}" was added.`,
-      action: {
-        label: 'Beautify layout',
-        onClick: () => regenerateLayout(currentLayoutType)
-      }
-    })
-    // Make API calls in the background
-    try {
-      // Create the node via API to get the real database ID
-      const newNodeResponse = await sketchService.addNode(
-        sketch_id as string,
-        JSON.stringify(nodeWithTempId)
-      )
-      const newNode: GraphNode = newNodeResponse.node
-      if (newNode && replaceNode) {
-        replaceNode(tempId, newNode.id, newNode.nodeProperties)
-        if (relatedNodeToAdd && tempEdgeId) {
-          const relationPayload = {
-            source: relatedNodeToAdd.id,
-            target: newNode.id,
-            type: 'one-way',
-            label: `HAS_${nodeWithTempId.nodeType.toUpperCase()}`
-          }
-          // Make API call to persist the edge
-          await sketchService.addEdge(sketch_id as string, JSON.stringify(relationPayload))
+    await manualAdd.add(nodeWithTempId, {
+      relatedSourceId: relatedNodeToAdd?.id,
+      onAdded: (id) => {
+        setActiveTab('entities')
+        setOpenMainDialog(false)
+        setOpenFormDialog(false)
+        setRelatedNodeToAdd(null)
+        toast.success(t('Object is available on this sketch.'))
+        if (loadFriends && type.toLowerCase() === 'socialaccount') {
+          toast.promise(
+            enricherService.launch(
+              'socialaccount_to_vk_friends',
+              JSON.stringify({
+                node_ids: [id],
+                sketch_id,
+                params: { max_friends: '1000' }
+              })
+            ),
+            {
+              loading: t('Starting friend loading...'),
+              success: t('Friend loading has been started.'),
+              error: t(
+                'Profile added, but friend loading could not be started. Try it from the profile menu.'
+              )
+            }
+          )
         }
       }
-    } catch (error) {
-      console.error(error)
-      toast.error('Failed to sync node with server. Please refresh.')
-    }
-    // finally {
-    //   setTimeout(() => {
-    //     if (currentLayoutType && regenerateLayout) {
-    //       regenerateLayout(currentLayoutType)
-    //     }
-    //   }, 500)
-    // }
+    })
   }
 
   const renderActionCards = () => {
@@ -191,7 +157,9 @@ export default function AddItemDialog() {
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              {search ? `No types match "${search}"` : 'No action items available'}
+              {search
+                ? t('No types match "{{v0}}"', { v0: search })
+                : t('No action items available')}
             </p>
           </div>
         </div>
@@ -226,7 +194,7 @@ export default function AddItemDialog() {
         <DialogContent className="sm:max-w-[800px] h-[80vh] overflow-hidden flex flex-col">
           <DialogTitle className="flex items justify-between">
             <div className="flex items-center">
-              {relatedNodeToAdd ? `Add a relation to ` : 'Select an item to insert'}
+              {relatedNodeToAdd ? t('Add a relation to ') : t('Select an item to insert')}
               {relatedNodeToAdd && (
                 <span className="text-primary truncate max-w-[50%] text-ellipsis font-semibold ml-1">
                   {relatedNodeToAdd.nodeLabel}
@@ -241,14 +209,14 @@ export default function AddItemDialog() {
                 className="flex items-center gap-2 rounded"
               >
                 <Download className="h-4 w-4" />
-                Import entities
+                {t('Import entities')}
               </Button>
             </div>
           </DialogTitle>
           <DialogDescription>
             {relatedNodeToAdd
-              ? 'Choose what type of relation to add to this node.'
-              : 'Choose an item to insert manually, or import data from a file.'}
+              ? t('Choose what type of relation to add to this node.')
+              : t('Choose an item to insert manually, or import data from a file.')}
           </DialogDescription>
 
           <div className="relative">
@@ -257,7 +225,7 @@ export default function AddItemDialog() {
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search types..."
+              placeholder={t('Search types...')}
               className="pl-8"
             />
           </div>
@@ -284,20 +252,31 @@ export default function AddItemDialog() {
       <Dialog open={openFormDialog} onOpenChange={setOpenFormDialog}>
         <DialogContent className="max-h-[95vh] flex flex-col">
           <DialogTitle>
-            {currentNodeType && <>Add {currentNodeType.label.toLowerCase()}</>}
+            {currentNodeType && t('Add entity: {{type}}', { type: t(currentNodeType.label) })}
           </DialogTitle>
-          <DialogDescription>{currentNodeType?.description}</DialogDescription>
+          <DialogDescription className="max-h-28 shrink-0 overflow-y-auto whitespace-pre-line break-words">
+            {t(currentNodeType?.description ?? '')}
+          </DialogDescription>
           {currentNodeType && (
-            <div className="grow overflow-y-auto">
-              <DynamicForm
-                currentNodeType={currentNodeType}
-                isForm={true}
-                onSubmit={handleAddNode}
-              />
+            <div className="min-h-0 grow overflow-y-auto">
+              {currentNodeType.type.toLowerCase() === 'socialaccount' && sketch_id ? (
+                <SocialAccountForm
+                  currentNodeType={currentNodeType}
+                  sketchId={sketch_id}
+                  onSubmit={handleAddNode}
+                />
+              ) : (
+                <DynamicForm
+                  currentNodeType={currentNodeType}
+                  isForm={true}
+                  onSubmit={handleAddNode}
+                />
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+      <NodeMatchDialog controller={manualAdd} />
     </>
   )
 }
@@ -308,6 +287,8 @@ interface ActionCardProps {
 }
 
 function ActionCard({ item, onSelect }: ActionCardProps) {
+  const { t } = useTranslation()
+
   const IconComponent = useIcon(item.icon, { nodeIcon: item.icon, nodeColor: item.color })
 
   return (
@@ -315,22 +296,32 @@ function ActionCard({ item, onSelect }: ActionCardProps) {
       className={cn(
         'cursor-pointer transition-all hover:border-primary border rounded border-transparent hover:shadow-md bg-muted',
         item.disabled && 'opacity-50 cursor-not-allowed',
-        'h-full'
+        'h-full min-w-0'
       )}
       onClick={item.disabled ? undefined : onSelect}
     >
-      <CardContent className="p-2 relative flex flex-col items-center text-center h-full">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center mb-3 mt-2">
+      <CardContent className="p-2 relative flex flex-1 flex-col items-center text-center min-w-0">
+        <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center mb-3 mt-2">
           {IconComponent({})}
         </div>
-        <div className="font-medium text-sm">{item.label}</div>
-        <div className="text-sm mt-2 opacity-60">{item.description}</div>
-        <Badge variant="outline" className="mt-2">
-          {item.fields.length} fields
+        <div
+          className="line-clamp-2 min-h-10 w-full break-words font-medium text-sm leading-5"
+          title={t(item.label)}
+        >
+          {t(item.label)}
+        </div>
+        <div
+          className="line-clamp-3 h-[3.75rem] w-full break-words text-sm leading-5 mt-2 mb-3 opacity-60"
+          title={t(item.description)}
+        >
+          {t(item.description)}
+        </div>
+        <Badge variant="outline" className="mt-auto">
+          {t('counts.fields', { count: item.fields.length })}
         </Badge>
         {item.disabled && (
           <Badge variant="outline" className="mt-2 absolute top-2 left-2">
-            Soon
+            {t('Soon')}
           </Badge>
         )}
       </CardContent>

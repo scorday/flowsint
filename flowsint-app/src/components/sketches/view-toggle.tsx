@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { List, ArrowRightLeft, MapPin } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -16,16 +17,18 @@ const views = [
 ] as const
 
 export function ViewToggle({ view, setView }: ViewToggleProps) {
+  const { t } = useTranslation()
+
   return (
     <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as typeof view)}>
       {views.map(({ value, icon: Icon, label }) => (
         <Tooltip key={value}>
           <TooltipTrigger asChild>
-            <ToggleGroupItem value={value} aria-label={label} className="h-7 w-7 p-0">
+            <ToggleGroupItem value={value} aria-label={t(label)} className="h-7 w-7 p-0">
               <Icon className="h-4 w-4" />
             </ToggleGroupItem>
           </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
+          <TooltipContent>{t(label)}</TooltipContent>
         </Tooltip>
       ))}
     </ToggleGroup>

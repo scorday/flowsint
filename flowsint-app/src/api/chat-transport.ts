@@ -1,12 +1,17 @@
+import { isAvl4, getApiBaseUrl } from '@/platform/runtime-config'
+import { platformChatFetch } from '@/platform/chat-fetch'
 import { DefaultChatTransport } from 'ai'
 import { useAuthStore } from '@/stores/auth-store'
 
-const API_URL = import.meta.env.VITE_API_URL ?? ''
-
 export function createChatTransport(chatId: string) {
   return new DefaultChatTransport({
-    api: `${API_URL}/api/chats/stream/${chatId}`,
+    api: new URL(
+      `api/chats/stream/${chatId}`,
+      new URL(getApiBaseUrl().replace(/\/?$/, '/'), window.location.origin)
+    ).href,
+    ...(isAvl4 ? { fetch: platformChatFetch, credentials: 'include' as const } : {}),
     headers: (): Record<string, string> => {
+      if (isAvl4) return {}
       const token = useAuthStore.getState().token
       if (token) return { Authorization: `Bearer ${token}` }
       return {}

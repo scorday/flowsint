@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { logService } from '@/api/log-service'
 import { useConfirm } from '../use-confirm-dialog'
 import { useParams } from '@tanstack/react-router'
@@ -8,6 +9,8 @@ import { queryKeys } from '@/api/query-keys'
 import { TerminalLogViewer } from '../terminal'
 
 export const LogPanel = memo(() => {
+  const { t } = useTranslation()
+
   const { id: sketch_id } = useParams({ strict: false })
   const { confirm } = useConfirm()
   const { logs, refetch } = useEvents(sketch_id as string)
@@ -34,8 +37,8 @@ export const LogPanel = memo(() => {
     if (!sketch_id) return
     if (
       !(await confirm({
-        title: 'Delete all logs',
-        message: 'Are you sure you want to delete all logs?'
+        title: t('Delete all logs'),
+        message: t('Are you sure you want to delete all logs?')
       }))
     )
       return

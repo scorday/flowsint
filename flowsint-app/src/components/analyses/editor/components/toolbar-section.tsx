@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import type { FormatAction } from '../types'
@@ -36,6 +37,8 @@ export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
   size,
   variant
 }) => {
+  const { t } = useTranslation()
+
   const { mainActions, dropdownActions } = React.useMemo(() => {
     const sortedActions = actions
       .filter((action) => activeActions.includes(action.value))
@@ -54,15 +57,15 @@ export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
         onClick={() => action.action(editor)}
         disabled={!action.canExecute(editor)}
         isActive={action.isActive(editor)}
-        tooltip={`${action.label} ${action.shortcuts.map((s) => getShortcutKey(s).symbol).join(' ')}`}
-        aria-label={action.label}
+        tooltip={`${t(action.label)} ${action.shortcuts.map((s) => getShortcutKey(s).symbol).join(' ')}`}
+        aria-label={t(action.label)}
         size={size}
         variant={variant}
       >
         {action.icon}
       </ToolbarButton>
     ),
-    [editor, size, variant]
+    [editor, size, variant, t]
   )
 
   const renderDropdownMenuItem = React.useCallback(
@@ -74,13 +77,13 @@ export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
         className={cn('flex flex-row items-center justify-between gap-4', {
           'bg-accent': action.isActive(editor)
         })}
-        aria-label={action.label}
+        aria-label={t(action.label)}
       >
-        <span className="grow">{action.label}</span>
+        <span className="grow">{t(action.label)}</span>
         <ShortcutKey keys={action.shortcuts} />
       </DropdownMenuItem>
     ),
-    [editor]
+    [editor, t]
   )
 
   const isDropdownActive = React.useMemo(
@@ -97,8 +100,8 @@ export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
             <div>
               <ToolbarButton
                 isActive={isDropdownActive}
-                tooltip={dropdownTooltip}
-                aria-label={dropdownTooltip}
+                tooltip={t(dropdownTooltip)}
+                aria-label={t(dropdownTooltip)}
                 className={cn(dropdownClassName)}
                 size={size}
                 variant={variant}

@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from ..models import EnricherTemplate
+from ..project_scope import ActorID
 from ..repositories import EnricherTemplateRepository
 from .base import BaseService
 from .exceptions import ConflictError, NotFoundError
@@ -33,7 +34,7 @@ class EnricherTemplateService(BaseService):
         version: float,
         content: dict,
         is_public: bool,
-        owner_id: UUID,
+        owner_id: ActorID,
     ) -> EnricherTemplate:
         self._check_duplicate_name(name, owner_id)
 
@@ -53,7 +54,7 @@ class EnricherTemplateService(BaseService):
 
     def list_templates(
         self,
-        owner_id: UUID,
+        owner_id: ActorID,
         category: Optional[str] = None,
         include_public: bool = True,
     ) -> List[EnricherTemplate]:
@@ -61,13 +62,15 @@ class EnricherTemplateService(BaseService):
             return self._repo.get_by_owner_or_public(owner_id, category)
         return self._repo.get_by_owner(owner_id, category)
 
-    def get_template(self, template_id: UUID, user_id: UUID) -> EnricherTemplate:
+    def get_template(self, template_id: UUID, user_id: ActorID) -> EnricherTemplate:
         template = self._repo.get_by_id_and_owner_or_public(template_id, user_id)
         if not template:
             raise NotFoundError("Template not found")
         return template
 
-    def get_owned_template(self, template_id: UUID, owner_id: UUID) -> EnricherTemplate:
+    def get_owned_template(
+        self, template_id: UUID, owner_id: ActorID
+    ) -> EnricherTemplate:
         template = self._repo.get_by_id_and_owner(template_id, owner_id)
         if not template:
             raise NotFoundError("Template not found")
@@ -76,7 +79,7 @@ class EnricherTemplateService(BaseService):
     def update_template(
         self,
         template_id: UUID,
-        owner_id: UUID,
+        owner_id: ActorID,
         update_data: dict,
     ) -> EnricherTemplate:
         template = self.get_owned_template(template_id, owner_id)
@@ -122,23 +125,23 @@ class EnricherTemplateService(BaseService):
         self._refresh(template)
         return template
 
-    def delete_template(self, template_id: UUID, owner_id: UUID) -> None:
+    def delete_template(self, template_id: UUID, owner_id: ActorID) -> None:
         template = self.get_owned_template(template_id, owner_id)
         self._repo.delete(template)
         self._commit()
 
-    def find_by_name(self, name: str, user_id: UUID) -> Optional[EnricherTemplate]:
+    def find_by_name(self, name: str, user_id: ActorID) -> Optional[EnricherTemplate]:
         return self._repo.find_by_name_and_owner_or_public(name, user_id)
 
     def list_by_category_for_user(
-        self, owner_id: UUID, category: Optional[str] = None
+        self, owner_id: ActorID, category: Optional[str] = None
     ) -> List[EnricherTemplate]:
         return self._repo.get_by_owner(owner_id, category)
 
     def _check_duplicate_name(
         self,
         name: str,
-        owner_id: UUID,
+        owner_id: ActorID,
         exclude_id: Optional[UUID] = None,
     ) -> None:
         existing = self._repo.find_by_name_and_owner(name, owner_id, exclude_id)

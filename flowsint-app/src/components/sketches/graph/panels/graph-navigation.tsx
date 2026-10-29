@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useGraphStore } from '@/stores/graph-store'
 import NodesPanel from './nodes-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -9,6 +10,8 @@ import SelectedItemsPanel from './selected-items-panel'
 import { usePermissions } from '@/hooks/use-can'
 
 const GraphNavigation = () => {
+  const { t } = useTranslation()
+
   const { canEdit } = usePermissions()
   const nodes = useGraphStore((s) => s.nodes)
   const activeTab = useLayoutStore((s) => s.activeTab)
@@ -25,11 +28,11 @@ const GraphNavigation = () => {
       >
         <TabsList className="w-full p-0 rounded-none my-0 border-b">
           <TabsTrigger value="entities">
-            <Users className="h-3 w-3 opacity-60" /> Entities
+            <Users className="h-3 w-3 opacity-60" /> {t(' Entities')}
           </TabsTrigger>
           {canEdit && (
             <TabsTrigger value="items">
-              <UserPlus className="h-3 w-3 opacity-60" /> Add
+              <UserPlus className="h-3 w-3 opacity-60" /> {t(' Add')}
             </TabsTrigger>
           )}
         </TabsList>

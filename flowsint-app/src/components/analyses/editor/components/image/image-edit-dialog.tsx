@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import type { Editor } from '@tiptap/react'
 import type { VariantProps } from 'class-variance-authority'
 import type { toggleVariants } from '@/components/ui/toggle'
@@ -19,6 +20,8 @@ interface ImageEditDialogProps extends VariantProps<typeof toggleVariants> {
 }
 
 const ImageEditDialog = ({ editor, size, variant }: ImageEditDialogProps) => {
+  const { t } = useTranslation()
+
   const [open, setOpen] = useState(false)
 
   return (
@@ -26,8 +29,8 @@ const ImageEditDialog = ({ editor, size, variant }: ImageEditDialogProps) => {
       <DialogTrigger asChild>
         <ToolbarButton
           isActive={editor.isActive('image')}
-          tooltip="Image"
-          aria-label="Image"
+          tooltip={t('Image')}
+          aria-label={t('Image')}
           size={size}
           variant={variant}
         >
@@ -36,9 +39,9 @@ const ImageEditDialog = ({ editor, size, variant }: ImageEditDialogProps) => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Select image</DialogTitle>
+          <DialogTitle>{t('Select image')}</DialogTitle>
           <DialogDescription className="sr-only">
-            Upload an image from your computer
+            {t('Upload an image from your computer')}
           </DialogDescription>
         </DialogHeader>
         <ImageEditBlock editor={editor} close={() => setOpen(false)} />

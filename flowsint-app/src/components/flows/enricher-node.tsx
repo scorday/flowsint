@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { memo, useCallback } from 'react'
 import { Position } from '@xyflow/react'
 import { Badge } from '../ui/badge'
@@ -46,6 +47,8 @@ const getStateColor = (state?: string) => {
 
 // Enricher node component for enricher/enricher nodes only
 const EnricherNode = memo(({ data, isConnectable }: EnricherNodeProps) => {
+  const { t } = useTranslation()
+
   const colors = useNodesDisplaySettings((s) => s.colors)
   const inputColor = colors[data.inputs.type.toLowerCase()]
   const outputColor = colors[data.outputs.type.toLowerCase()]
@@ -106,7 +109,9 @@ const EnricherNode = memo(({ data, isConnectable }: EnricherNodeProps) => {
               {Icon && <Icon size={24} />}
               <div className="font-semibold text-sm">{data.class_name}</div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{data.description}</p>
+            <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+              {t(data.description ?? '')}
+            </p>
           </div>
         </div>
         <div>
@@ -170,7 +175,7 @@ const EnricherNode = memo(({ data, isConnectable }: EnricherNodeProps) => {
                   <TriangleAlert className="h-4 w-4 text-yellow-500" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Configuration required</p>
+                  <p>{t('Configuration required')}</p>
                 </TooltipContent>
               </Tooltip>
             </div>

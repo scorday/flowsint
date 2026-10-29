@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { analysisService } from '@/api/analysis-service'
 import { Analysis } from '@/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,12 +10,14 @@ export const useCreateAnalysis = (
   investigationId: string,
   onAnalysisCreate?: (investigationId: string) => void
 ) => {
+  const { t } = useTranslation()
+
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async () => {
       const newAnalysis: Partial<Analysis> = {
-        title: 'Untitled Analysis',
+        title: t('Untitled Analysis'),
         investigation_id: investigationId,
         content: default_content
       }
@@ -26,11 +29,12 @@ export const useCreateAnalysis = (
         queryKey: queryKeys.analyses.byInvestigation(investigationId || '')
       })
       onAnalysisCreate?.(investigationId)
-      toast.success('New analysis created')
+      toast.success(t('New analysis created'))
     },
     onError: (error) => {
       toast.error(
-        'Failed to create analysis: ' + (error instanceof Error ? error.message : 'Unknown error')
+        t('Failed to create analysis: ') +
+          (error instanceof Error ? error.message : t('Unknown error'))
       )
     }
   })

@@ -119,7 +119,7 @@ class EnricherTemplateRead(ORMBase):
     version: float
     content: Dict[str, Any]
     is_public: bool
-    owner_id: UUID4
+    owner_id: Optional[UUID4] = None
     created_at: datetime
     updated_at: datetime
 
@@ -133,7 +133,7 @@ class EnricherTemplateList(ORMBase):
     category: str
     version: float
     is_public: bool
-    owner_id: UUID4
+    owner_id: Optional[UUID4] = None
     created_at: datetime
     updated_at: datetime
 

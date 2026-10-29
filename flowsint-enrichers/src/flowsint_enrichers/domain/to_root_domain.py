@@ -1,6 +1,7 @@
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_enrichers.utils import get_root_domain
@@ -10,6 +11,12 @@ from flowsint_types.domain import Domain
 @flowsint_enricher
 class DomainToRootDomain(Enricher):
     """Subdomain to root domain."""
+
+    metadata = EnricherMetadata(
+        description="Derives a root domain locally from a subdomain and adds a HAS_SUBDOMAIN relationship. Uses a small built-in list of common multi-part country suffixes and otherwise takes the last two labels; it does not use a complete Public Suffix List.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Domain
     OutputType = Domain

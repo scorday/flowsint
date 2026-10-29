@@ -9,6 +9,209 @@ version: "1.2.8"
 last_updated_at: "2026-05-15"
 ---
 
+### VK
+
+**website_to_vk_profile**: Website with a direct `https://vk.ru/id515596`,
+`https://vk.com/vertman` or mobile VK profile URL → SocialAccount. Uses `users.get`
+with a server-side service token. Adds the numeric `vk_user_id`, available name,
+avatar, location, profile URL, retrieval time and `is_private`. The extra
+`vk_profile_status` is `open`, `closed`, `deactivated` or `unknown`.
+Missing `is_closed` is unknown, never proof that the profile is open. Deleted or
+banned accounts retain their deactivation status. Groups and non-profile URLs
+are not accepted as user profiles.
+New accounts use the stable graph label `id<user-id>@vk.ru`; display names are
+stored separately, so a name change does not create another node.
+
+**socialaccount_to_vk_profile**: Refresh an existing VK SocialAccount, preserving
+its graph identifier, label and user annotations. Accepts its VK `profile_url`,
+or a username/`id123` with platform `vk.ru`, `vk.com`, `VK` or `VKontakte`.
+Fresh profile fields replace the previous provider snapshot; failed lookups
+are logged and do not create an assumed-open account.
+
+**socialaccount_to_vk_friends**: VK SocialAccount → available friends as
+SocialAccount nodes, connected to the correct source by `FRIEND_OF`. The enricher
+does not recursively expand friends of friends: select discovered nodes to run
+it again. Batch inputs retain their own source relationships; failed inputs
+cannot shift the association to a different account.
+When an input is also returned as another input's friend, its existing label
+and full profile are reused. Partial friend records do not clear previously
+enriched fields omitted by `friends.get`.
+
+`max_friends` defaults to 1000 per input and accepts 1–10000. Pagination retains
+all returned unique IDs up to that limit. Source nodes record
+`vk_friends_status`, `vk_friends_reported_count`, `vk_friends_collected_count`,
+`vk_friends_complete` and retrieval time. A real empty list is complete; private
+profiles, malformed/repeated pages, limits and errors are explicitly distinct.
+Previously collected graph edges are not deleted by a refresh. Complete means
+the API-visible list was fetched during this run, not that all actual private
+friendships are known. Concurrent changes to VK lists may affect pagination.
+
+**socialaccount_to_vk_friend_graph**: Build the friendship graph within **two
+hops** of the selected VK SocialAccount(s). Fetches their friend lists, then
+the lists of the first-hop friends. Second-hop accounts are added as nodes but
+their lists are not expanded. Shared accounts and cycles reuse the same numeric
+VK identity; selected input labels and annotations remain attached to their
+original nodes. An account is expanded once per batch, including overlapping
+inputs. Each observed friendship pair produces one `FRIEND_OF` link per run;
+reciprocal observations and self-links do not produce extra links. Existing
+graph data is not deleted.
+
+Limits apply to the **whole batch**, except `max_friends`, which applies to each
+expanded account at either level:
+
+| Parameter | Default | Allowed range |
+| --- | --- | --- |
+| `max_friends` | 1000 | 1–10000 |
+| `max_requests` | 1000 | 1–5000, including seed profile lookups |
+| `max_nodes` | 50000 | 1–100000, including seeds |
+| `max_edges` | 100000 | 1–500000 unique friendship pairs |
+| `max_seconds` | 600 | 1–1800; an in-flight HTTP request may add up to 20 seconds |
+
+The roots record `vk_graph_scope=batch`, `vk_graph_depth=2`, `vk_graph_status`
+(`complete`, `partial`, `truncated` or `stopped`), `vk_graph_complete`, the stop
+reason, request/node/edge counts, scanned/pending account counts and private,
+failed, truncated and unresolved-root counts. These are **batch totals**, not
+per-root counts. Individual expanded accounts retain their `vk_friends_*`
+collection status; queued accounts are `pending`. Limits and VK restrictions
+retain the graph already collected. Private lists and failed branches make the
+overall result partial while other accessible branches continue. API restrictions
+stop the batch without retrying. Complete means all required API-visible lists
+were retrieved in this run, not that hidden friendships are known. Repeated,
+empty-inconsistent or changing-count pages do not become complete collections.
+Use the account's enricher menu and select `socialaccount_to_vk_friend_graph`.
+
+Create a Vault entry named **VK_SERVICE_TOKEN**, or select another project Vault
+entry in launch parameters. An empty selection falls back to the named Vault
+entry and then the server environment variable `VK_SERVICE_TOKEN`. The launch
+parameter contains a Vault reference, not a literal token. A key is always needed
+at execution; no public catalog or result contains the token. `.env.example`
+provides the empty environment slot, and the development/release Compose files
+pass it only to API/Celery, never to the browser. The local `.env` is ignored by Git.
+
+The HTTP client sends the token only in the Authorization header to `api.vk.ru`,
+does not follow redirects, and never logs raw error bodies or request headers.
+The single-level enrichers have a maximum of 100 requests per batch; the two-hop
+graph has the configurable budget described above. All use 20-second HTTP timeouts and 8 MiB per
+response. Requests sharing a key are paced to 4 starts/second per worker process,
+including across separate Celery event loops. Multiple processes have independent
+gates; deployments must account for their combined use of the same application key.
+HTTP 429 and restriction codes 6/9/14/17/29/32 stop the batch with a shared 60-second
+cooldown; authorization/application restrictions stop without retrying. Completed
+pages and earlier inputs remain in the graph with an incomplete/stopped status.
+Error 30 marks a private profile; it does not mean an empty friend list.
+
+Official contracts: [users.get](https://dev.vk.ru/ru/method/users.get),
+[friends.get](https://dev.vk.ru/ru/method/friends.get),
+[API limits](https://dev.vk.ru/ru/api/api-requests).
+
+### Aviation
+
+**aircraft_to_details**: Registration or ICAO hex → aircraft model, manufacturer
+and reported registered owner via the public [adsbdb aircraft API](https://github.com/mrjackwills/adsbdb).
+No API key. Does not call the separately restricted flight-route endpoints.
+
+**aircraft_to_position**: Aircraft → fresh, dated position observations via
+[ADSB.lol](https://api.adsb.lol/docs). No API key. Coordinates, barometric altitude
+in feet, ground speed in knots, track in degrees and callsign are included when available.
+
+**aircraft_to_flights**: Aircraft → observed flight history from free
+[ADSB.lol daily traces](https://www.adsb.lol/docs/open-data/historical/).
+Accepts ICAO hex directly. For a registration, uses the input's ICAO hex when
+present, otherwise resolves the current mapping through adsbdb. Registrations
+and ICAO addresses can be reassigned: this mapping does not prove that the same
+registration belonged to the aircraft at the historical date.
+
+Launch from an **Aircraft** node. Leave both date fields blank for the last seven
+completed UTC days, or set `start_date` and `end_date` as `YYYY-MM-DD` (inclusive).
+The maximum range is 31 days; today and future days are rejected. Archives may
+appear with a delay or be unavailable, and a missing day does not prove no flights.
+Only individual daily aircraft traces are fetched; no multi-gigabyte GitHub
+archive is downloaded.
+
+The enricher splits observed airborne segments at ground reports, readsb leg
+markers, or a coverage gap exceeding `gap_minutes` (default 30, range 5–180).
+At least two valid airborne observations are required. A flight continuing
+across UTC midnight is kept together when adjacent days are available and
+observations remain continuous. Isolated reports, ground-only activity and
+stale or malformed points do not become flights. A gap can split a real flight,
+and archive boundaries can truncate one: **first/last seen times and coordinates
+are observations, not confirmed takeoff, landing or airport records**.
+
+Results are **Flight** nodes with first/last seen times and coordinates,
+observed callsigns, point counts, boundary reasons, segmentation gap setting,
+source archive URLs and retrieval time. No flight number or airport is inferred
+from a callsign or endpoint coordinate. Graph connections are
+`Aircraft → HAS_OBSERVED_FLIGHT → Flight` and
+`Flight → HAS_POSITION_OBSERVATION → AircraftPosition`.
+Each sampled position also links to its Aircraft. Historical registration and
+type snapshots are stored on positions, preserving present-day aircraft metadata.
+
+`max_flights` keeps the newest segments per aircraft (default 50, range 1–100).
+`positions_per_flight` selects evenly spaced positions including both endpoints
+(default 20, range 2–200); the Flight retains the full observed point count.
+The stored position count describes samples selected by that run; previous
+observations can remain in the graph. A processing ceiling of 200,000 valid
+points per aircraft retains the newest available points and logs truncation.
+Processing is bounded to 8 MiB per HTTP response after HTTP decoding and 32 MiB
+after any remaining file-gzip decoding. Unavailable/invalid days are logged and
+other days continue; rate limiting stops further requests while retaining
+already retrieved results. These inferred segments are useful for investigation,
+but do not form a complete authoritative flight log.
+
+**location_to_aircraft**: Location with explicit latitude/longitude → nearest
+observed aircraft within `radius_nm` (default 25, range 0.1–250 nautical miles).
+`max_results` limits aircraft per location (default 100, range 1–500).
+The existing Location fields address, city, country and zip are still required;
+unknown address components can be empty strings. Coordinates alone are not geocoded.
+
+Create an **Aircraft** node from the Aviation menu and set `identifier` to a
+registration such as `G-EUUU` or a six-digit ICAO hex code such as `400942`.
+Run `aircraft_to_details`, `aircraft_to_position` or `aircraft_to_flights` from that node. To search
+an area, create a **Location** node with coordinates and run `location_to_aircraft`.
+
+`aircraft_to_details` updates the input Aircraft node, preserving its identifier
+and graph label. It adds ICAO hex, registration, registry details and provenance
+to that node without creating another Aircraft or an alias relationship.
+`aircraft_to_position` and `aircraft_to_flights` also preserve the input Aircraft
+node and attach observations and flights directly to it, recording the resolved
+ICAO hex on that node. They do not create another Aircraft or an alias relationship.
+Area searches create discovered Aircraft nodes identified by uppercase ICAO hex.
+The label does not change when descriptive metadata is updated. Identifiers can be
+reassigned, so these lookups do not establish immutable airframe identity.
+Registered-owner names are preserved verbatim as fields, with adsbdb source URL
+and retrieval time. They are not automatically classified as Organization or
+Individual, and do not establish the operator, beneficial owner or passengers.
+
+Every position is an **AircraftPosition** node connected by
+`Aircraft → HAS_POSITION_OBSERVATION → AircraftPosition`.
+Area searches also connect `Location → HAS_NEARBY_AIRCRAFT_OBSERVATION → AircraftPosition`.
+Observations retain the ADSB.lol source URL, retrieval time and position time
+(provider response time minus `seen_pos`). AircraftPosition identifiers include
+source, aircraft hex and observation time, preserving separate observations.
+An area's radius and limit apply to each search; all successful location
+associations are retained even when the same aircraft appears in multiple areas.
+
+Both position enrichers accept `max_age_seconds` (default 300, range 1–3600).
+Missing coordinates, unknown position age, future or stale positions and invalid
+records are skipped. Empty results mean **no fresh observation available**, not
+that the aircraft is absent. The receiver network does not provide complete
+global coverage. Historical traces use their own timestamps and do not apply
+the live-position age filter. Flight-route database lookups are not performed.
+
+Requests have a 15-second timeout and are paced at one request per second per
+provider and worker process, including across separate Celery job event loops.
+HTTP 429 stops that provider's current batch,
+honours numeric or HTTP-date `Retry-After` with a shared cooldown (60 seconds
+if unspecified), and preserves earlier successful results. Other failed inputs
+are logged and skipped; response bodies are not logged. Worker processes have
+independent pacing, so cap concurrent aviation jobs when deploying multiple workers.
+
+ADSB.lol data is licensed under **ODbL 1.0**: retain attribution and follow the
+license for redistribution/derived databases. Its API documentation asks
+production users to contact the provider; this implementation does not imply
+that such coordination has taken place. Review current
+[API terms](https://api.adsb.lol/docs) before production deployment.
+
 ### ASN
 **asn_to_cidrs**: Given an ASN, enumerate its announced CIDR ranges.
 Tools/Pivots: [asnmap](https://github.com/projectdiscovery/asnmap) (CLI), [jq](https://jqlang.github.io/jq/) (CLI)

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useCallback, ReactNode, cloneElement, isValidElement } from 'react'
 import { toast } from 'sonner'
 import { useNavigate } from '@tanstack/react-router'
@@ -7,6 +8,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/query-keys'
 
 const NewFlow = ({ children }: { children: ReactNode }) => {
+  const { t } = useTranslation()
+
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const setNodes = useFlowStore((state) => state.setNodes)
@@ -26,7 +29,7 @@ const NewFlow = ({ children }: { children: ReactNode }) => {
     },
     onError: (error) => {
       toast.error(
-        'Failed to create flow: ' + (error instanceof Error ? error.message : 'Unknown error')
+        t('Failed to create flow: ') + (error instanceof Error ? error.message : t('Unknown error'))
       )
     }
   })
@@ -36,18 +39,18 @@ const NewFlow = ({ children }: { children: ReactNode }) => {
       createFlowMutation.mutateAsync(
         JSON.stringify({
           name: 'New flow',
-          description: 'A new example flow.',
+          description: t('A new example flow.'),
           category: [],
           flow_schema: {}
         })
       ),
       {
-        loading: 'Creating flow...',
-        success: 'Flow created successfully.',
-        error: 'Failed to create flow.'
+        loading: t('Creating flow...'),
+        success: t('Flow created successfully.'),
+        error: t('Failed to create flow.')
       }
     )
-  }, [createFlowMutation])
+  }, [createFlowMutation, t])
 
   if (!isValidElement(children)) {
     return null

@@ -1,5 +1,6 @@
+import { isAvl4 } from '@/platform/runtime-config'
 import { useMemo } from 'react'
-import { useLoaderData } from '@tanstack/react-router'
+import { useRouterState } from '@tanstack/react-router'
 import type { InvestigationRole } from '@/types'
 
 type Action = 'read' | 'create' | 'update' | 'delete' | 'manage'
@@ -43,16 +44,16 @@ function canRolePerform(role: InvestigationRole | null, action: Action): boolean
 export function useCan(role: InvestigationRole | null | undefined): Permissions {
   return useMemo(() => {
     const r = role ?? null
-    const can = (action: Action) => canRolePerform(r, action)
+    const can = (action: Action) => isAvl4 || canRolePerform(r, action)
     return {
       can,
       canEdit: can('update'),
       canCreate: can('create'),
       canDelete: can('delete'),
       canManage: can('manage'),
-      isViewer: r === 'viewer',
-      isOwner: r === 'owner',
-      role: r
+      isViewer: !isAvl4 && r === 'viewer',
+      isOwner: !isAvl4 && r === 'owner',
+      role: isAvl4 ? null : r
     }
   }, [role])
 }
@@ -63,10 +64,13 @@ export function useCan(role: InvestigationRole | null | undefined): Permissions 
  * RootLayout like DetailsPanel, since the route is active when they render.
  */
 export function usePermissions(): Permissions {
-  const role = useLoaderData({
-    from: '/_auth/dashboard/investigations/$investigationId',
-    select: (d: any) => d?.investigation?.current_user_role ?? null,
-    strict: false
-  }) as InvestigationRole | null | undefined
+  const role = useRouterState({
+    select: (state) => {
+      const data = state.matches.find(
+        (match) => match.routeId === '/_auth/dashboard/investigations/$investigationId'
+      )?.loaderData
+      return data && 'investigation' in data ? data.investigation.current_user_role : null
+    }
+  })
   return useCan(role)
 }

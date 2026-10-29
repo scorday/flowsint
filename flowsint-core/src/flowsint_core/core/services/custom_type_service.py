@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from ..models import CustomType
+from ..project_scope import ActorID
 from ..repositories import CustomTypeRepository
 from .base import BaseService
 from .exceptions import ConflictError, NotFoundError, ValidationError
@@ -23,13 +24,13 @@ class CustomTypeService(BaseService):
         self._custom_type_repo = custom_type_repo
 
     def list_custom_types(
-        self, user_id: UUID, status: Optional[str] = None
+        self, user_id: ActorID, status: Optional[str] = None
     ) -> List[CustomType]:
         if status and status not in ["draft", "published", "archived"]:
             raise ValidationError("Status must be one of: draft, published, archived")
         return self._custom_type_repo.get_by_owner(user_id, status=status)
 
-    def get_by_id(self, custom_type_id: UUID, user_id: UUID) -> CustomType:
+    def get_by_id(self, custom_type_id: UUID, user_id: ActorID) -> CustomType:
         custom_type = self._custom_type_repo.get_by_id_and_owner(
             custom_type_id, user_id
         )
@@ -37,7 +38,7 @@ class CustomTypeService(BaseService):
             raise NotFoundError("Custom type not found")
         return custom_type
 
-    def get_schema(self, custom_type_id: UUID, user_id: UUID) -> Dict[str, Any]:
+    def get_schema(self, custom_type_id: UUID, user_id: ActorID) -> Dict[str, Any]:
         custom_type = self.get_by_id(custom_type_id, user_id)
         return custom_type.schema
 
@@ -45,7 +46,7 @@ class CustomTypeService(BaseService):
         self,
         name: str,
         json_schema: Dict[str, Any],
-        user_id: UUID,
+        user_id: ActorID,
         description: Optional[str] = None,
         status: str = "draft",
         category: str = "custom_types_category",
@@ -82,7 +83,7 @@ class CustomTypeService(BaseService):
     def update(
         self,
         custom_type_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         name: Optional[str] = None,
         json_schema: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
@@ -128,7 +129,7 @@ class CustomTypeService(BaseService):
 
         return custom_type
 
-    def delete(self, custom_type_id: UUID, user_id: UUID) -> None:
+    def delete(self, custom_type_id: UUID, user_id: ActorID) -> None:
         custom_type = self.get_by_id(custom_type_id, user_id)
         self._custom_type_repo.delete(custom_type)
         self._commit()
@@ -136,7 +137,7 @@ class CustomTypeService(BaseService):
     def validate_payload(
         self,
         custom_type_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         payload: Dict[str, Any],
         validate_payload_func=None,
     ) -> Tuple[bool, Optional[List[str]]]:

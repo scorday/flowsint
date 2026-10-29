@@ -3,13 +3,14 @@ Enricher service for managing enricher operations.
 """
 
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ...templates.types import TemplateSecret, params_schema_from_secrets
+from ..enricher_metadata import template_metadata
 from ..models import Sketch
+from ..project_scope import ActorID
 from ..repositories import (
     CustomTypeRepository,
     EnricherTemplateRepository,
@@ -17,6 +18,7 @@ from ..repositories import (
     SketchRepository,
 )
 from .base import BaseService
+from .enricher_catalog_service import EnricherCatalogService
 from .sketch_access import resolve_sketch_for_launch
 
 
@@ -59,7 +61,7 @@ class EnricherService(BaseService):
         self._sketch_repo = sketch_repo
         self._investigation_repo = investigation_repo
 
-    def get_sketch_for_launch(self, sketch_id: str, user_id: UUID) -> Sketch:
+    def get_sketch_for_launch(self, sketch_id: str, user_id: ActorID) -> Sketch:
         """Resolve the target sketch, denying anyone without update rights on
         its investigation. Launching an enricher writes nodes into the
         sketch, so it is an update."""
@@ -73,14 +75,12 @@ class EnricherService(BaseService):
     def get_enrichers(
         self,
         category: Optional[str],
-        user_id: UUID,
+        user_id: ActorID,
         enricher_registry: Any,
     ) -> List[Dict[str, Any]]:
         if not category or category.lower() == "undefined":
-            all_enrichers: List[Dict[str, Any]] = enricher_registry.list(
-                exclude=["n8n_connector"]
-            )
-            return all_enrichers
+            all_enrichers: List[Dict[str, Any]] = enricher_registry.list()
+            return EnricherCatalogService(self.db).visible_builtins(all_enrichers)
 
         custom_type = self._custom_type_repo.get_published_by_name_and_owner(
             category, user_id
@@ -90,12 +90,12 @@ class EnricherService(BaseService):
             return []
 
         by_input_type: List[Dict[str, Any]] = enricher_registry.list_by_input_type(
-            category, exclude=["n8n_connector"]
+            category
         )
-        return by_input_type
+        return EnricherCatalogService(self.db).visible_builtins(by_input_type)
 
     def get_all_enrichers(
-        self, category: Optional[str], user_id: UUID, enricher_registry: Any
+        self, category: Optional[str], user_id: ActorID, enricher_registry: Any
     ) -> list:
         base_enrichers = self.get_enrichers(category, user_id, enricher_registry)
         # Owner-or-public, matching what the launch path resolves a template
@@ -104,6 +104,9 @@ class EnricherService(BaseService):
         # the UI and the launch failed on a missing required param.
         template_enrichers = self._enricher_template_repo.get_by_owner_or_public(
             user_id, category
+        )
+        template_enrichers = EnricherCatalogService(self.db).visible_templates(
+            template_enrichers
         )
         for template in template_enrichers:
             # Unmapped attributes: they reach the response because FastAPI's
@@ -114,6 +117,10 @@ class EnricherService(BaseService):
             template.required_params = any(  # type: ignore[attr-defined]
                 param["required"] for param in params_schema
             )
+            metadata = template_metadata(template.content, template.description)
+            template.providers = list(metadata.providers)  # type: ignore[attr-defined]
+            template.api_key_requirement = metadata.api_key_requirement  # type: ignore[attr-defined]
+            template.api_key_notes = metadata.api_key_notes  # type: ignore[attr-defined]
         return [*base_enrichers, *template_enrichers]
 
 

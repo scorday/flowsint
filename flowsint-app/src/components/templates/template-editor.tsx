@@ -1,3 +1,5 @@
+import { translate as t } from '@/i18n'
+import { useTranslation } from '@/i18n'
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -36,17 +38,17 @@ function validateTemplate(content: string): {
   try {
     parsed = parseYaml(content)
   } catch (e) {
-    return { valid: false, errors: [`YAML syntax error: ${(e as Error).message}`] }
+    return { valid: false, errors: [t('YAML syntax error: {{v0}}', { v0: (e as Error).message })] }
   }
 
   if (!parsed || typeof parsed !== 'object') {
-    return { valid: false, errors: ['Template must be a valid YAML object'] }
+    return { valid: false, errors: [t('Template must be a valid YAML object')] }
   }
 
   const required = templateSchema.required as string[]
   for (const field of required) {
     if (!(field in parsed)) {
-      errors.push(`Missing required field: ${field}`)
+      errors.push(t('Missing required field: {{v0}}', { v0: field }))
     }
   }
 
@@ -81,6 +83,8 @@ function validateTemplate(content: string): {
 }
 
 export function TemplateEditor({ templateId, initialContent, importedYaml }: TemplateEditorProps) {
+  const { t } = useTranslation()
+
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { confirm } = useConfirm()
@@ -109,7 +113,7 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
 
   const hasChanges = content !== savedContent
   const hasErrors = !validationResult.valid || editorErrors.some((e) => e.severity >= 8)
-  const templateName = validationResult.data?.name || 'Untitled'
+  const templateName = validationResult.data?.name || t('Untitled')
   const templateParams = useMemo(
     () => validationResult.data?.request?.params || {},
     [validationResult.data]
@@ -130,19 +134,19 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
         content: data
       }),
     onSuccess: (data) => {
-      toast.success('Template created successfully')
+      toast.success(t('Template created successfully'))
       queryClient.invalidateQueries({ queryKey: ['template', 'enrichers'] })
       navigate({ to: `/dashboard/enrichers/${data.id}` as string })
     },
     onError: (error) => {
-      toast.error(`Failed to create: ${error.message}`)
+      toast.error(t('Failed to create: {{v0}}', { v0: error.message }))
     }
   })
 
   const updateMutation = useMutation({
     mutationFn: (data: TemplateData) => templateService.update(templateId!, { content: data }),
     onSuccess: () => {
-      toast.success('Template saved successfully')
+      toast.success(t('Template saved successfully'))
       if (contentBeingSavedRef.current) {
         setSavedContent(contentBeingSavedRef.current)
         contentBeingSavedRef.current = null
@@ -152,19 +156,19 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
     },
     onError: (error) => {
       contentBeingSavedRef.current = null
-      toast.error(`Failed to save: ${error.message}`)
+      toast.error(t('Failed to save: {{v0}}', { v0: error.message }))
     }
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => templateService.delete(templateId!),
     onSuccess: () => {
-      toast.success('Template deleted')
+      toast.success(t('Template deleted'))
       queryClient.invalidateQueries({ queryKey: ['template', 'enrichers'] })
       navigate({ to: '/dashboard/enrichers' })
     },
     onError: (error) => {
-      toast.error(`Failed to delete: ${error.message}`)
+      toast.error(t('Failed to delete: {{v0}}', { v0: error.message }))
     }
   })
 
@@ -182,7 +186,7 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
   const handleSave = useCallback(() => {
     const { hasErrors, hasChanges, data, content } = stateRef.current
     if (hasErrors || !data) {
-      toast.error('Please fix validation errors before saving')
+      toast.error(t('Please fix validation errors before saving'))
       return
     }
     if (isEditMode) {
@@ -192,28 +196,28 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
     } else {
       createMutation.mutate(data)
     }
-  }, [isEditMode, updateMutation, createMutation])
+  }, [isEditMode, updateMutation, createMutation, t])
 
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
-      title: 'Delete template?',
-      message: 'This action cannot be undone. This will permanently delete the template.'
+      title: t('Delete template?'),
+      message: t('This action cannot be undone. This will permanently delete the template.')
     })
     if (confirmed) {
       deleteMutation.mutate()
     }
-  }, [confirm, deleteMutation])
+  }, [confirm, deleteMutation, t])
 
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(content)
       setCopied(true)
-      toast.success('Copied to clipboard')
+      toast.success(t('Copied to clipboard'))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Failed to copy')
+      toast.error(t('Failed to copy'))
     }
-  }, [content])
+  }, [content, t])
 
   const handleApplyYaml = useCallback((yaml: string) => {
     setContent(yaml)
@@ -239,11 +243,11 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
 
   const handleTest = useCallback(async () => {
     if (!testInput.trim()) {
-      toast.error('Please enter a test value')
+      toast.error(t('Please enter a test value'))
       return
     }
     if (!validationResult.data) {
-      toast.error('Please fix validation errors before testing')
+      toast.error(t('Please fix validation errors before testing'))
       return
     }
     setIsTesting(true)
@@ -269,7 +273,7 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
     } finally {
       setIsTesting(false)
     }
-  }, [isEditMode, templateId, testInput, validationResult.data])
+  }, [isEditMode, templateId, testInput, validationResult.data, t])
 
   const buildPreviewUrl = useCallback(() => {
     if (!validationResult.data?.request?.url) return ''
@@ -342,11 +346,11 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
             <TabsList className="h-10 bg-transparent p-0 gap-4">
               <TabsTrigger value="editor">
                 <FileCode2 className="h-4 w-4 opacity-60" strokeWidth={1.5} />
-                Editor
+                {t('Editor')}
               </TabsTrigger>
               <TabsTrigger value="test">
                 <FlaskConical className="h-4 w-4 opacity-60" strokeWidth={1.5} />
-                Test
+                {t('Test')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -381,18 +385,20 @@ export function TemplateEditor({ templateId, initialContent, importedYaml }: Tem
                         {hasErrors ? (
                           <span className="flex items-center gap-1 text-destructive">
                             <XCircle className="h-3 w-3" />
-                            {totalErrors} error{totalErrors !== 1 ? 's' : ''}
+                            {t('counts.errors', { count: totalErrors })}
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-emerald-500/80">
                             <CheckCircle2 className="h-3 w-3" />
-                            Valid
+                            {t('Valid')}
                           </span>
                         )}
-                        {hasChanges && <span className="text-amber-500">Modified</span>}
+                        {hasChanges && <span className="text-amber-500">{t('Modified')}</span>}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span>{content.split('\n').length} lines</span>
+                        <span>
+                          {content.split('\n').length} {t(' lines')}
+                        </span>
                         <span>YAML</span>
                       </div>
                     </div>

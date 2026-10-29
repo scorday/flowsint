@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.ip import Ip
@@ -14,6 +15,13 @@ from flowsint_types.risk_profile import RiskProfile
 @flowsint_enricher
 class IpToFraudScore(Enricher):
     """[Scamalytics] Get fraud score for an IP address."""
+
+    metadata = EnricherMetadata(
+        description="Requests the Scamalytics fraud-risk assessment for an IP address and creates risk information from the returned score, risk level and proxy-related flags. The assessment reflects the provider’s data, not an independent determination of abuse.",
+        providers=("Scamalytics",),
+        api_key_requirement="required",
+        api_key_notes="Requires SCAMLYTICS_API_KEY and SCAMLYTICS_USERNAME (these are the current configuration spellings). SCAMLYTICS_API_HOST optionally selects the account’s API node.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Ip

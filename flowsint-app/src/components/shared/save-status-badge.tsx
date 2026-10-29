@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { memo } from 'react'
 import { Cloud, CloudOff, Loader2, Check, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,6 +12,7 @@ interface SaveStatusBadgeProps {
 }
 
 export const SaveStatusBadge = memo(({ status, className }: SaveStatusBadgeProps) => {
+  const { t } = useTranslation()
   const getStatusConfig = () => {
     // Normalize 'unsaved' to 'pending' for display
     const normalizedStatus = status === 'unsaved' ? 'pending' : status
@@ -19,13 +21,13 @@ export const SaveStatusBadge = memo(({ status, className }: SaveStatusBadgeProps
       case 'idle':
         return {
           icon: Cloud,
-          text: 'All changes saved',
+          text: t('All changes saved'),
           className: 'text-muted-foreground/60 bg-muted/30 border-muted'
         }
       case 'pending':
         return {
           icon: Cloud,
-          text: 'Pending...',
+          text: t('Pending...'),
           className: 'text-muted-foreground bg-muted/50 border-muted'
         }
       case 'saving':
@@ -46,7 +48,7 @@ export const SaveStatusBadge = memo(({ status, className }: SaveStatusBadgeProps
       case 'error':
         return {
           icon: AlertCircle,
-          text: 'Error saving',
+          text: t('Error saving'),
           className:
             'text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border-red-200 dark:border-red-800'
         }
@@ -78,7 +80,7 @@ export const SaveStatusBadge = memo(({ status, className }: SaveStatusBadgeProps
           <Icon className={cn('h-3.5 w-3.5', config.iconClassName)} />
         </div>
       </TooltipTrigger>
-      <TooltipContent>{config.text}</TooltipContent>
+      <TooltipContent>{t(config.text)}</TooltipContent>
     </Tooltip>
   )
 })

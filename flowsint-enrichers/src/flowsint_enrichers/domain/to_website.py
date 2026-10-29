@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -13,6 +14,12 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class DomainToWebsiteEnricher(Enricher):
     """From domain to website."""
+
+    metadata = EnricherMetadata(
+        description="Checks the input domain over HTTPS and falls back to HTTP. For a successful response below HTTP 400, creates a Website record with available page title and response information. Contacts the target website directly.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Domain

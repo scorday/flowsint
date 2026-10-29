@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useState, type ReactNode } from 'react'
 import { useForm, type UseFormReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -60,6 +61,8 @@ function InvestigationForm({
   onSubmit: (data: InvestigationFormData) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -69,11 +72,11 @@ function InvestigationForm({
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Investigation name</FormLabel>
+                <FormLabel>{t('Investigation name')}</FormLabel>
                 <FormControl>
                   <Input
                     required
-                    placeholder="Fraud suspicion"
+                    placeholder={t('Fraud suspicion')}
                     disabled={isSubmitting}
                     {...field}
                   />
@@ -88,10 +91,10 @@ function InvestigationForm({
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description</FormLabel>
+                <FormLabel>{t('Description')}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Investigation into a phishing campaign via LinkedIn."
+                    placeholder={t('Investigation into a phishing campaign via LinkedIn.')}
                     disabled={isSubmitting}
                     {...field}
                   />
@@ -104,10 +107,10 @@ function InvestigationForm({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create Investigation'}
+            {isSubmitting ? t('Creating...') : t('Create Investigation')}
           </Button>
         </DialogFooter>
       </form>
@@ -121,6 +124,8 @@ interface NewInvestigationProps {
 }
 
 export default function NewInvestigation({ children, noDropDown = false }: NewInvestigationProps) {
+  const { t } = useTranslation()
+
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -143,14 +148,14 @@ export default function NewInvestigation({ children, noDropDown = false }: NewIn
     mutationFn: investigationService.create,
     onSuccess: (result) => {
       if ('id' in result && result.id) {
-        toast.success('New investigation created.')
+        toast.success(t('New investigation created.'))
         router.navigate({ to: `/dashboard/investigations/${result.id}` })
         // Invalidate investigations list
         queryClient.invalidateQueries({
           queryKey: queryKeys.investigations.list
         })
       } else {
-        toast.error(('error' in result && result.error) || 'Failed to create investigation')
+        toast.error(('error' in result && result.error) || t('Failed to create investigation'))
       }
     },
     onError: (error) => {
@@ -179,8 +184,8 @@ export default function NewInvestigation({ children, noDropDown = false }: NewIn
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>New investigation</DialogTitle>
-            <DialogDescription>Create a new blank investigation.</DialogDescription>
+            <DialogTitle>{t('New investigation')}</DialogTitle>
+            <DialogDescription>{t('Create a new blank investigation.')}</DialogDescription>
           </DialogHeader>
           <InvestigationForm
             form={form}
@@ -199,7 +204,7 @@ export default function NewInvestigation({ children, noDropDown = false }: NewIn
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={() => setOpen(true)}>
-            New investigation
+            {t('New investigation')}
             <span className="ml-auto text-xs text-muted-foreground">⌘ E</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -207,8 +212,8 @@ export default function NewInvestigation({ children, noDropDown = false }: NewIn
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>New investigation</DialogTitle>
-            <DialogDescription>Create a new blank investigation.</DialogDescription>
+            <DialogTitle>{t('New investigation')}</DialogTitle>
+            <DialogDescription>{t('Create a new blank investigation.')}</DialogDescription>
           </DialogHeader>
           <InvestigationForm
             form={form}

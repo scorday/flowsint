@@ -1,6 +1,8 @@
+import { useTranslation } from '@/i18n'
 import React, { memo, useCallback, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Trash2, Sparkles, Plus, MoreHorizontal, Flag } from 'lucide-react'
+import { Trash2, Sparkles, Plus, MoreHorizontal, Flag, Star } from 'lucide-react'
+import { usePromoteNode } from '@/components/sketches/use-promote-node'
 import { useGraphStore } from '@/stores/graph-store'
 import { useParams } from '@tanstack/react-router'
 import { useConfirm } from '@/components/use-confirm-dialog'
@@ -21,6 +23,7 @@ import { GraphNode } from '@/types'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-can'
+import { useQueryClient } from '@tanstack/react-query'
 
 const flagColors = {
   red: 'text-red-400 fill-red-200',
@@ -34,8 +37,12 @@ type FlagColor = keyof typeof flagColors
 
 const NodeActions = memo(
   ({ node, setMenu }: { node: GraphNode; setMenu?: (menu: any | null) => void }) => {
-    const { id: sketchId } = useParams({ strict: false })
-    const { canEdit } = usePermissions()
+    const { t } = useTranslation()
+    const { promote, pending: promoting } = usePromoteNode(node.id)
+
+    const { id: sketchId, investigationId } = useParams({ strict: false })
+    const { canEdit, canDelete } = usePermissions()
+    const queryClient = useQueryClient()
     const { confirm } = useConfirm()
     const setOpenMainDialog = useGraphStore((state) => state.setOpenMainDialog)
     const setRelatedNodeToAdd = useGraphStore((state) => state.setRelatedNodeToAdd)
@@ -67,24 +74,30 @@ const NodeActions = memo(
       [node, toggleNodeSelection, openChat, setMenu]
     )
 
-    const handleDeleteNode = async () => {
+    const handleDeleteNode = async (global: boolean) => {
       if (!node.id || !sketchId) return
       if (
         !(await confirm({
-          title: `You are about to delete this node ?`,
-          message: 'The action is irreversible.'
+          title: global ? t('Delete from investigation?') : t('Remove from sketch?'),
+          message: global
+            ? t(
+                'The object and its relations will disappear from every sketch in this investigation.'
+              )
+            : t('The object remains in the investigation and on other sketches.')
         }))
       )
         return
       toast.promise(
         (async () => {
+          if (global) await sketchService.deleteFromInvestigation(sketchId, [node.id], [])
+          else await sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: [node.id] }))
           removeNodes([node.id])
-          return sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: [node.id] }))
+          await queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
         })(),
         {
-          loading: `Deleting ${node.nodeProperties.label}...`,
-          success: 'Node deleted successfully.',
-          error: 'Failed to delete node.'
+          loading: t('Deleting {{v0}}...', { v0: String(node.nodeProperties.label) }),
+          success: global ? t('Deleted from investigation.') : t('Removed from sketch.'),
+          error: t('Failed to delete node.')
         }
       )
     }
@@ -117,20 +130,26 @@ const NodeActions = memo(
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[140px]">
+          {node.nodeRole === 'secondary' && (
+            <DropdownMenuItem disabled={promoting} onClick={() => void promote()}>
+              <Star className="h-3.5 w-3.5 mr-2" />
+              {t('Make primary')}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleOpenMainDialog}>
             <Plus className="h-3.5 w-3.5 mr-2" />
-            Add relation
+            {t('Add relation')}
           </DropdownMenuItem>
           {Boolean(settings?.general?.showFlow?.value) && (
             <DropdownMenuItem onClick={handleAskAI}>
               <Sparkles className="h-3.5 w-3.5 mr-2" />
-              Ask AI
+              {t('Ask AI')}
             </DropdownMenuItem>
           )}
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Flag className={cn('h-3.5 w-3.5 mr-2', flagValue ? flagColors[flagValue] : '')} />
-              Flag
+              {t('Flag')}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               <div className="flex gap-1 p-1">
@@ -154,12 +173,21 @@ const NodeActions = memo(
           </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={handleDeleteNode}
+            onClick={() => handleDeleteNode(false)}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="h-3.5 w-3.5 mr-2" />
-            Delete
+            {t('Remove from sketch')}
           </DropdownMenuItem>
+          {canDelete && (
+            <DropdownMenuItem
+              onClick={() => handleDeleteNode(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              {t('Delete from investigation')}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     )

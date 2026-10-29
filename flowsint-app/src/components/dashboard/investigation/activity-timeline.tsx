@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Network, FileText, Upload, AlertCircle, CheckCircle } from 'lucide-react'
 
 const activities = [
@@ -44,9 +45,11 @@ const activities = [
 ]
 
 export function ActivityTimeline() {
+  const { t } = useTranslation()
+
   return (
     <section>
-      <h3 className="text-sm font-medium text-foreground mb-3">Activity</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('Activity')}</h3>
       <div className="space-y-2">
         {activities.map((activity) => (
           <div key={activity.id} className="flex items-start gap-3 py-2 text-sm">

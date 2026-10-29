@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Plus, Upload } from 'lucide-react'
 import NewSketch from '../sketches/new-sketch'
@@ -9,6 +10,8 @@ interface EmptyStateProps {
 }
 
 export function EmptyInvestigations({ onAction }: EmptyStateProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
       {/* Minimal folder illustration */}
@@ -31,19 +34,21 @@ export function EmptyInvestigations({ onAction }: EmptyStateProps) {
           <path d="M32 24V36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <h3 className="text-sm font-medium text-foreground mb-1">No investigations yet</h3>
+      <h3 className="text-sm font-medium text-foreground mb-1">{t('No investigations yet')}</h3>
       <p className="text-sm text-muted-foreground text-center max-w-[240px] mb-5">
-        Create your first investigation to start tracking threats and entities
+        {t('Create your first investigation to start tracking threats and entities')}
       </p>
       <Button onClick={onAction} size="sm" className="h-8 text-xs gap-1.5">
         <Plus className="w-3.5 h-3.5" />
-        New Investigation
+        {t('New Investigation')}
       </Button>
     </div>
   )
 }
 
 export function EmptySketches({ onAction }: EmptyStateProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 border border-dashed border-border rounded-lg">
       {/* Minimal graph/network illustration */}
@@ -57,14 +62,14 @@ export function EmptySketches({ onAction }: EmptyStateProps) {
           <path d="M20 42H36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <h3 className="text-sm font-medium text-foreground mb-1">No sketches</h3>
+      <h3 className="text-sm font-medium text-foreground mb-1">{t('No sketches')}</h3>
       <p className="text-xs text-muted-foreground text-center max-w-[200px] mb-4">
-        Visualize relationships between entities, infrastructure, and actors
+        {t('Visualize relationships between entities, infrastructure, and actors')}
       </p>
       <NewSketch>
         <Button onClick={onAction} variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
           <Plus className="w-3.5 h-3.5" />
-          Create sketch
+          {t('Create sketch')}
         </Button>
       </NewSketch>
     </div>
@@ -72,6 +77,8 @@ export function EmptySketches({ onAction }: EmptyStateProps) {
 }
 
 export function EmptyAnalyses({ onAction, canCreate = true }: EmptyStateProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4">
       {/* Minimal document illustration */}
@@ -96,15 +103,15 @@ export function EmptyAnalyses({ onAction, canCreate = true }: EmptyStateProps) {
           <path d="M16 36H24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <h3 className="text-sm font-medium text-foreground mb-1">No analyses</h3>
+      <h3 className="text-sm font-medium text-foreground mb-1">{t('No analyses')}</h3>
       <p className="text-xs text-muted-foreground text-center max-w-[200px] mb-4">
-        Document findings, patterns, and conclusions from your investigation
+        {t('Document findings, patterns, and conclusions from your investigation')}
       </p>
       {canCreate && (
         <NewAnalysis>
           <Button onClick={onAction} variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
             <Plus className="w-3.5 h-3.5" />
-            Write analysis
+            {t('Write analysis')}
           </Button>
         </NewAnalysis>
       )}
@@ -113,6 +120,8 @@ export function EmptyAnalyses({ onAction, canCreate = true }: EmptyStateProps) {
 }
 
 export function EmptyEvidence({ onAction }: EmptyStateProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 border border-dashed border-border rounded-lg">
       {/* Minimal upload/file illustration */}
@@ -129,19 +138,21 @@ export function EmptyEvidence({ onAction }: EmptyStateProps) {
           />
         </svg>
       </div>
-      <h3 className="text-sm font-medium text-foreground mb-1">No evidence</h3>
+      <h3 className="text-sm font-medium text-foreground mb-1">{t('No evidence')}</h3>
       <p className="text-xs text-muted-foreground text-center max-w-[180px] mb-4">
-        Upload files, screenshots, or artifacts related to this case
+        {t('Upload files, screenshots, or artifacts related to this case')}
       </p>
       <Button onClick={onAction} variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
         <Upload className="w-3.5 h-3.5" />
-        Upload files
+        {t('Upload files')}
       </Button>
     </div>
   )
 }
 
 export function EmptyTasks({ onAction }: EmptyStateProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-8 px-4">
       {/* Minimal checklist illustration */}
@@ -155,17 +166,21 @@ export function EmptyTasks({ onAction }: EmptyStateProps) {
           <path d="M16 31H24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <h3 className="text-xs font-medium text-foreground mb-0.5">No tasks</h3>
-      <p className="text-xs text-muted-foreground text-center mb-3">Track work for this case</p>
+      <h3 className="text-xs font-medium text-foreground mb-0.5">{t('No tasks')}</h3>
+      <p className="text-xs text-muted-foreground text-center mb-3">
+        {t('Track work for this case')}
+      </p>
       <Button onClick={onAction} variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1">
         <Plus className="w-3 h-3" />
-        Add task
+        {t('Add task')}
       </Button>
     </div>
   )
 }
 
 export function EmptyActivity() {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-8 px-4">
       {/* Minimal timeline/clock illustration */}
@@ -181,15 +196,17 @@ export function EmptyActivity() {
           />
         </svg>
       </div>
-      <h3 className="text-xs font-medium text-foreground mb-0.5">No activity yet</h3>
+      <h3 className="text-xs font-medium text-foreground mb-0.5">{t('No activity yet')}</h3>
       <p className="text-xs text-muted-foreground text-center max-w-[160px]">
-        Actions on this case will appear here
+        {t('Actions on this case will appear here')}
       </p>
     </div>
   )
 }
 
 export function EmptySearchResults() {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
       {/* Minimal search illustration */}
@@ -200,9 +217,9 @@ export function EmptySearchResults() {
           <path d="M18 24H30" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <h3 className="text-sm font-medium text-foreground mb-1">No results found</h3>
+      <h3 className="text-sm font-medium text-foreground mb-1">{t('No results found')}</h3>
       <p className="text-sm text-muted-foreground text-center max-w-[220px]">
-        Try adjusting your search or filters to find what you&apos;re looking for
+        {t("Try adjusting your search or filters to find what you're looking for")}
       </p>
     </div>
   )

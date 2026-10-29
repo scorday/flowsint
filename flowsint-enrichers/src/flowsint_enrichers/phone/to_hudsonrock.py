@@ -3,6 +3,7 @@ from typing import List
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types import Device, Phone
@@ -11,6 +12,13 @@ from flowsint_types import Device, Phone
 @flowsint_enricher
 class HudsonRockToPhone(Enricher):
     """[HudsonRock] Looks up phone number/s associated with devices from Infostealer related data using HudsonRock."""
+
+    metadata = EnricherMetadata(
+        description="Passes the phone-number text to the public Hudson Rock Cavalier search-by-username endpoint and creates Device records from any returned infostealer exposure. The current implementation does not use a dedicated phone-number search endpoint, so this is not a verified phone lookup.",
+        providers=("Hudson Rock",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses the public Hudson Rock Cavalier OSINT endpoint; no API key is configured by this enricher.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Phone

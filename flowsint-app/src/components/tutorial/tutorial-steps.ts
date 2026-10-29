@@ -1,3 +1,4 @@
+import { translate } from '@/i18n'
 import { Step } from 'react-joyride'
 
 export const tutorialSteps: Record<string, Step[]> = {
@@ -87,5 +88,8 @@ export function hasStepsForRoute(route: string): boolean {
 }
 
 export function getStepsForRoute(route: string): Step[] {
-  return tutorialSteps[route] || []
+  return (tutorialSteps[route] || []).map((step) => ({
+    ...step,
+    content: typeof step.content === 'string' ? translate(step.content) : step.content
+  }))
 }

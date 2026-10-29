@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from tools.network.reconcrawl import ReconCrawlTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.email import Email
@@ -21,6 +22,13 @@ class ReturnType(BaseModel):
 @flowsint_enricher
 class WebsiteToCrawler(Enricher):
     """From website to crawler."""
+
+    metadata = EnricherMetadata(
+        description="Crawls pages from the target website using ReconCrawl and extracts email addresses and phone numbers, adding contact relationships to the graph. The current crawl is limited to 500 pages and uses a one-second request delay.",
+        providers=("ReconCrawl",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses a local crawling integration and contacts target pages directly; no provider API key is configured.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Website

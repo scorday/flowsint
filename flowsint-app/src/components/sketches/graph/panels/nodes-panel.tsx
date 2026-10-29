@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import type React from 'react'
 import { memo, useMemo, useState, useCallback, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -7,7 +8,8 @@ import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TypeBadge } from '@/components/type-badge'
-import { Search, FunnelPlus, XIcon } from 'lucide-react'
+import { Search, FunnelPlus, XIcon, ChevronDown, ChevronRight, Star } from 'lucide-react'
+import { usePromoteNode } from '@/components/sketches/use-promote-node'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import {
@@ -23,6 +25,28 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { usePermissions } from '@/hooks/use-can'
 
 const ITEM_HEIGHT = 40
+type Role = 'primary' | 'secondary'
+type PanelRow =
+  | { kind: 'section'; role: Role; count: number; total: number }
+  | { kind: 'node'; node: GraphNode }
+
+function PromoteButton({ nodeId }: { nodeId: string }) {
+  const { t } = useTranslation()
+  const { promote, pending } = usePromoteNode(nodeId)
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7 shrink-0 mr-1"
+      title={t('Make primary')}
+      aria-label={t('Make primary')}
+      disabled={pending}
+      onClick={() => void promote()}
+    >
+      <Star className="h-3.5 w-3.5" />
+    </Button>
+  )
+}
 // Mémoiser le composant NodeRenderer
 const NodeRenderer = memo(
   ({
@@ -86,6 +110,7 @@ const NodeRenderer = memo(
           <div className="grow truncate text-ellipsis">{node?.nodeLabel}</div>
           <TypeBadge className="ml-1" type={node?.nodeType} />
         </button>
+        {canEdit && node.nodeRole === 'secondary' && <PromoteButton nodeId={node.id} />}
       </div>
     )
   }
@@ -129,6 +154,8 @@ const VirtualizedItem = memo(
 )
 
 const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?: boolean }) => {
+  const { t } = useTranslation()
+
   const { canEdit } = usePermissions()
   const currentNodeId = useGraphStore((state) => state.currentNodeId)
   const setCurrentNodeId = useGraphStore((state) => state.setCurrentNodeId)
@@ -142,6 +169,10 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
   )
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [filters, setFilters] = useState<string[] | null>(null)
+  const [collapsed, setCollapsed] = useState<Record<Role, boolean>>({
+    primary: false,
+    secondary: false
+  })
 
   const types = useMemo(() => Array.from(new Set(nodes.map((n) => n.nodeType))), [nodes])
 
@@ -167,9 +198,30 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
       .sort((a, b) => a.nodeType.localeCompare(b.nodeType))
   }, [nodes, searchQuery, filters])
 
-  // Configuration du virtualizer
+  const rows = useMemo<PanelRow[]>(() => {
+    const result: PanelRow[] = []
+    for (const role of ['primary', 'secondary'] as const) {
+      const matchesRole = (node: GraphNode) =>
+        (node.nodeRole === 'secondary' ? 'secondary' : 'primary') === role
+      const group = filteredNodes.filter(matchesRole)
+      result.push({
+        kind: 'section',
+        role,
+        count: group.length,
+        total: nodes.filter(matchesRole).length
+      })
+      if (!collapsed[role]) result.push(...group.map((node) => ({ kind: 'node' as const, node })))
+    }
+    return result
+  }, [nodes, filteredNodes, collapsed])
+
+  // Keep one virtualized scroll container even for large enrichment results.
   const virtualizer = useVirtualizer({
-    count: filteredNodes?.length || 0,
+    count: rows.length,
+    getItemKey: (index) => {
+      const row = rows[index]
+      return row.kind === 'section' ? row.role : row.node.id
+    },
     getScrollElement: () => parentRef.current,
     estimateSize: () => ITEM_HEIGHT,
     overscan: 5 // Nombre d'éléments à pré-rendre en dehors de la zone visible
@@ -253,45 +305,42 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
                 ? `${filteredNodes?.length} / ${nodes?.length || 0}`
                 : nodes?.length || 0}
             </span>{' '}
-            <span className="font-normal opacity-60">nodes</span>
+            <span className="font-normal opacity-60">{t('nodes')}</span>
           </Badge>
           <div className="relative grow">
             <Search className="absolute left-2.5 top-1.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search..."
+              placeholder={t('Search...')}
               className="pl-8 h-7 border-border"
               value={searchQuery}
               onChange={handleSearchChange}
             />
           </div>
           <DropdownMenu>
-            <div>
-              <DropdownMenuTrigger asChild>
-                <div>
-                  <Button
-                    variant={'outline'}
-                    className="h-7 w-8 relative border-border border"
-                    size={'icon'}
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={t('Filter by type')}
+                variant={'outline'}
+                className="h-7 w-8 relative border-border border"
+                size={'icon'}
+              >
+                <FunnelPlus className={cn('opacity-60 h-3 w-3', filters && 'opacity-100')} />
+                {filters && (
+                  <Badge
+                    className="absolute -top-2 -right-1 text-xs rounded-full h-4 w-4 text-white"
+                    variant={'default'}
                   >
-                    <FunnelPlus className={cn('opacity-60 h-3 w-3', filters && 'opacity-100')} />
-                    {filters && (
-                      <Badge
-                        className="absolute -top-2 -right-1 text-xs rounded-full h-4 w-4 text-white"
-                        variant={'default'}
-                      >
-                        {filters.length}
-                      </Badge>
-                    )}
-                  </Button>
-                </div>
-              </DropdownMenuTrigger>
-            </div>
+                    {filters.length}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent className="w-48 max-h-[50vh] space-y-1 overflow-y-auto">
               <DropdownMenuLabel>
                 {filters ? (
                   <Badge variant={'outline'} className="flex items-center gap-1 pr-1">
-                    {filters?.length} filter(s)
+                    {filters?.length} {t(' filter(s)')}
                     <Button
                       size={'icon'}
                       variant={'ghost'}
@@ -310,7 +359,7 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
                 className={cn(filters == null && 'bg-primary')}
                 onClick={() => toggleFilter(null)}
               >
-                All
+                {t('All')}
               </DropdownMenuItem>
               {types.map((type: string) => (
                 <DropdownMenuItem
@@ -327,11 +376,11 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
       </div>
 
       {/* Contenu principal */}
-      <div className="flex-1 min-h-0">
-        {!isLoading && filteredNodes?.length === 0 && searchQuery === '' && (
+      <div className="flex-1 min-h-0 flex flex-col">
+        {!isLoading && nodes.length === 0 && searchQuery === '' && (
           <div className="text-sm p-4 text-center">
             <p className="border rounded-md border-dashed p-4 text-center">
-              Drag and drop you first node in the &quot;items&quot; section.
+              {t('Drag and drop you first node in the "items" section.')}
             </p>
           </div>
         )}
@@ -339,15 +388,17 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
                     <div className="p-2"><SkeletonList rowCount={7} /></div>
                 )} */}
 
-        {filteredNodes?.length === 0 && searchQuery && (
-          <div className="p-4 text-center text-muted-foreground">No nodes match your search</div>
+        {filteredNodes?.length === 0 && (searchQuery || filters?.length) && (
+          <div className="p-4 text-center text-muted-foreground">
+            {t('No nodes match your search')}
+          </div>
         )}
 
         {/* Liste virtualisée */}
-        {!isLoading && filteredNodes && filteredNodes.length > 0 && (
+        {!isLoading && (
           <div
             ref={parentRef}
-            className="h-full overflow-auto"
+            className="flex-1 min-h-0 overflow-auto"
             style={{
               contain: 'strict'
             }}
@@ -360,7 +411,7 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
               }}
             >
               {virtualizer.getVirtualItems().map((virtualItem) => {
-                const node = filteredNodes[virtualItem.index]
+                const row = rows[virtualItem.index]
                 return (
                   <div
                     key={virtualItem.key}
@@ -373,17 +424,39 @@ const NodesPanel = memo(({ nodes, isLoading }: { nodes: GraphNode[]; isLoading?:
                       transform: `translateY(${virtualItem.start}px)`
                     }}
                   >
-                    <VirtualizedItem
-                      index={virtualItem.index}
-                      node={node}
-                      isCurrent={isCurrent}
-                      setCurrentNodeId={setCurrentNodeId}
-                      onCheckboxChange={handleCheckboxChange}
-                      isNodeChecked={isNodeChecked}
-                      centerOnNode={centerOnNode}
-                      autoZoomOnCurrentNode={autoZoomOnCurrentNode}
-                      canEdit={canEdit}
-                    />
+                    {row.kind === 'section' ? (
+                      <button
+                        className="flex items-center gap-2 px-3 h-full w-full border-b bg-muted/40 text-sm font-medium text-left"
+                        aria-expanded={!collapsed[row.role]}
+                        onClick={() =>
+                          setCollapsed((value) => ({ ...value, [row.role]: !value[row.role] }))
+                        }
+                      >
+                        {collapsed[row.role] ? (
+                          <ChevronRight className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                        <span className="grow">
+                          {t(row.role === 'primary' ? 'Primary objects' : 'Secondary objects')}
+                        </span>{' '}
+                        <Badge variant="outline">
+                          {row.count === row.total ? row.total : `${row.count} / ${row.total}`}
+                        </Badge>
+                      </button>
+                    ) : (
+                      <VirtualizedItem
+                        index={virtualItem.index}
+                        node={row.node}
+                        isCurrent={isCurrent}
+                        setCurrentNodeId={setCurrentNodeId}
+                        onCheckboxChange={handleCheckboxChange}
+                        isNodeChecked={isNodeChecked}
+                        centerOnNode={centerOnNode}
+                        autoZoomOnCurrentNode={autoZoomOnCurrentNode}
+                        canEdit={canEdit}
+                      />
+                    )}
                   </div>
                 )
               })}

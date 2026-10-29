@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import React, { memo, useCallback, useMemo, useState } from 'react'
 import { enricherService } from '@/api/enricher-service'
 import { flowService } from '@/api/flow-service'
@@ -71,6 +72,8 @@ export default function BackgroundContextMenu({
   onRequestParams,
   ...props
 }: GraphContextMenuProps) {
+  const { t } = useTranslation()
+
   const { id: sketchId } = useParams({ strict: false })
   const { canEdit } = usePermissions()
   const [activeTab, setActiveTab] = useState('enrichers')
@@ -106,7 +109,11 @@ export default function BackgroundContextMenu({
       if (!enrichersSearchQuery.trim()) return true
       const query = enrichersSearchQuery.toLowerCase().trim()
       const matchesName = enricher.name?.toLowerCase().includes(query)
-      const matchesDescription = enricher.description?.toLowerCase().includes(query)
+      const matchesDescription =
+        enricher.description?.toLowerCase().includes(query) ||
+        t(enricher.description ?? '')
+          .toLowerCase()
+          .includes(query)
       return matchesName || matchesDescription
     }) || []
 
@@ -143,28 +150,26 @@ export default function BackgroundContextMenu({
     if (!selectedNodes.length || !sketchId) return
     if (
       !(await confirm({
-        title: `You are about to delete ${selectedNodes.length} node(s).`,
-        message: 'The action is irreversible.'
+        title: t('Remove selected objects from sketch?'),
+        message: t('The objects remain in the investigation and on other sketches.')
       }))
     )
       return
 
     toast.promise(
       (async () => {
-        removeNodes(selectedNodes.map((n) => n.id))
+        const ids = selectedNodes.map((n) => n.id)
+        await sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: ids }))
+        removeNodes(ids)
         clearSelectedNodes()
-        return sketchService.deleteNodes(
-          sketchId as string,
-          JSON.stringify({ nodeIds: selectedNodes.map((n) => n.id) })
-        )
       })(),
       {
-        loading: `Deleting ${selectedNodes.length} node(s)...`,
-        success: 'Nodes deleted successfully.',
-        error: 'Failed to delete selected nodes.'
+        loading: t('Deleting {{v0}} node(s)...', { v0: selectedNodes.length }),
+        success: t('Removed from sketch.'),
+        error: t('Failed to delete selected nodes.')
       }
     )
-  }, [selectedNodes, confirm, removeNodes, clearSelectedNodes, sketchId])
+  }, [selectedNodes, confirm, removeNodes, clearSelectedNodes, sketchId, t])
 
   return (
     <BaseContextMenu
@@ -183,7 +188,9 @@ export default function BackgroundContextMenu({
           {/* Header with title and action buttons */}
           <div className="px-3 py-2 border-b gap-1 border-border flex items-center justify-between shrink-0">
             <div className="flex text-xs items-center gap-1 truncate">
-              <span className="block truncate">{selectedNodes.length} selected</span>
+              <span className="block truncate">
+                {selectedNodes.length} {t(' selected')}
+              </span>
               {isSameType && <span className="block">- {sharedType}</span>}
             </div>
             <div className="grow" />
@@ -198,13 +205,16 @@ export default function BackgroundContextMenu({
                         className="h-6 p-0 hover:bg-muted opacity-70 hover:opacity-100 text-destructive hover:text-destructive"
                         onClick={handleDeleteNodes}
                       >
-                        <Trash2 className="h-3 w-3" strokeWidth={1.5} /> Delete{' '}
+                        <Trash2 className="h-3 w-3" strokeWidth={1.5} /> {t('Remove from sketch')}{' '}
                         {selectedNodeIds.length}
                       </Button>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Delete {selectedNodeIds.length} node(s)</p>
+                    <p>
+                      {t('Remove from sketch')}
+                      {selectedNodeIds.length} {t(' node(s)')}
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -221,11 +231,11 @@ export default function BackgroundContextMenu({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Zap className="h-3 w-3 mr-1" />
-                  Enrichers
+                  {t('Enrichers')}
                 </TabsTrigger>
                 <TabsTrigger value="flows" className="flex-1" onClick={(e) => e.stopPropagation()}>
                   <FileCode2 className="h-3 w-3 mr-1" />
-                  Flows
+                  {t('Flows')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -241,7 +251,7 @@ export default function BackgroundContextMenu({
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Search enrichers..."
+                    placeholder={t('Search enrichers...')}
                     value={enrichersSearchQuery}
                     onChange={(e) => {
                       e.stopPropagation()
@@ -285,22 +295,22 @@ export default function BackgroundContextMenu({
                                 <BadgeCheck className="h-3 w-3 text-green-400" />
                               )}{' '}
                             </span>{' '}
-                            {enricher.name || '(Unnamed enricher)'}
+                            {enricher.name || t('(Unnamed enricher)')}
                             {enricher.params_schema?.length ? (
-                              <span title="Requires configuration">
+                              <span title={t('Requires configuration')}>
                                 <Settings className="h-3 w-3 text-muted-foreground shrink-0" />
                               </span>
                             ) : null}
                           </p>
                           {enricher.description && (
                             <p className="text-xs text-muted-foreground truncate">
-                              {enricher.description}
+                              {t(enricher.description ?? '')}
                             </p>
                           )}
                         </div>
                         <div className="flex items-center gap-1">
                           {/* <FavoriteButton isFavorite={false} /> */}
-                          <InfoButton description={enricher.description ?? ''} />
+                          <InfoButton description={t(enricher.description ?? '')} />
                         </div>
                       </button>
                     ))}
@@ -308,7 +318,7 @@ export default function BackgroundContextMenu({
                 ) : (
                   <div className="p-4 text-center">
                     <p className="text-sm text-muted-foreground">
-                      {enrichersSearchQuery ? 'No enrichers found' : 'No enrichers available'}
+                      {enrichersSearchQuery ? t('No enrichers found') : t('No enrichers available')}
                     </p>
                   </div>
                 )}
@@ -323,7 +333,7 @@ export default function BackgroundContextMenu({
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Search flows..."
+                    placeholder={t('Search flows...')}
                     value={flowsSearchQuery}
                     onChange={(e) => {
                       e.stopPropagation()
@@ -367,7 +377,7 @@ export default function BackgroundContextMenu({
                                 <BadgeCheck className="h-3 w-3 text-green-400" />
                               )}{' '}
                             </span>{' '}
-                            {flow.name || '(Unnamed flow)'}
+                            {flow.name || t('(Unnamed flow)')}
                           </p>
                           {flow.description && (
                             <p className="text-xs text-muted-foreground truncate">
@@ -385,7 +395,7 @@ export default function BackgroundContextMenu({
                 ) : (
                   <div className="p-4 text-center">
                     <p className="text-sm text-muted-foreground">
-                      {flowsSearchQuery ? 'No flows found' : 'No flows available'}
+                      {flowsSearchQuery ? t('No flows found') : t('No flows available')}
                     </p>
                   </div>
                 )}
@@ -404,6 +414,8 @@ export default function BackgroundContextMenu({
 }
 
 const DefaultBackgroundMenu = memo(() => {
+  const { t } = useTranslation()
+
   const { canCreate } = usePermissions()
   const setOpenMainDialog = useGraphStore((state) => state.setOpenMainDialog)
   const setImportModalOpen = useGraphSettingsStore((s) => s.setImportModalOpen)
@@ -419,7 +431,7 @@ const DefaultBackgroundMenu = memo(() => {
   if (!canCreate) {
     return (
       <div className="flex-1 grow text-sm overflow-hidden min-h-0 p-3">
-        <p className="text-muted-foreground text-xs">View only</p>
+        <p className="text-muted-foreground text-xs">{t('View only')}</p>
       </div>
     )
   }
@@ -430,13 +442,13 @@ const DefaultBackgroundMenu = memo(() => {
         className="w-full rounded-t-md flex items-center gap-2 p-2 hover:bg-muted text-left transition-colors"
         onClick={handleOpenNewAddItemDialog}
       >
-        <Plus className="h-4 w-4 opacity-60" /> Add a new entity
+        <Plus className="h-4 w-4 opacity-60" /> {t(' Add a new entity')}
       </button>
       <button
         className="w-full rounded-b-md flex items-center gap-2 p-2 hover:bg-muted text-left transition-colors"
         onClick={handleOpenImportDialog}
       >
-        <Download className="h-4 w-4 opacity-60" /> Import entities
+        <Download className="h-4 w-4 opacity-60" /> {t(' Import entities')}
       </button>
     </div>
   )
@@ -446,6 +458,8 @@ type SubActionsProps = {
   selectedNodes: GraphNode[]
 }
 const SubActions = memo(({ selectedNodes }: SubActionsProps) => {
+  const { t } = useTranslation()
+
   const contentToCopy = useMemo(
     () => selectedNodes.map((node) => node.nodeLabel).join('\n'),
     [selectedNodes]
@@ -477,7 +491,10 @@ const SubActions = memo(({ selectedNodes }: SubActionsProps) => {
 
   return (
     <div className="flex flex-col gap-1">
-      <CopyButton label={`Copy ${selectedNodes.length} items as txt`} content={contentToCopy} />
+      <CopyButton
+        label={t('Copy {{v0}} items as txt', { v0: selectedNodes.length })}
+        content={contentToCopy}
+      />
       <Button
         variant="ghost"
         size="sm"
@@ -485,7 +502,9 @@ const SubActions = memo(({ selectedNodes }: SubActionsProps) => {
         onClick={handleExportJson}
       >
         <FileJson className="h-4 w-4 opacity-60" />
-        Export {selectedNodes.length} node(s), {selectedEdges.length} edge(s) as JSON
+        {t('Export ')}
+        {selectedNodes.length} {t(' node(s), ')}
+        {selectedEdges.length} {t(' edge(s) as JSON')}
       </Button>
     </div>
   )

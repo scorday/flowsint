@@ -1,6 +1,7 @@
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.email import Email
 from flowsint_types.username import Username
@@ -9,6 +10,12 @@ from flowsint_types.username import Username
 @flowsint_enricher
 class EmailToUsernameEnricher(Enricher):
     """From email to username."""
+
+    metadata = EnricherMetadata(
+        description="Takes the local part of an email address before @ and creates a Username candidate. This is a local inference and does not verify that an account with that username exists.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Email
     OutputType = Username

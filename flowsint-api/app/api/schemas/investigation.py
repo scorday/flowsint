@@ -28,6 +28,8 @@ class InvestigationRead(ORMBase):
     sketches: list[SketchRead] = []
     analyses: list[AnalysisRead] = []
     current_user_role: Optional[str] = None
+    project_id: str
+    created_by: Optional[str] = None
 
 
 class InvestigationUpdate(BaseModel):

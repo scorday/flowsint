@@ -1,0 +1,5 @@
+# Install using the configured private AVL4 package index; no credentials in Git.
+avl4-auth-uv[fastapi]==0.0.33
+# FastAPI's telemetry API must stay compatible with the SDK already used by its CLI.
+opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1

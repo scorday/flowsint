@@ -48,12 +48,16 @@ export interface EntityMapping {
   nodeLabel: string
   node_id?: string
   data: Record<string, unknown>
+  presentation?: Record<string, unknown>
+  graph_uid?: string | null
 }
 
 export interface PreviewEntity {
   detected_type: string
   node_id?: string | number
   obj: Record<string, unknown> & { nodeLabel: string }
+  presentation?: Record<string, unknown>
+  graph_uid?: string | null
 }
 
 export interface PreviewEdge {
@@ -62,6 +66,7 @@ export interface PreviewEdge {
   from_obj: { label: string }
   to_obj: { label: string }
   label: string
+  properties?: Record<string, unknown>
 }
 
 export interface ImportAnalysisResult {

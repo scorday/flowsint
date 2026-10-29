@@ -120,8 +120,8 @@ class TestCreateNode:
 
         service.create_node(node)
 
-        mock_repo.add_to_batch.assert_called_once()
-        mock_repo.create_node.assert_not_called()
+        mock_repo.create_node.assert_called_once()
+        mock_repo.add_to_batch.assert_not_called()
 
 
 class TestCreateNodeFromFlowsintType:
@@ -155,15 +155,17 @@ class TestCreateNodeFromFlowsintType:
             service.create_node_from_flowsint_type(node)
 
     def test_create_node_from_flowsint_type_with_batching(self):
+        # Entity IDs must be available immediately for subsequent relationships,
+        # including objects without a strong domain key.
         mock_repo = MagicMock()
+        mock_repo.create_node.return_value = "canonical-person-id"
         service = GraphService(
             sketch_id="sketch-1", repository=mock_repo, enable_batching=True
         )
         domain = Domain(domain="example.com")
-
-        service.create_node_from_flowsint_type(domain)
-
-        mock_repo.add_to_batch.assert_called_once()
+        assert service.create_node_from_flowsint_type(domain) == "canonical-person-id"
+        assert domain._graph_uid == "canonical-person-id"
+        mock_repo.add_to_batch.assert_not_called()
 
 
 class TestGetSketchGraph:
@@ -547,39 +549,38 @@ class TestContextManager:
 
 
 class TestCreateGraphServiceFactory:
-    def test_create_graph_service(self):
-        mock_repo = MagicMock()
+    def test_scope_is_resolved_from_sql_not_entity_properties(self):
+        from uuid import uuid4
 
+        from flowsint_core.core.graph.identity import GraphScope
+
+        sketch_id, investigation = uuid4(), uuid4()
+        db = MagicMock()
+        sketch = MagicMock(
+            project_id="verified-project", investigation_id=investigation
+        )
+        db.query.return_value.filter.return_value.first.return_value = sketch
+        db.query.return_value.filter.return_value.all.return_value = [(sketch_id,)]
         with patch(
-            "flowsint_core.core.graph.service.Neo4jGraphRepository",
-            return_value=mock_repo,
-        ) as MockRepoClass:
-            with patch("flowsint_core.core.logger.Logger") as MockLogger:
-                service = create_graph_service(
-                    sketch_id="sketch-1",
-                    enable_batching=True,
-                )
+            "flowsint_core.core.graph.service.Neo4jGraphRepository"
+        ) as repository:
+            service = create_graph_service(str(sketch_id), db=db)
+        repository.assert_called_once_with(
+            scope=GraphScope("verified-project", str(investigation), (str(sketch_id),))
+        )
+        assert service.sketch_id == str(sketch_id)
 
-                # Factory should create the repository
-                MockRepoClass.assert_called_once()
-                assert service._sketch_id == "sketch-1"
-                assert service._repository == mock_repo
-                assert service._logger == MockLogger
-                assert service._enable_batching is True
+    def test_foreign_or_deleted_sketch_is_rejected_before_graph_access(self):
+        from uuid import uuid4
 
-    def test_create_graph_service_defaults(self):
-        mock_repo = MagicMock()
-
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = None
         with patch(
-            "flowsint_core.core.graph.service.Neo4jGraphRepository",
-            return_value=mock_repo,
-        ):
-            with patch("flowsint_core.core.logger.Logger"):
-                service = create_graph_service(sketch_id="sketch-1")
-
-                assert service._sketch_id == "sketch-1"
-                assert service._repository == mock_repo
-                assert service._enable_batching is True  # Default is True in factory
+            "flowsint_core.core.graph.service.Neo4jGraphRepository"
+        ) as repository:
+            with pytest.raises(PermissionError):
+                create_graph_service(str(uuid4()), db=db)
+        repository.assert_not_called()
 
 
 class TestInMemoryRepositoryIntegration:
@@ -645,8 +646,8 @@ class TestInMemoryRepositoryIntegration:
             )
             service.create_node(node)
 
-        # Nodes should not be created yet (batched)
-        assert repo.get_node_count("sketch-1") == 0
+        # IDs must be resolved before relationships are queued.
+        assert repo.get_node_count("sketch-1") == 3
 
         # Flush the batch
         service.flush()

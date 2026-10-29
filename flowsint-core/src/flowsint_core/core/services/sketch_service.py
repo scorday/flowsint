@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..graph import GraphNode, create_graph_service
 from ..models import Sketch
+from ..project_scope import ActorID
 from ..repositories import InvestigationRepository, SketchRepository
 from .base import BaseService
 from .exceptions import (
@@ -42,7 +43,7 @@ class SketchService(BaseService):
         self._type_registry = type_registry_service
 
     def _get_sketch_with_permission(
-        self, sketch_id: UUID, user_id: UUID, actions: List[str]
+        self, sketch_id: UUID, user_id: ActorID, actions: List[str]
     ) -> Sketch:
         """Get sketch and verify user has permission."""
         sketch = self._sketch_repo.get_by_id(sketch_id)
@@ -51,20 +52,26 @@ class SketchService(BaseService):
         self._check_permission(user_id, sketch.investigation_id, actions)
         return sketch
 
-    def list_sketches(self, user_id: UUID) -> List[Sketch]:
+    def list_sketches(self, user_id: ActorID) -> List[Sketch]:
         """Get all sketches owned by a user."""
         return self._sketch_repo.get_by_owner(user_id)
 
-    def get_by_id(self, sketch_id: UUID, user_id: UUID) -> Sketch:
+    def get_by_id(self, sketch_id: UUID, user_id: ActorID) -> Sketch:
         """Get a sketch by ID with permission check."""
         return self._get_sketch_with_permission(sketch_id, user_id, ["read"])
+
+    def get_for_update(self, sketch_id: UUID, user_id: ActorID) -> Sketch:
+        return self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
     def create(
         self,
         title: str,
         description: Optional[str],
         investigation_id: UUID,
-        owner_id: UUID,
+        owner_id: ActorID,
+        node_ids: Optional[List[str]] = None,
+        edge_ids: Optional[List[str]] = None,
+        result_batches: Any = None,
     ) -> Sketch:
         if not investigation_id:
             raise ValidationError("Investigation not found")
@@ -73,17 +80,49 @@ class SketchService(BaseService):
 
         sketch = Sketch(
             title=title,
-            description=description,
+            description=description or "",
             investigation_id=investigation_id,
             owner_id=owner_id,
         )
         self._sketch_repo.add(sketch)
-        self._commit()
+        graph = None
+        attached = False
+        try:
+            if node_ids or edge_ids or result_batches:
+                self._flush()
+                graph = create_graph_service(
+                    str(sketch.id), enable_batching=False, db=self.db
+                )
+                if result_batches:
+                    graph.attach_result_batches(result_batches)
+                else:
+                    graph.attach_subgraph(node_ids or [], edge_ids or [])
+                attached = True
+            self._commit()
+        except Exception as exc:
+            self._rollback()
+            if attached and graph is not None:
+                try:
+                    graph.delete_all_sketch_nodes()
+                except Exception as cleanup_error:
+                    raise DatabaseError(
+                        "Sketch creation failed; graph view cleanup is required"
+                    ) from cleanup_error
+            if isinstance(exc, ValueError):
+                raise ValidationError(str(exc)) from exc
+            raise
         self._refresh(sketch)
         return sketch
 
-    def update(self, sketch_id: UUID, user_id: UUID, updates: Dict[str, Any]) -> Sketch:
+    def update(
+        self, sketch_id: UUID, user_id: ActorID, updates: Dict[str, Any]
+    ) -> Sketch:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+
+        if updates.get("investigation_id") not in (None, sketch.investigation_id):
+            raise ValidationError(
+                "A graph view cannot be moved to another investigation"
+            )
 
         for key, value in updates.items():
             if hasattr(sketch, key):
@@ -93,7 +132,7 @@ class SketchService(BaseService):
         self._refresh(sketch)
         return sketch
 
-    def delete(self, sketch_id: UUID, user_id: UUID) -> None:
+    def delete(self, sketch_id: UUID, user_id: ActorID) -> None:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["delete"])
 
         try:
@@ -110,11 +149,53 @@ class SketchService(BaseService):
 
     # --- Graph operations ---
 
+    def investigation_graph(self, sketch_id: UUID, user_id: ActorID) -> Dict[str, Any]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["read"])
+        resolver = (
+            self._type_registry.build_type_resolver(user_id)
+            if self._type_registry
+            else None
+        )
+        graph = create_graph_service(
+            str(sketch_id), type_resolver=resolver
+        ).get_investigation_graph()
+        data = graph.model_dump(mode="json", serialize_as_any=True)
+        return {"nds": data["nodes"], "rls": data["edges"]}
+
+    def attach_subgraph(
+        self,
+        sketch_id: UUID,
+        user_id: ActorID,
+        node_ids: List[str],
+        edge_ids: List[str],
+    ) -> Dict[str, str]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+        try:
+            create_graph_service(str(sketch_id), enable_batching=False).attach_subgraph(
+                node_ids, edge_ids
+            )
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        return {"status": "subgraph attached"}
+
+    def delete_from_investigation(
+        self,
+        sketch_id: UUID,
+        user_id: ActorID,
+        node_ids: List[str],
+        edge_ids: List[str],
+    ) -> Dict[str, str]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["delete"])
+        create_graph_service(
+            str(sketch_id), enable_batching=False
+        ).delete_from_investigation(node_ids, edge_ids)
+        return {"status": "deleted from investigation"}
+
     # format="inline" returns a flat list of {source, edge, target} dicts
     # instead of the default {nds, rls}-shaped graph — same distinction the
     # frontend's sketchService.getGraphDataById overload encodes.
     def get_graph(
-        self, sketch_id: UUID, user_id: UUID, format: Optional[str] = None
+        self, sketch_id: UUID, user_id: ActorID, format: Optional[str] = None
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
@@ -138,8 +219,27 @@ class SketchService(BaseService):
         graph = graph_data.model_dump(mode="json", serialize_as_any=True)
         return {"nds": graph["nodes"], "rls": graph["edges"]}
 
+    def get_graph_page(
+        self,
+        sketch_id: UUID,
+        actor: ActorID,
+        kind: str,
+        after: str,
+        size: int,
+        revision: int | None = None,
+    ) -> Dict[str, Any]:
+        self.get_by_id(sketch_id, actor)
+        resolver = (
+            self._type_registry.build_type_resolver(actor)
+            if self._type_registry
+            else None
+        )
+        return create_graph_service(
+            str(sketch_id), type_resolver=resolver
+        ).get_sketch_graph_page(kind, after, size, revision)
+
     def add_node(
-        self, sketch_id: UUID, user_id: UUID, node: GraphNode
+        self, sketch_id: UUID, user_id: ActorID, node: GraphNode
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -158,10 +258,57 @@ class SketchService(BaseService):
         node.id = node_id
         return {"status": "node added", "node": node}
 
+    def find_node_matches(
+        self, sketch_id: UUID, user_id: ActorID, node: GraphNode
+    ) -> List[Dict[str, Any]]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+        resolver = (
+            self._type_registry.build_type_resolver(user_id)
+            if self._type_registry
+            else None
+        )
+        try:
+            return create_graph_service(
+                str(sketch_id), type_resolver=resolver
+            ).find_node_matches(node)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
+    def explore_investigation(
+        self, sketch_id: UUID, user_id: ActorID, operation: str, options: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        sketch = self._get_sketch_with_permission(sketch_id, user_id, ["read"])
+        resolver = (
+            self._type_registry.build_type_resolver(user_id)
+            if self._type_registry
+            else None
+        )
+        graph = create_graph_service(str(sketch_id), type_resolver=resolver)
+        try:
+            if operation == "search":
+                return graph.search_graph_nodes(
+                    options.get("query", ""), options.get("ids", [])
+                )
+            if operation == "catalog":
+                return {
+                    **graph.exploration_catalog(),
+                    "sketches": [
+                        {"id": str(view.id), "title": view.title}
+                        for view in self._sketch_repo.get_by_investigation(
+                            sketch.investigation_id
+                        )
+                    ],
+                }
+            if operation == "explore":
+                return graph.explore_graph(options)
+            raise ValueError("Unknown exploration operation")
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
     def add_relationship(
         self,
         sketch_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         source: str,
         target: str,
         label: str = "RELATED_TO",
@@ -187,7 +334,7 @@ class SketchService(BaseService):
         return {"status": "edge added", "edge": result}
 
     def update_node(
-        self, sketch_id: UUID, user_id: UUID, node_id: str, updates: Dict[str, Any]
+        self, sketch_id: UUID, user_id: ActorID, node_id: str, updates: Dict[str, Any]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -208,7 +355,7 @@ class SketchService(BaseService):
         return {"status": "node updated", "node": {"id": updated_element_id}}
 
     def update_node_positions(
-        self, sketch_id: UUID, user_id: UUID, positions: List[Dict[str, Any]]
+        self, sketch_id: UUID, user_id: ActorID, positions: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -227,7 +374,7 @@ class SketchService(BaseService):
         return {"status": "positions updated", "count": updated_count}
 
     def delete_nodes(
-        self, sketch_id: UUID, user_id: UUID, node_ids: List[str]
+        self, sketch_id: UUID, user_id: ActorID, node_ids: List[str]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
 
@@ -243,7 +390,7 @@ class SketchService(BaseService):
         return {"status": "nodes deleted", "count": deleted_count}
 
     def delete_relationships(
-        self, sketch_id: UUID, user_id: UUID, relationship_ids: List[str]
+        self, sketch_id: UUID, user_id: ActorID, relationship_ids: List[str]
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["update"])
         try:
@@ -260,7 +407,7 @@ class SketchService(BaseService):
     def update_relationship(
         self,
         sketch_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         relationship_id: str,
         data: Dict[str, Any],
     ) -> Dict[str, Any]:
@@ -292,7 +439,7 @@ class SketchService(BaseService):
     def merge_nodes(
         self,
         sketch_id: UUID,
-        user_id: UUID,
+        user_id: ActorID,
         old_node_ids: List[str],
         new_node_id: str,
         node_data: Dict[str, Any],
@@ -306,8 +453,8 @@ class SketchService(BaseService):
 
         node_type = node_data.get("type", "Node")
         properties = {
-            "type": node_type.lower(),
-            "label": node_data.get("label", "Merged Node"),
+            "nodeType": node_type.lower(),
+            "nodeLabel": node_data.get("label", "Merged Node"),
         }
         flattened_data = flatten(node_data)
         properties.update(flattened_data)
@@ -335,7 +482,7 @@ class SketchService(BaseService):
         }
 
     def get_neighbors(
-        self, sketch_id: UUID, user_id: UUID, node_id: str
+        self, sketch_id: UUID, user_id: ActorID, node_id: str
     ) -> Dict[str, Any]:
         self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
@@ -360,7 +507,7 @@ class SketchService(BaseService):
         return {"nds": result.nodes, "rls": result.edges}
 
     def export_sketch(
-        self, sketch_id: UUID, user_id: UUID, format: str = "json"
+        self, sketch_id: UUID, user_id: ActorID, format: str = "json"
     ) -> Dict[str, Any]:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
@@ -383,7 +530,10 @@ class SketchService(BaseService):
                     "title": sketch.title,
                     "description": sketch.description,
                 },
-                "nodes": [node.model_dump(mode="json") for node in graph_data.nodes],
+                "nodes": [
+                    node.model_dump(mode="json", serialize_as_any=True)
+                    for node in graph_data.nodes
+                ],
                 "edges": [edge.model_dump(mode="json") for edge in graph_data.edges],
             }
         else:

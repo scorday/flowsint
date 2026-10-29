@@ -1,8 +1,11 @@
+import { useTranslation } from '@/i18n'
 import { Link } from '@tanstack/react-router'
 import { KeyRound, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function ChatInactive({ onClose }: { onClose: any }) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col h-full items-center justify-center relative py-16 px-4">
       <Button
@@ -18,12 +21,13 @@ export default function ChatInactive({ onClose }: { onClose: any }) {
       </div>
       <h3 className="text-sm font-medium text-foreground mb-1">API key required</h3>
       <p className="text-sm text-muted-foreground text-center max-w-[260px] mb-5">
-        Add a <code className="text-xs bg-muted px-1.5! py-0.5! rounded">MISTRAL_API_KEY</code> in
-        your vault to start using the chat assistant
+        {t('Add a ')}
+        <code className="text-xs bg-muted px-1.5! py-0.5! rounded">MISTRAL_API_KEY</code>{' '}
+        {t(' in your vault to start using the chat assistant')}
       </p>
       <Link to="/dashboard/vault">
         <Button size="sm" className="h-8 text-xs gap-1.5">
-          Go to Vault
+          {t('Go to Vault')}
         </Button>
       </Link>
     </div>

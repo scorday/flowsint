@@ -1,0 +1,29 @@
+FROM ghcr.io/astral-sh/uv:0.8.22 AS uv
+FROM python:3.13.9-slim-bookworm AS builder
+ENV UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0 PYTHONDONTWRITEBYTECODE=1
+COPY --from=uv /uv /usr/local/bin/uv
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential git pkg-config libcairo2-dev && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY pyproject.toml uv.lock requirements-avl4.txt ./
+COPY flowsint-core ./flowsint-core
+COPY flowsint-types ./flowsint-types
+COPY flowsint-enrichers ./flowsint-enrichers
+COPY flowsint-api ./flowsint-api
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+# Build the public client from the same Auth checkout as the local service.
+# No Auth persistence/service modules or registry credentials enter this image.
+COPY --from=auth_client pyproject.toml README.md /avl4-auth/
+COPY --from=auth_client src /avl4-auth/src
+RUN --mount=type=cache,target=/root/.cache/uv uv pip install --python /app/.venv/bin/python --requirements /app/requirements-avl4.txt '/avl4-auth[fastapi]' && uv pip check --python /app/.venv/bin/python
+
+FROM python:3.13.9-slim-bookworm AS runtime
+ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 libcairo2 && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 flowsint && useradd --uid 10001 --gid flowsint --create-home flowsint
+COPY --from=builder --chown=flowsint:flowsint /app /app
+# uv installs the client non-editably; the venv contains its wheel, not an external path.
+WORKDIR /app/flowsint-api
+USER flowsint
+EXPOSE 5001
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=12 CMD ["python", "-m", "flowsint_core.avl4_import.bootstrap", "--check"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5001"]

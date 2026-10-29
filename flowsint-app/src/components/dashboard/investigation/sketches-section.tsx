@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Plus, ArrowUpRight } from 'lucide-react'
 import { EmptySketches } from '../empty-states'
@@ -12,11 +13,13 @@ interface SketchesSectionProps {
 }
 
 export function SketchesSection({ sketches, canCreate = true }: SketchesSectionProps) {
+  const { t, dateLocale } = useTranslation()
+
   const isEmpty = sketches.length === 0
   return (
     <section className="my-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-foreground">Sketches</h2>
+        <h2 className="text-sm font-medium text-foreground">{t('Sketches')}</h2>
         {!isEmpty && canCreate && (
           <NewSketch>
             <Button
@@ -25,7 +28,7 @@ export function SketchesSection({ sketches, canCreate = true }: SketchesSectionP
               className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
-              New
+              {t('New')}
             </Button>
           </NewSketch>
         )}
@@ -35,7 +38,7 @@ export function SketchesSection({ sketches, canCreate = true }: SketchesSectionP
         canCreate ? (
           <EmptySketches />
         ) : (
-          <div className="text-sm text-muted-foreground py-4">No sketches yet.</div>
+          <div className="text-sm text-muted-foreground py-4">{t('No sketches yet.')}</div>
         )
       ) : (
         <div style={{ containerType: 'inline-size' }}>
@@ -117,12 +120,13 @@ export function SketchesSection({ sketches, canCreate = true }: SketchesSectionP
                   {sketch.description ? (
                     sketch.description
                   ) : (
-                    <span className="italic">No description provided.</span>
+                    <span className="italic">{t('No description provided.')}</span>
                   )}
                 </p>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
                     {formatDistanceToNow(new Date(sketch.last_updated_at), {
+                      locale: dateLocale,
                       addSuffix: true
                     })}
                   </span>

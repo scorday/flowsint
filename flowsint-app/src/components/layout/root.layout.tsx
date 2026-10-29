@@ -8,7 +8,7 @@ import { PersistentLogPanel } from './persistent-log-panel'
 import { useLayoutStore } from '@/stores/layout-store'
 import NotesPanel from '../analyses/notes-panel'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
-import { useParams } from '@tanstack/react-router'
+import { useLocation, useParams } from '@tanstack/react-router'
 import DetailsPanel from '../sketches/details-panel/details-panel'
 import EdgeDetailsPanel from '../sketches/details-panel/edge-details-panel'
 import { useGraphStore } from '@/stores/graph-store'
@@ -30,6 +30,8 @@ export default function RootLayout({ children }: LayoutProps) {
   const currentNode = useGraphStore((s) => s.getCurrentNode())
   const currentEdge = useGraphStore((s) => s.getCurrentEdge())
   const { id, type } = useParams({ strict: false })
+  const pathname = useLocation({ select: (location) => location.pathname })
+  const showSecondaryNavigation = isOpenPanel && !pathname.startsWith('/dashboard/admin/')
 
   // Set up keyboard shortcut for chat panel
   useKeyboardShortcut({
@@ -127,12 +129,12 @@ export default function RootLayout({ children }: LayoutProps) {
         {/* Top navbar */}
         <TopNavbar />
         {/* Main layout */}
-        <div className="flex grow">
+        <div className="flex grow min-w-0 min-h-0">
           <Sidebar />
           <ResizablePanelGroup
             autoSaveId="conditional"
             direction="vertical"
-            className="flex-1 min-h-0"
+            className="flex-1 min-w-0 min-h-0"
           >
             {/* Main content area with optional console */}
             <ResizablePanel order={1} id="main" defaultSize={isOpenConsole ? 70 : 100} minSize={30}>
@@ -148,7 +150,7 @@ export default function RootLayout({ children }: LayoutProps) {
                     autoSaveId="conditional3"
                     className="h-full"
                   >
-                    {isOpenPanel && (
+                    {showSecondaryNavigation && (
                       <>
                         <ResizablePanel
                           id="sidebar"
@@ -169,7 +171,7 @@ export default function RootLayout({ children }: LayoutProps) {
                         <ResizableHandle />
                       </>
                     )}
-                    <ResizablePanel className="h-full w-full" id="children" order={3}>
+                    <ResizablePanel className="h-full w-full min-w-0" id="children" order={3}>
                       <>{children}</>
                     </ResizablePanel>
                     {detailsPanelSection}
@@ -184,7 +186,7 @@ export default function RootLayout({ children }: LayoutProps) {
         </div>
       </div>
     ),
-    [isOpenConsole, isOpenPanel, children, detailsPanelSection, closePanel, openPanel]
+    [isOpenConsole, showSecondaryNavigation, children, detailsPanelSection, closePanel, openPanel]
   )
 
   return <ConfirmContextProvider>{layoutContent}</ConfirmContextProvider>

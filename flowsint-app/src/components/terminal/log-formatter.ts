@@ -1,3 +1,4 @@
+import { getLanguage } from '@/i18n'
 import { EventLevel } from '@/types'
 
 // ANSI color codes
@@ -83,7 +84,7 @@ const defaultColors = {
 }
 
 export const formatTime = (date: string): string => {
-  return new Date(date).toLocaleTimeString('en-US', {
+  return new Date(date).toLocaleTimeString(getLanguage(), {
     hour12: false,
     hour: '2-digit',
     minute: '2-digit',

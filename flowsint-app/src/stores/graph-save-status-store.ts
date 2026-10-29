@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { SaveStatus } from '@/hooks/use-save-node-positions'
+import type { SaveStatus } from '@/hooks/use-save-node-positions'
 
 interface GraphSaveStatusStore {
   saveStatus: SaveStatus

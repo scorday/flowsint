@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useGraphStore } from '@/stores/graph-store'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { sketchService } from '@/api/sketch-service'
 import { type GraphNode, type NodeProperties } from '@/types/graph'
 import { type DetectionResult } from '@/types/sketch'
 import { useDebounce } from '@/hooks/use-debounce'
-import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
+import { toast } from 'sonner'
+import { useTranslation } from '@/i18n'
+import { useManualNodeAdd } from '../../use-manual-node-add'
 
 interface QuickAddState {
   active: boolean
@@ -26,11 +27,12 @@ const INITIAL_STATE: QuickAddState = {
 }
 
 export const useQuickAdd = (sketchId?: string) => {
+  const { t } = useTranslation()
+  const submitting = useRef(false)
   const [state, setState] = useState<QuickAddState>(INITIAL_STATE)
   const debouncedText = useDebounce(state.text, 300)
 
-  const addNode = useGraphStore((s) => s.addNode)
-  const replaceNode = useGraphStore((s) => s.replaceNode)
+  const manualAdd = useManualNodeAdd(sketchId)
 
   // Reset detection immediately when there's no text or quick-add isn't
   // active — adjusted during render rather than in an effect.
@@ -93,63 +95,58 @@ export const useQuickAdd = (sketchId?: string) => {
   }, [])
 
   const submit = useCallback(async () => {
-    if (!state.text.trim() || !sketchId || !state.graphPosition) return
+    if (!state.text.trim() || !sketchId || !state.graphPosition || submitting.current) return
+    submitting.current = true
+    try {
+      // Enter may arrive before the debounced preview. Check the actual submitted text.
+      const detection = await sketchService.detectType(state.text.trim())
+      const nodeType = detection?.type?.toLowerCase() || 'phrase'
+      const label = state.text.trim()
 
-    const detection = state.detection
-    const nodeType = detection?.type?.toLowerCase() || 'phrase'
-    const label = state.text.trim()
-
-    // Build nodeProperties from detection fields
-    const nodeProperties: NodeProperties = {}
-    if (detection?.fields) {
-      for (const field of detection.fields) {
-        if (field.primary && field.value) {
-          nodeProperties[field.name] = field.value
+      // Build nodeProperties from detection fields
+      const nodeProperties: NodeProperties = {}
+      if (detection?.fields) {
+        for (const field of detection.fields) {
+          if (field.primary && field.value) {
+            nodeProperties[field.name] = field.value
+          }
         }
       }
-    }
-    // Fallback: if no primary field was set, use 'text' for phrase
-    if (Object.keys(nodeProperties).length === 0) {
-      nodeProperties['text'] = label
-    }
-
-    const tempId = uuidv4()
-    const node: GraphNode = {
-      id: tempId,
-      nodeType,
-      nodeLabel: label,
-      x: state.graphPosition.x,
-      y: state.graphPosition.y,
-      nodeSize: 4,
-      nodeColor: null,
-      nodeShape: 'circle',
-      nodeFlag: null,
-      nodeIcon: null,
-      nodeImage: null,
-      nodeProperties,
-      nodeMetadata: {}
-    }
-
-    // Close overlay immediately
-    setState(INITIAL_STATE)
-
-    // Optimistic add to store
-    addNode(node)
-
-    // Persist to API
-    try {
-      const response = await sketchService.addNode(sketchId, JSON.stringify(node))
-      const newNode: GraphNode = response.node
-      if (newNode) {
-        replaceNode(tempId, newNode.id, newNode.nodeProperties)
+      // Fallback: if no primary field was set, use 'text' for phrase
+      if (Object.keys(nodeProperties).length === 0) {
+        nodeProperties['text'] = label
       }
+
+      const tempId = uuidv4()
+      const node: GraphNode = {
+        id: tempId,
+        nodeType,
+        nodeLabel: label,
+        x: state.graphPosition.x,
+        y: state.graphPosition.y,
+        nodeSize: 4,
+        nodeColor: null,
+        nodeShape: 'circle',
+        nodeFlag: null,
+        nodeIcon: null,
+        nodeImage: null,
+        nodeProperties,
+        nodeMetadata: {}
+      }
+
+      const previous = state
+      setState(INITIAL_STATE)
+      await manualAdd.add(node, { onCancel: () => setState(previous) })
     } catch {
-      toast.error('Could not create node.')
+      toast.error(t('Could not detect the object type. Please retry.'))
+    } finally {
+      submitting.current = false
     }
-  }, [state.text, state.detection, state.graphPosition, sketchId, addNode, replaceNode])
+  }, [state, sketchId, manualAdd, t])
 
   return {
     quickAdd: state,
+    nodeMatch: manualAdd,
     openQuickAdd: open,
     closeQuickAdd: close,
     setQuickAddText: setText,

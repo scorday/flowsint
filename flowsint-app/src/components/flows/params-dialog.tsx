@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useFlowStore } from '@/stores/flow-store'
 import { DialogHeader, DialogFooter, Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
@@ -15,6 +16,8 @@ import { MemoizedMarkdown } from '../chat/memoized-markdown'
 import { cn } from '@/lib/utils'
 
 const ParamsDialog = () => {
+  const { t } = useTranslation()
+
   const openParamsDialog = useFlowStore((s) => s.openParamsDialog)
   const setOpenParamsDialog = useFlowStore((s) => s.setOpenParamsDialog)
   const selectedNode = useFlowStore((s) => s.selectedNode)
@@ -67,12 +70,12 @@ const ParamsDialog = () => {
           onValueChange={(value) => setParams({ ...params, [param.name]: value })}
         >
           <SelectTrigger id={param.name} className="w-full">
-            <SelectValue placeholder={`Select ${param.name}`} />
+            <SelectValue placeholder={t('Select {{v0}}', { v0: param.name })} />
           </SelectTrigger>
           <SelectContent>
             {param.options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {t(option.label === 'Active' ? 'params.active' : option.label)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -98,18 +101,19 @@ const ParamsDialog = () => {
       <DialogContent className="!w-[90vw] !max-w-[900px] h-[90vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            Configure <span className="text-primary">{selectedNode.data.class_name}</span>
+            {t('Configure ')}
+            <span className="text-primary">{selectedNode.data.class_name}</span>
           </DialogTitle>
           <div className={cn('justify-start', 'flex w-full')}>
             <div className={cn('w-full', 'p-3 rounded-xl max-w-full', 'flex flex-col gap-2')}>
-              <div className="max-w-none">{selectedNode?.data.description?.toString()}</div>
+              <div className="max-w-none">{t(selectedNode.data.description?.toString() ?? '')}</div>
             </div>
           </div>
         </DialogHeader>
         <Tabs defaultValue="parameters" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="parameters">Parameters</TabsTrigger>
-            <TabsTrigger value="documentation">Documentation</TabsTrigger>
+            <TabsTrigger value="parameters">{t('Parameters')}</TabsTrigger>
+            <TabsTrigger value="documentation">{t('Documentation')}</TabsTrigger>
           </TabsList>
           <TabsContent value="parameters" className="space-y-4 mt-4">
             <div className="grid gap-4">
@@ -120,7 +124,7 @@ const ParamsDialog = () => {
                       {param.name}
                       {param.required && <span className="text-destructive ml-1">*</span>}
                     </Label>
-                    <p className="text-sm opacity-60">{param.description}</p>
+                    <p className="text-sm opacity-60">{t(param.description)}</p>
                   </div>
                   {renderField(param)}
                 </div>
@@ -141,9 +145,9 @@ const ParamsDialog = () => {
 
         <DialogFooter className="mt-auto">
           <Button variant="outline" onClick={() => setOpenParamsDialog(false)}>
-            Cancel
+            {t('Cancel')}
           </Button>
-          <Button onClick={handleSave}>Save configuration</Button>
+          <Button onClick={handleSave}>{t('Save configuration')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -7,12 +7,26 @@ connection pooling and transaction management.
 
 import os
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol, TypeVar
 
 from dotenv import load_dotenv
 from neo4j import Driver, GraphDatabase
 
+from ..project_scope import revalidate_worker_scope
+
 load_dotenv()
+
+T = TypeVar("T")
+
+
+class GraphConnectionProtocol(Protocol):
+    def query(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]: ...
+    def execute_write(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]: ...
+    def run_transaction(self, operation: Callable[[Any], T]) -> T: ...
 
 
 class Neo4jConnection:
@@ -92,7 +106,7 @@ class Neo4jConnection:
         return self._driver
 
     def query(
-        self, query: str, parameters: Dict[str, Any] = None
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Execute a single query.
@@ -104,20 +118,21 @@ class Neo4jConnection:
         Returns:
             List of result records as dictionaries
         """
+        revalidate_worker_scope()
         with self._driver.session() as session:
             cleaned_params = self._clean_parameters(parameters)
             result = session.run(query, cleaned_params)
             return result.data()
 
     @staticmethod
-    def _clean_parameters(parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def _clean_parameters(parameters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Remove None keys from parameters dict to avoid Neo4j errors."""
         if not parameters:
             return {}
         return {k: v for k, v in parameters.items() if k is not None}
 
     def execute_write(
-        self, query: str, parameters: Dict[str, Any] = None
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Execute a write query within a write transaction.
@@ -129,6 +144,8 @@ class Neo4jConnection:
         Returns:
             List of result records as dictionaries
         """
+
+        revalidate_worker_scope()
 
         def _execute(tx):
             cleaned_params = self._clean_parameters(parameters)
@@ -151,6 +168,8 @@ class Neo4jConnection:
             List of results, one for each query
         """
 
+        revalidate_worker_scope()
+
         def _execute_batch(tx):
             results = []
             for query, params in queries:
@@ -161,6 +180,12 @@ class Neo4jConnection:
 
         with self._driver.session() as session:
             return session.execute_write(_execute_batch)
+
+    def run_transaction(self, operation: Callable[[Any], T]) -> T:
+        """Run identity resolution and graph writes atomically, with retries."""
+        revalidate_worker_scope()
+        with self._driver.session() as session:
+            return session.execute_write(operation)
 
     def close(self) -> None:
         """Close the driver connection."""

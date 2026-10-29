@@ -63,7 +63,7 @@ class CustomTypeRead(ORMBase):
 
     id: UUID4
     name: str
-    owner_id: UUID4
+    owner_id: Optional[UUID4] = None
     color: Optional[str]
     icon: Optional[str]
     json_schema: Dict[str, Any] = Field(..., alias="schema")

@@ -1,6 +1,7 @@
 from typing import Dict, List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
 from flowsint_types.email import Email
@@ -10,6 +11,12 @@ from flowsint_types.ip import Ip
 @flowsint_enricher
 class ToDummyEnricher(Enricher):
     """ToDummyEnricher"""
+
+    metadata = EnricherMetadata(
+        description="Generates synthetic test data: a subdomain prefixed with sub. and a fabricated email address based on the input domain. These are fixtures for testing enrichment and graph updates, not discovered contacts or real DNS findings.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Domain
     OutputType = Ip

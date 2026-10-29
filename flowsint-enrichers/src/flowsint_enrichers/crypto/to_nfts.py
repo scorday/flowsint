@@ -5,6 +5,7 @@ import requests
 from dotenv import load_dotenv
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.wallet import CryptoNFT, CryptoWallet
@@ -15,6 +16,13 @@ load_dotenv()
 @flowsint_enricher
 class CryptoWalletAddressToNFTs(Enricher):
     """[ETHERSCAN] Resolve NFTs for a wallet address (ETH)."""
+
+    metadata = EnricherMetadata(
+        description="Queries Etherscan NFT transfer history for a cryptocurrency wallet and creates NFT records from the returned transfers. The current implementation requests the first page of up to 10,000 transfers; it does not establish current NFT ownership.",
+        providers=("Etherscan",),
+        api_key_requirement="required",
+        api_key_notes="Requires ETHERSCAN_API_KEY. ETHERSCAN_API_URL can override the default Etherscan API endpoint.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = CryptoWallet

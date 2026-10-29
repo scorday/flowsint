@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import type { toggleVariants } from '@/components/ui/toggle'
@@ -70,7 +71,8 @@ const MemoizedColorButton = React.memo<{
   onClick: (value: string) => void
 }>(({ color, isSelected, inverse, onClick }) => {
   const isDarkMode = useTheme()
-  const label = isDarkMode && color.darkLabel ? color.darkLabel : color.label
+  const { t } = useTranslation()
+  const label = t(isDarkMode && color.darkLabel ? color.darkLabel : color.label)
 
   return (
     <Tooltip>
@@ -133,6 +135,8 @@ interface SectionThreeProps extends VariantProps<typeof toggleVariants> {
 }
 
 export const SectionThree: React.FC<SectionThreeProps> = ({ editor, size, variant }) => {
+  const { t } = useTranslation()
+
   // color is derived straight from the editor's current attributes — no need
   // for a separate "selectedColor" state kept in sync via an effect. Setting
   // it via editor.chain()...run() already triggers the re-render that
@@ -150,8 +154,8 @@ export const SectionThree: React.FC<SectionThreeProps> = ({ editor, size, varian
     <Popover>
       <PopoverTrigger asChild>
         <ToolbarButton
-          tooltip="Text color"
-          aria-label="Text color"
+          tooltip={t('Text color')}
+          aria-label={t('Text color')}
           className="w-12"
           size={size}
           variant={variant}

@@ -3,6 +3,7 @@ from typing import List
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types import Device, Email
@@ -11,6 +12,13 @@ from flowsint_types import Device, Email
 @flowsint_enricher
 class HudsonRockToEmail(Enricher):
     """[HudsonRock] Looks up email/s associated with devices from Infostealer related data using HudsonRock."""
+
+    metadata = EnricherMetadata(
+        description="Searches the public Hudson Rock Cavalier endpoint by email address for infostealer exposure. Creates Device records from available computer name, operating system, stealer family, IP and compromise-date information.",
+        providers=("Hudson Rock",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses the public Hudson Rock Cavalier OSINT endpoint; no API key is configured by this enricher.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Email

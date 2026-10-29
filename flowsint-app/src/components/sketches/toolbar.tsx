@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfirm } from '@/components/use-confirm-dialog'
@@ -17,7 +18,10 @@ import {
   Download,
   LassoSelect,
   ChevronDown,
-  SquareDashed
+  SquareDashed,
+  Share2,
+  Unlink,
+  ScanEye
 } from 'lucide-react'
 import { memo, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -38,6 +42,9 @@ import { sketchService } from '@/api/sketch-service'
 import { useParams } from '@tanstack/react-router'
 import { exportToPNG } from './graph/utils/export-to-png'
 import { PathFinder } from './graph/actions/path-finder'
+import { NeighborhoodRootStatus } from './neighborhood-root-controls'
+import { InvestigationObjects } from './investigation-objects'
+import NewSketch from './new-sketch'
 
 // Tooltip wrapper component to avoid repetition
 export const ToolbarButton = memo(function ToolbarButton({
@@ -46,7 +53,7 @@ export const ToolbarButton = memo(function ToolbarButton({
   onClick,
   disabled = false,
   badge = null,
-  toggled = false,
+  toggled = null,
   showLabel = false
 }: {
   icon: React.ReactNode
@@ -63,6 +70,8 @@ export const ToolbarButton = memo(function ToolbarButton({
         <div>
           <Button
             onClick={onClick}
+            aria-label={typeof tooltip === 'string' ? tooltip : undefined}
+            aria-pressed={toggled ?? undefined}
             disabled={disabled}
             variant="ghost"
             size={showLabel ? 'sm' : 'icon'}
@@ -105,6 +114,8 @@ const FloatingBar = ({
 )
 
 export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean }) {
+  const { t } = useTranslation()
+
   const { confirm } = useConfirm()
   const { canEdit } = usePermissions()
   const { id: sketchId } = useParams({ strict: false })
@@ -121,6 +132,14 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
   const selectionMode = useGraphControls((s) => s.selectionMode)
   const setSelectionMode = useGraphControls((s) => s.setSelectionMode)
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
+  const edges = useGraphStore((s) => s.edges)
+  const currentNodeId = useGraphStore((s) => s.currentNodeId)
+  const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
+  const setHighlightSelectionLinks = useGraphControls((s) => s.setHighlightSelectionLinks)
+  const hideRootLinks = useGraphControls((s) => s.hideRootLinks)
+  const setHideRootLinks = useGraphControls((s) => s.setHideRootLinks)
+  const onlyRootNeighborhood = useGraphControls((s) => s.onlyRootNeighborhood)
+  const setOnlyRootNeighborhood = useGraphControls((s) => s.setOnlyRootNeighborhood)
   const setOpenAddRelationDialog = useGraphStore((state) => state.setOpenAddRelationDialog)
   const setOpenMergeDialog = useGraphStore((state) => state.setOpenMergeDialog)
   const filters = useGraphStore((s) => s.filters)
@@ -135,15 +154,16 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
     try {
       refetchGraph()
     } catch {
-      toast.error('Failed to refresh graph data')
+      toast.error(t('Failed to refresh graph data'))
     }
-  }, [refetchGraph])
+  }, [refetchGraph, t])
 
   const handleApplyForceLayout = useCallback(async () => {
     const confirmed = await confirm({
-      title: 'Apply force layout?',
-      message:
+      title: t('Apply force layout?'),
+      message: t(
         'This will reset all node positions and regenerate them using the force-directed layout algorithm. Current positions will be lost.'
+      )
     })
 
     if (!confirmed) {
@@ -151,19 +171,22 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
     }
     try {
       regenerateLayout('force')
-      toast.success('Force layout applied successfully')
+      toast.success(t('Force layout applied successfully'))
     } catch (error) {
       toast.error(
-        `Failed to apply layout: ${error instanceof Error ? error.message : 'Unknown error'}`
+        t('Failed to apply layout: {{v0}}', {
+          v0: error instanceof Error ? error.message : t('Unknown error')
+        })
       )
     }
-  }, [confirm, regenerateLayout])
+  }, [confirm, regenerateLayout, t])
 
   const handleApplyHierarchyLayout = useCallback(async () => {
     const confirmed = await confirm({
-      title: 'Apply hierarchy layout?',
-      message:
+      title: t('Apply hierarchy layout?'),
+      message: t(
         'This will reset all node positions and regenerate them using the hierarchical layout algorithm. Current positions will be lost.'
+      )
     })
 
     if (!confirmed) {
@@ -171,13 +194,15 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
     }
     try {
       regenerateLayout('hierarchy')
-      toast.success('Hierarchy layout applied successfully')
+      toast.success(t('Hierarchy layout applied successfully'))
     } catch (error) {
       toast.error(
-        `Failed to apply layout: ${error instanceof Error ? error.message : 'Unknown error'}`
+        t('Failed to apply layout: {{v0}}', {
+          v0: error instanceof Error ? error.message : t('Unknown error')
+        })
       )
     }
-  }, [confirm, regenerateLayout])
+  }, [confirm, regenerateLayout, t])
 
   const handleOpenAddRelationDialog = useCallback(() => {
     setOpenAddRelationDialog(true)
@@ -210,22 +235,23 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
         } else {
           await sketchService.exportSketch(sketchId, format)
         }
-        toast.success(`Sketch exported as ${format.toUpperCase()}`)
+        toast.success(t('Sketch exported as {{v0}}', { v0: format.toUpperCase() }))
       } catch (error) {
         toast.error(
-          `Failed to export sketch: ${error instanceof Error ? error.message : 'Unknown error'}`
+          t('Failed to export sketch: {{v0}}', {
+            v0: error instanceof Error ? error.message : t('Unknown error')
+          })
         )
       }
     },
-    [sketchId]
+    [sketchId, t]
   )
 
   const areExactlyTwoSelected = selectedNodes.length === 2
   const areMergeable =
     selectedNodes.length > 1 && selectedNodes.every((n) => n.nodeType === selectedNodes[0].nodeType)
-  const hasFilters = !(
-    filters.types.every((t) => t.checked) || filters.types.every((t) => !t.checked)
-  )
+  const hasFilters =
+    filters.types.some((t) => !t.checked) || (view === 'map' && !!filters.mapFlightId)
 
   return (
     <>
@@ -234,25 +260,25 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
         <FloatingBar className="bottom-3 left-3">
           <ToolbarButton
             icon={<ZoomIn className="h-4 w-4 opacity-70" />}
-            tooltip="Zoom In"
+            tooltip={t('Zoom In')}
             onClick={zoomIn}
             disabled={(view !== 'graph' && view !== 'map') || isSelectorModeActive || !zoomIn}
           />
           <ToolbarButton
             icon={<Minus className="h-4 w-4 opacity-70" />}
-            tooltip="Zoom Out"
+            tooltip={t('Zoom Out')}
             onClick={zoomOut}
             disabled={(view !== 'graph' && view !== 'map') || isSelectorModeActive}
           />
           <ToolbarButton
             icon={<Maximize className="h-4 w-4 opacity-70" />}
-            tooltip="Fit to View"
+            tooltip={t('Fit to View')}
             onClick={zoomToFit}
             disabled={(view !== 'graph' && view !== 'map') || isSelectorModeActive}
           />
           <ToolbarButton
             icon={<Focus className="h-4 w-4 opacity-70" />}
-            tooltip="Zoom to Selection"
+            tooltip={t('Zoom to Selection')}
             onClick={zoomToSelection}
             disabled={view !== 'graph' || isSelectorModeActive || selectedNodes.length < 2}
           />
@@ -283,7 +309,7 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Select (hold S)</TooltipContent>
+              <TooltipContent>{t('Select (hold S)')}</TooltipContent>
             </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -303,7 +329,7 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
                         <ChevronDown className="h-3 w-3 opacity-50" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Selection mode</TooltipContent>
+                    <TooltipContent>{t('Selection mode')}</TooltipContent>
                   </Tooltip>
                 </div>
               </DropdownMenuTrigger>
@@ -313,44 +339,63 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
                   className={cn(selectionMode === 'lasso' && 'bg-accent')}
                 >
                   <LassoSelect className="h-4 w-4 mr-2" />
-                  Lasso
+                  {t('Lasso')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleSelectMode('rectangle')}
                   className={cn(selectionMode === 'rectangle' && 'bg-accent')}
                 >
                   <SquareDashed className="h-4 w-4 mr-2" />
-                  Rectangle
+                  {t('Rectangle')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
           <Separator className="w-full" />
           <ToolbarButton
+            icon={<Share2 className="h-4 w-4 opacity-70" />}
+            tooltip={t('Highlight links between selected nodes')}
+            toggled={highlightSelectionLinks}
+            onClick={() => setHighlightSelectionLinks(!highlightSelectionLinks)}
+          />
+          <ToolbarButton
+            icon={<Unlink className="h-4 w-4 opacity-70" />}
+            tooltip={t('Hide root links and show links between its neighbors')}
+            toggled={hideRootLinks}
+            disabled={!currentNodeId && !hideRootLinks && !onlyRootNeighborhood}
+            onClick={() => setHideRootLinks(!hideRootLinks)}
+          />
+          <ToolbarButton
+            icon={<ScanEye className="h-4 w-4 opacity-70" />}
+            tooltip={t('Show only root and first-level neighbors')}
+            toggled={onlyRootNeighborhood}
+            disabled={!currentNodeId && !onlyRootNeighborhood && !hideRootLinks}
+            onClick={() => setOnlyRootNeighborhood(!onlyRootNeighborhood)}
+          />
+          <ToolbarButton
             icon={<GitPullRequestArrow className="h-4 w-4 opacity-70" />}
-            tooltip="Connect"
+            tooltip={t('Connect')}
             onClick={handleOpenAddRelationDialog}
             disabled={!canEdit || !areExactlyTwoSelected}
             badge={areExactlyTwoSelected ? 2 : null}
           />
           <ToolbarButton
             icon={<Merge className="h-4 w-4 opacity-70" />}
-            tooltip="Merge"
+            tooltip={t('Merge')}
             onClick={handleOpenMergeDialog}
             disabled={!canEdit || !areMergeable}
             badge={areMergeable ? selectedNodes.length : null}
           />
-          <PathFinder />
           <Separator className="w-full" />
           <ToolbarButton
             icon={<NetworkIcon className="h-4 w-4 opacity-70" />}
-            tooltip="Force layout"
+            tooltip={t('Force layout')}
             onClick={handleApplyForceLayout}
             disabled={!canEdit || isLoading || view !== 'graph'}
           />
           <ToolbarButton
             icon={<GitFork strokeWidth={1.4} className="h-4 w-4 opacity-70 rotate-180" />}
-            tooltip="Hierarchy layout"
+            tooltip={t('Hierarchy layout')}
             onClick={handleApplyHierarchyLayout}
             disabled={!canEdit || isLoading || view !== 'graph'}
           />
@@ -364,14 +409,40 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
           <ToolbarButton
             disabled={isLoading}
             icon={<FunnelPlus className={cn('h-4 w-4 opacity-70')} />}
-            tooltip="Filters"
+            tooltip={t('Filters')}
             toggled={hasFilters}
           />
         </Filters>
       </FloatingBar>
 
+      {view === 'graph' && (hideRootLinks || onlyRootNeighborhood) && (
+        <FloatingBar className="top-14 left-1/2 -translate-x-1/2 max-w-sm">
+          <NeighborhoodRootStatus graphId={sketchId} />
+        </FloatingBar>
+      )}
+
       {/* Top right: Status, Export, Reload */}
       <FloatingBar className="top-3 right-3">
+        <PathFinder />
+        {canEdit && <InvestigationObjects />}
+        {canEdit && selectedNodes.length > 0 && (
+          <NewSketch
+            selection={{
+              nodeIds: selectedNodes.map((n) => n.id),
+              edgeIds: edges
+                .filter(
+                  (e) =>
+                    selectedNodes.some((n) => n.id === e.source) &&
+                    selectedNodes.some((n) => n.id === e.target)
+                )
+                .map((e) => e.id)
+            }}
+          >
+            <Button variant="ghost" size="sm" className="h-7">
+              {t('Sketch from selection')}
+            </Button>
+          </NewSketch>
+        )}
         <SaveStatusIndicator />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -387,20 +458,24 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
                     <Download className="h-4 w-4 opacity-70" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Export</TooltipContent>
+                <TooltipContent>{t('Export')}</TooltipContent>
               </Tooltip>
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[140px]">
-            <DropdownMenuItem onClick={() => handleExport('json')}>Export as JSON</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('png')}>Export as PNG</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('json')}>
+              {t('Export as JSON')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('png')}>
+              {t('Export as PNG')}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <ToolbarButton
           onClick={handleRefresh}
           disabled={isLoading}
           icon={<RotateCw className={cn('h-4 w-4 opacity-70', isLoading && 'animate-spin')} />}
-          tooltip="Refresh"
+          tooltip={t('Refresh')}
         />
       </FloatingBar>
     </>

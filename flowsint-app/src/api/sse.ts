@@ -1,3 +1,5 @@
+import { isAvl4 } from '@/platform/runtime-config'
+import { getPlatformApp } from '@/platform/app'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -23,6 +25,22 @@ export function connectSSE(opts: {
   onMessage: (msg: SSEEnvelope) => void
   onError?: (err: unknown) => void
 }): () => void {
+  if (isAvl4) {
+    const stream = getPlatformApp().openEventStream(opts.url, {
+      reconnect: { maxAttempts: 2, baseDelayMs: 500 }
+    })
+    stream.addEventListener('message', (event) => {
+      try {
+        const envelope = JSON.parse(event.data) as SSEEnvelope
+        if (typeof envelope?.event === 'string' && envelope.event !== 'connected')
+          opts.onMessage(envelope)
+      } catch {
+        /* Ignore malformed events. */
+      }
+    })
+    void stream.done.catch((error) => opts.onError?.(error))
+    return () => stream.close()
+  }
   const controller = new AbortController()
   let retry = 0
 

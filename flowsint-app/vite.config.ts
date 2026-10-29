@@ -5,10 +5,12 @@ import { defineConfig, loadEnv } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
   const apiUrl = env.VITE_API_URL
 
+  const runtime = process.env.VITE_RUNTIME_CONFIG === 'true'
   return {
+    envPrefix: runtime ? ['VITE_RUNTIME_CONFIG', 'VITE_AUTH_MODE'] : 'VITE_',
     plugins: [
       tailwindcss(),
       {
@@ -36,13 +38,19 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      open: true,
+      open: false,
+      allowedHosts: ['flowsint.avl4.localhost'],
       proxy: {
-        '/api': {
-          target: apiUrl,
-          changeOrigin: true,
-          secure: false
-        }
+        ...(env.VITE_PANEL_PROXY_TARGET
+          ? {
+              '/panel': { target: env.VITE_PANEL_PROXY_TARGET, changeOrigin: true }
+            }
+          : {}),
+        ...(apiUrl
+          ? {
+              '/api': { target: apiUrl, changeOrigin: true, secure: false }
+            }
+          : {})
       }
     },
     preview: {

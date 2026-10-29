@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { FileText, Network, Upload, UserPlus, CheckCircle } from 'lucide-react'
 
 const activities = [
@@ -34,9 +35,11 @@ const activities = [
 ]
 
 export function RecentActivity() {
+  const { t } = useTranslation()
+
   return (
     <div>
-      <h2 className="text-sm font-medium text-foreground mb-4">Recent Activity</h2>
+      <h2 className="text-sm font-medium text-foreground mb-4">{t('Recent Activity')}</h2>
       <div className="space-y-1">
         {activities.map((activity, i) => (
           <div
@@ -54,7 +57,7 @@ export function RecentActivity() {
         ))}
       </div>
       <button className="w-full mt-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-        View all activity
+        {t('View all activity')}
       </button>
     </div>
   )

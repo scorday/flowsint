@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { JSX, useCallback } from 'react'
 import { Pencil, Trash } from 'lucide-react'
 import BaseContextMenu from '@/components/xyflow/context-menu'
@@ -28,6 +29,8 @@ export default function ContextMenu({
   setMenu,
   ...props
 }: GraphContextMenuProps): JSX.Element {
+  const { t } = useTranslation()
+
   const setOpenParamsDialog = useFlowStore((s) => s.setOpenParamsDialog)
   const deleteNode = useFlowStore((s) => s.deleteNode)
 
@@ -63,13 +66,13 @@ export default function ContextMenu({
           onClick={handleOpenParamsModal}
           className="w-full flex items-center gap-2 p-2 rounded-sm hover:bg-muted text-left transition-colors"
         >
-          <Pencil className="h-4 w-4 opacity-60" /> Edit
+          <Pencil className="h-4 w-4 opacity-60" /> {t(' Edit')}
         </button>
         <button
           onClick={handleDeleteFlow}
           className="w-full flex items-center gap-2 p-2 rounded-sm hover:bg-muted text-left transition-colors"
         >
-          <Trash className="h-4 w-4 text-red-500 opacity-60" /> Delete
+          <Trash className="h-4 w-4 text-red-500 opacity-60" /> {t(' Delete')}
         </button>
       </div>
     </BaseContextMenu>

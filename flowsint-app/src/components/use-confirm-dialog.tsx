@@ -1,4 +1,5 @@
 'use client'
+import { useTranslation } from '@/i18n'
 
 import {
   Dialog,
@@ -120,6 +121,8 @@ const ConfirmDialog = ({
   title: string
   message: string
 }) => {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={onCancel}>
       <DialogContent>
@@ -129,11 +132,11 @@ const ConfirmDialog = ({
           <DialogClose asChild>
             <div>
               <Button onClick={onCancel} variant="secondary">
-                Cancel
+                {t('Cancel')}
               </Button>
             </div>
           </DialogClose>
-          <Button onClick={onConfirm}>Continue</Button>
+          <Button onClick={onConfirm}>{t('Continue')}</Button>
         </div>
       </DialogContent>
     </Dialog>

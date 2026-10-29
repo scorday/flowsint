@@ -1,6 +1,6 @@
 """Utilities for sketch operations, including automatic timestamp updates."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Callable
 from uuid import UUID
@@ -24,9 +24,9 @@ def update_sketch_last_modified(db: Session, sketch_id: str | UUID) -> None:
         sketch_id: The ID of the sketch to update
     """
     try:
-        sketch = db.query(Sketch).filter(Sketch.id == sketch_id).first()
+        sketch = db.query(Sketch).filter(Sketch.id == UUID(str(sketch_id))).first()
         if sketch:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
 
             # Update sketch timestamp
             sketch.last_updated_at = current_time

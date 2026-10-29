@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from ..models import Scan
+from ..project_scope import ActorID
 from ..repositories import InvestigationRepository, ScanRepository, SketchRepository
 from .base import BaseService
 from .exceptions import NotFoundError
@@ -31,22 +32,22 @@ class ScanService(BaseService):
         self._sketch_repo = sketch_repo
         self._investigation_repo = investigation_repo
 
-    def get_accessible_scans(self, user_id: UUID) -> List[Scan]:
+    def get_accessible_scans(self, user_id: ActorID) -> List[Scan]:
         return self._scan_repo.get_accessible_by_user(user_id)
 
     def get_accessible_scans_by_sketch_id(
-        self, user_id: UUID, sketch_id: UUID
+        self, user_id: ActorID, sketch_id: UUID
     ) -> List[Scan]:
         return self._scan_repo.get_accessible_by_sketch_id(user_id, sketch_id)
 
     def get_accessible_scans_by_status_and_sketch_id(
-        self, user_id: UUID, sketch_id: UUID, status: str
+        self, user_id: ActorID, sketch_id: UUID, status: str
     ) -> List[Scan]:
         return self._scan_repo.get_accessible_by_status_and_sketch_id(
             user_id, sketch_id, status
         )
 
-    def get_by_id(self, scan_id: UUID, user_id: UUID) -> Scan:
+    def get_by_id(self, scan_id: UUID, user_id: ActorID) -> Scan:
         scan = self._scan_repo.get_by_id(scan_id)
         if not scan:
             raise NotFoundError("Scan not found")
@@ -57,7 +58,7 @@ class ScanService(BaseService):
 
         return scan
 
-    def delete(self, scan_id: UUID, user_id: UUID) -> None:
+    def delete(self, scan_id: UUID, user_id: ActorID) -> None:
         scan = self._scan_repo.get_by_id(scan_id)
         if not scan:
             raise NotFoundError("Scan not found")

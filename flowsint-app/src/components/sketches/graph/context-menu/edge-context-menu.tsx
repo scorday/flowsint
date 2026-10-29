@@ -1,6 +1,7 @@
+import { useTranslation } from '@/i18n'
 import React, { ChangeEvent, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Unlink } from 'lucide-react'
 import { GraphEdge } from '@/types'
 import BaseContextMenu from '@/components/xyflow/context-menu'
 import { CopyButton } from '@/components/copy'
@@ -11,6 +12,8 @@ import { useConfirm } from '@/components/use-confirm-dialog'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { usePermissions } from '@/hooks/use-can'
+import { useQueryClient } from '@tanstack/react-query'
+import { useGraphControls } from '@/stores/graph-controls-store'
 
 interface EdgeContextMenuProps {
   edge?: GraphEdge
@@ -44,8 +47,12 @@ export default function EdgeContextMenu({
   onDismissNew,
   ...props
 }: EdgeContextMenuProps) {
-  const { id: sketchId } = useParams({ strict: false })
-  const { canEdit } = usePermissions()
+  const { t } = useTranslation()
+
+  const { id: sketchId, investigationId } = useParams({ strict: false })
+  const { canEdit, canDelete } = usePermissions()
+  const queryClient = useQueryClient()
+  const refetchGraph = useGraphControls((s) => s.refetchGraph)
   const removeEdges = useGraphStore((s) => s.removeEdges)
   const updateEdge = useGraphStore((s) => s.updateEdge)
   const clearSelectedEdges = useGraphStore((s) => s.clearSelectedEdges)
@@ -92,14 +99,26 @@ export default function EdgeContextMenu({
             data: { label: newLabel }
           })
         )
-        toast.success('Relationship updated successfully.')
+        await queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
+        await refetchGraph()
+        toast.success(t('Relationship updated successfully.'))
       } catch {
         // Rollback on error
         updateEdge(edge.id, { label: previousLabel })
-        toast.error('Failed to update relationship.')
+        toast.error(t('Failed to update relationship.'))
       }
     }
-  }, [edge, updateEdge, sketchId, setMenu, onSubmitNew])
+  }, [
+    edge,
+    updateEdge,
+    sketchId,
+    setMenu,
+    onSubmitNew,
+    t,
+    queryClient,
+    investigationId,
+    refetchGraph
+  ])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -109,14 +128,28 @@ export default function EdgeContextMenu({
   }, [])
 
   const handleDelete = useCallback(
-    async (e: React.MouseEvent) => {
+    async (e: React.MouseEvent, fromInvestigation = false) => {
       e.stopPropagation()
       if (edgeIds.length === 0 || !sketchId) return
       const count = edgeIds.length
+      if (onSubmitNew && onDismissNew && edge) {
+        onDismissNew(edge.id)
+        setMenu(null)
+        return
+      }
       if (
         !(await confirm({
-          title: `You are about to delete ${count} relationship${count > 1 ? 's' : ''}?`,
-          message: 'The action is irreversible.'
+          title: fromInvestigation
+            ? t('Delete relations from investigation?')
+            : t('Remove {{v0}} relation{{v1}} from this sketch?', {
+                v0: count,
+                v1: count > 1 ? 's' : ''
+              }),
+          message: fromInvestigation
+            ? t(
+                'The selected relations will disappear from every sketch in this investigation. The objects will remain.'
+              )
+            : t('The relations remain in the investigation and on other sketches.')
         }))
       ) {
         return
@@ -124,18 +157,40 @@ export default function EdgeContextMenu({
       setMenu(null)
       toast.promise(
         (async () => {
+          if (fromInvestigation) await sketchService.deleteFromInvestigation(sketchId, [], edgeIds)
+          else
+            await sketchService.deleteEdges(sketchId, JSON.stringify({ relationshipIds: edgeIds }))
           removeEdges(edgeIds)
           if (isMultiSelect) clearSelectedEdges()
-          return sketchService.deleteEdges(sketchId, JSON.stringify({ relationshipIds: edgeIds }))
+          await queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
+          await refetchGraph()
         })(),
         {
-          loading: `Deleting ${count} relationship${count > 1 ? 's' : ''}...`,
-          success: `Relationship${count > 1 ? 's' : ''} deleted successfully.`,
-          error: 'Failed to delete relationship.'
+          loading: t('Deleting {{v0}} relationship{{v1}}...', {
+            v0: count,
+            v1: count > 1 ? 's' : ''
+          }),
+          success: fromInvestigation ? t('Deleted from investigation.') : t('Removed from sketch.'),
+          error: t('Failed to delete relationship.')
         }
       )
     },
-    [edgeIds, sketchId, setMenu, removeEdges, clearSelectedEdges, isMultiSelect, confirm]
+    [
+      edgeIds,
+      sketchId,
+      setMenu,
+      removeEdges,
+      clearSelectedEdges,
+      isMultiSelect,
+      confirm,
+      t,
+      queryClient,
+      investigationId,
+      refetchGraph,
+      onSubmitNew,
+      onDismissNew,
+      edge
+    ]
   )
 
   // Wrap setMenu to handle dismissing new edges (Escape / click outside)
@@ -163,7 +218,9 @@ export default function EdgeContextMenu({
       <div className="px-3 py-1 flex items-center justify-between shrink-0">
         <div className="flex text-xs items-center gap-1 truncate">
           {isMultiSelect ? (
-            <span className="block truncate">{edgeIds.length} relationships selected</span>
+            <span className="block truncate">
+              {edgeIds.length} {t(' relationships selected')}
+            </span>
           ) : (
             <div className="p-1">
               <Input
@@ -187,9 +244,28 @@ export default function EdgeContextMenu({
           {!isMultiSelect && edge && (
             <CopyButton size="icon" content={edge.label} className="h-7 w-7" />
           )}
+          {canDelete && !onSubmitNew && (
+            <Button
+              onClick={(event) => handleDelete(event, true)}
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-destructive"
+              aria-label={t('Delete from investigation')}
+              title={t('Delete from investigation')}
+            >
+              <Trash2 className="h-3.5! w-3.5!" />
+            </Button>
+          )}
           {canEdit && (
-            <Button onClick={handleDelete} size="icon" variant="ghost" className="h-7 w-7">
-              <Trash2 className="h-3.5! w-3.5! opacity-50" />
+            <Button
+              onClick={(event) => handleDelete(event)}
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              aria-label={t('Remove from sketch')}
+              title={t('Remove from sketch')}
+            >
+              <Unlink className="h-3.5! w-3.5! opacity-50" />
             </Button>
           )}
         </div>

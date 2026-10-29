@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import type { VariantProps } from 'class-variance-authority'
@@ -12,6 +13,8 @@ interface LinkEditPopoverProps extends VariantProps<typeof toggleVariants> {
 }
 
 const LinkEditPopover = ({ editor, size, variant }: LinkEditPopoverProps) => {
+  const { t } = useTranslation()
+
   const [open, setOpen] = React.useState(false)
 
   const { from, to } = editor.state.selection
@@ -49,8 +52,8 @@ const LinkEditPopover = ({ editor, size, variant }: LinkEditPopoverProps) => {
       <PopoverTrigger asChild>
         <ToolbarButton
           isActive={editor.isActive('link')}
-          tooltip="Link"
-          aria-label="Insert link"
+          tooltip={t('Link')}
+          aria-label={t('Insert link')}
           disabled={editor.isActive('codeBlock')}
           size={size}
           variant={variant}

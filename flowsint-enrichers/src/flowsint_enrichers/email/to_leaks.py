@@ -6,6 +6,7 @@ import requests
 from dotenv import load_dotenv
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
@@ -21,6 +22,13 @@ HIBP_API_KEY = os.getenv("HIBP_API_KEY")
 @flowsint_enricher
 class EmailToBreachesEnricher(Enricher):
     """[HIBPWNED] Get the breaches the email might be invovled in."""
+
+    metadata = EnricherMetadata(
+        description="Queries Have I Been Pwned for breaches associated with an email address and creates breach records from returned names and metadata. It reports known breach exposure and does not retrieve account passwords.",
+        providers=("Have I Been Pwned",),
+        api_key_requirement="required",
+        api_key_notes="Requires HIBP_API_KEY. HIBP_API_URL can override the breached-account endpoint.",
+    )
 
     InputType = Email
     OutputType = tuple  # (email, breach) tuple

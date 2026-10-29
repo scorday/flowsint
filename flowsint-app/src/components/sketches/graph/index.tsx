@@ -23,8 +23,11 @@ import { renderLink } from './edge/link-renderer'
 import { createRenderContext, RenderContext } from './utils/render-context'
 import { useHighlightState } from './hooks/use-highlight-state'
 import { useComputedHighlights } from './hooks/use-computed-highlights'
+import { useSelectionHighlights } from './hooks/use-selection-highlights'
+import { useNeighborhoodRoot } from './hooks/use-neighborhood-root'
 import { useTooltip } from './hooks/use-tooltip'
 import { transformGraphData } from './utils/graph-data-transformer'
+import { getNeighborhoodView } from './utils/neighborhood-view'
 import { useGraphLayout } from './hooks/use-graph-layout'
 import { useGraphEvents } from './hooks/use-graph-events'
 import { useGraphInitialization } from './hooks/use-graph-initialization'
@@ -80,6 +83,9 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const isSelectorModeActive = useGraphControls((s) => s.isSelectorModeActive)
   const selectionMode = useGraphControls((s) => s.selectionMode)
+  const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
+  const hideRootLinks = useGraphControls((s) => s.hideRootLinks)
+  const onlyRootNeighborhood = useGraphControls((s) => s.onlyRootNeighborhood)
   const nodeColors = useNodesDisplaySettings((s) => s.colors)
   const customIcons = useNodesDisplaySettings((s) => s.customIcons)
   const setActions = useGraphControls((s) => s.setActions)
@@ -132,6 +138,14 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const { theme } = useTheme()
 
+  const neighborhoodRootId = useNeighborhoodRoot(
+    currentNodeId,
+    !showMinimalControls && (onlyRootNeighborhood || hideRootLinks),
+    sketchId ?? instanceId,
+    !showMinimalControls
+  )
+  const highlightedRootId = neighborhoodRootId ?? currentNodeId
+
   const selectedNodeIds = useMemo(() => new Set(selectedNodes.map((n) => n.id)), [selectedNodes])
 
   const selectedNodeIdsRef = useRef(selectedNodeIds)
@@ -141,7 +155,10 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const edgeMap = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges])
 
-  const isCurrent = useCallback((nodeId: string) => nodeId === currentNodeId, [currentNodeId])
+  const isCurrent = useCallback(
+    (nodeId: string) => nodeId === (currentNodeId ?? neighborhoodRootId),
+    [currentNodeId, neighborhoodRootId]
+  )
 
   const isSelected = useCallback((nodeId: string) => selectedNodeIds.has(nodeId), [selectedNodeIds])
 
@@ -228,14 +245,52 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
     }
   }, [])
 
-  const graphData = useMemo(() => {
+  const fullGraphData = useMemo(() => {
     return transformGraphData({ nodes, edges, nodeColors })
   }, [nodes, edges, nodeColors])
+
+  const neighborhoodView = useMemo(
+    () =>
+      getNeighborhoodView(
+        nodes,
+        edges,
+        neighborhoodRootId,
+        !showMinimalControls && onlyRootNeighborhood,
+        !showMinimalControls && hideRootLinks
+      ),
+    [nodes, edges, neighborhoodRootId, showMinimalControls, onlyRootNeighborhood, hideRootLinks]
+  )
+
+  // Preserve the full adjacency and existing node objects/positions when
+  // toggling the view. All graph controls, minimap and selectors use this subset.
+  const graphData = useMemo(() => {
+    if (!neighborhoodView.active) return fullGraphData
+    const nodeIds = new Set(neighborhoodView.nodes.map((node) => node.id))
+    const edgeIds = new Set(neighborhoodView.edges.map((edge) => edge.id))
+    return {
+      nodes: fullGraphData.nodes.filter((node) => nodeIds.has(node.id)),
+      links: fullGraphData.links.filter((edge) => edgeIds.has(edge.id))
+    }
+  }, [fullGraphData, neighborhoodView])
+
+  // Position saving replaces the store's node list. Merge visible positions
+  // into the full stored graph so dragging/layout never drops hidden nodes.
+  const saveGraphNodePositions = useCallback(
+    (positionedNodes: GraphNode[], force = false) => {
+      const positions = new Map(positionedNodes.map((node) => [node.id, node]))
+      const allNodes = useGraphStore.getState().nodes.map((node) => {
+        const positioned = positions.get(node.id)
+        return positioned ? { ...node, x: positioned.x, y: positioned.y } : node
+      })
+      saveAllNodePositions(allNodes, force)
+    },
+    [saveAllNodePositions]
+  )
 
   const { isRegeneratingLayout, regenerateLayout } = useGraphLayout({
     forceSettings,
     containerSize,
-    saveAllNodePositions,
+    saveAllNodePositions: saveGraphNodePositions,
     graphRef,
     graphData
   })
@@ -261,9 +316,9 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const currentNodeHighlights = useMemo(() => {
     const nodeSet = new Set<string>()
     const linkSet = new Set<string>()
-    if (!currentNodeId) return { nodes: nodeSet, links: linkSet }
+    if (!highlightedRootId) return { nodes: nodeSet, links: linkSet }
 
-    nodeSet.add(currentNodeId)
+    nodeSet.add(highlightedRootId)
     edges.forEach((edge) => {
       // GraphEdge.source/target are typed as plain id strings, but at
       // runtime this array can be the same reference react-force-graph
@@ -273,35 +328,55 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
         typeof edge.source === 'object' ? (edge.source as { id: string }).id : edge.source
       const targetId =
         typeof edge.target === 'object' ? (edge.target as { id: string }).id : edge.target
-      if (sourceId === currentNodeId) {
+      if (sourceId === highlightedRootId) {
         nodeSet.add(targetId)
         linkSet.add(`${sourceId}-${targetId}`)
-      } else if (targetId === currentNodeId) {
+      } else if (targetId === highlightedRootId) {
         nodeSet.add(sourceId)
         linkSet.add(`${sourceId}-${targetId}`)
       }
     })
     return { nodes: nodeSet, links: linkSet }
-  }, [currentNodeId, edges])
+  }, [highlightedRootId, edges])
 
   // Path highlights from pathfinder
   const { highlightNodes: pathHighlightNodes, highlightLinks: pathHighlightLinks } =
     useComputedHighlights(highlightedNodeIds, edges)
 
   // Merge: hover is prioritary over persistent highlights
-  const highlightNodes = useMemo(() => {
+  const baseHighlightNodes = useMemo(() => {
+    if (neighborhoodView.active) return currentNodeHighlights.nodes
     if (hoverHighlightNodes.size > 0) return hoverHighlightNodes
     const merged = new Set<string>(currentNodeHighlights.nodes)
     pathHighlightNodes.forEach((id) => merged.add(id))
     return merged
-  }, [hoverHighlightNodes, currentNodeHighlights.nodes, pathHighlightNodes])
+  }, [
+    neighborhoodView.active,
+    hoverHighlightNodes,
+    currentNodeHighlights.nodes,
+    pathHighlightNodes
+  ])
 
-  const highlightLinks = useMemo(() => {
+  const baseHighlightLinks = useMemo(() => {
+    if (neighborhoodView.active) return currentNodeHighlights.links
     if (hoverHighlightLinks.size > 0) return hoverHighlightLinks
     const merged = new Set<string>(currentNodeHighlights.links)
     pathHighlightLinks.forEach((id) => merged.add(id))
     return merged
-  }, [hoverHighlightLinks, currentNodeHighlights.links, pathHighlightLinks])
+  }, [
+    neighborhoodView.active,
+    hoverHighlightLinks,
+    currentNodeHighlights.links,
+    pathHighlightLinks
+  ])
+
+  const { highlightNodes, highlightLinks } = useSelectionHighlights(
+    baseHighlightNodes,
+    baseHighlightLinks,
+    selectedNodeIds,
+    neighborhoodView.edges,
+    (highlightSelectionLinks || neighborhoodView.active) && !showMinimalControls
+  )
 
   const { tooltip, showTooltip, hideTooltip } = useTooltip(graphRef)
 
@@ -333,14 +408,14 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
     onEdgeRightClick,
     onBackgroundClick,
     onBackgroundRightClick,
-    autoZoomOnCurrentNode,
+    autoZoomOnCurrentNode: autoZoomOnCurrentNode && !neighborhoodView.active,
     autoZoomOnNode,
     graphRef,
     edgeMap,
     toggleEdgeSelection,
     setCurrentEdgeId,
     clearSelectedEdges,
-    saveAllNodePositions
+    saveAllNodePositions: saveGraphNodePositions
   })
 
   const wrappedHandleNodeDragEnd = useCallback(
@@ -383,7 +458,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   // Clear highlights when graph data changes
   useEffect(() => {
     clearHighlights()
-  }, [nodes, edges, clearHighlights])
+  }, [graphData, clearHighlights])
 
   const handleOpenNewAddItemDialog = useCallback(() => {
     setOpenMainDialog(true)

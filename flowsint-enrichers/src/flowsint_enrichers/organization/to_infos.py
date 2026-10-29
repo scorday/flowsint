@@ -3,6 +3,7 @@ from typing import Dict, List
 from tools.organizations.sirene import SireneTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.address import Location
@@ -13,6 +14,13 @@ from flowsint_types.organization import Organization
 @flowsint_enricher
 class OrgToInfosEnricher(Enricher):
     """Enrich Organization with data from SIRENE (France only)."""
+
+    metadata = EnricherMetadata(
+        description="Searches the French public company-search API by organization name and enriches company information such as SIREN/SIRET identifiers, address, activity and available leaders. Coverage is French businesses and name matches may be ambiguous.",
+        providers=("Recherche d’entreprises (France)",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses the public French Recherche d’entreprises API; no API key is configured.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Organization

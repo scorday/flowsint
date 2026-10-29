@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Dispatch, SetStateAction, useMemo, useRef, useState, useEffect } from 'react'
 import {
   Dialog,
@@ -242,6 +243,8 @@ type IconPopoverProps = {
 }
 
 export default function IconPicker({ iconType, open, setOpen, onIconChange }: IconPopoverProps) {
+  const { t } = useTranslation()
+
   const [search, setSearch] = useState('')
   const [isReady, setIsReady] = useState(false)
   const parentRef = useRef<HTMLDivElement>(null)
@@ -299,20 +302,22 @@ export default function IconPicker({ iconType, open, setOpen, onIconChange }: Ic
           <DialogTitle>
             {iconType ? (
               <>
-                Change icon for <span className="text-primary">{iconType}</span>
+                {t('Change icon for ')}
+                <span className="text-primary">{iconType}</span>
               </>
             ) : (
-              <>Select an icon</>
+              <>{t('Select an icon')}</>
             )}
           </DialogTitle>
           <DialogDescription>
-            Choose from {AVAILABLE_ICONS.length} available Lucide icons
+            {t('Choose from ')}
+            {AVAILABLE_ICONS.length} {t(' available Lucide icons')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <Input
-            placeholder="Search icons..."
+            placeholder={t('Search icons...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full"
@@ -321,12 +326,13 @@ export default function IconPicker({ iconType, open, setOpen, onIconChange }: Ic
           <div ref={parentRef} className="h-[400px] overflow-auto rounded-md border border-border">
             {!isReady ? (
               <div className="flex h-full items-center justify-center">
-                <div className="text-muted-foreground text-sm">Loading icons...</div>
+                <div className="text-muted-foreground text-sm">{t('Loading icons...')}</div>
               </div>
             ) : filteredIcons.length === 0 ? (
               <div className="flex h-full items-center justify-center">
                 <div className="text-muted-foreground text-sm">
-                  No icons found matching &quot;{search}&quot;
+                  {t('No icons found matching "')}
+                  {search}&quot;
                 </div>
               </div>
             ) : (

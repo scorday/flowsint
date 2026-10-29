@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, create_model
 from pydantic.config import ConfigDict
@@ -7,6 +7,7 @@ from pydantic.config import ConfigDict
 from flowsint_types import FlowsintType
 
 from ..utils import resolve_type
+from .enricher_metadata import EnricherMetadata
 from .graph import GraphService, create_graph_service
 from .logger import Logger
 from .vault import VaultProtocol
@@ -111,6 +112,7 @@ class Enricher(ABC):
     # Abstract type aliases that must be defined in subclasses for runtime use
     InputType = NotImplemented
     OutputType = NotImplemented
+    metadata: ClassVar[EnricherMetadata | None] = None
 
     def __init__(
         self,
@@ -128,18 +130,26 @@ class Enricher(ABC):
         self.ParamsModel = build_params_model(self.params_schema)
         self.params: Dict[str, Any] = params or {}
 
-        # Initialize graph service (uses singleton connection by default)
-        if graph_service:
-            self._graph_service = graph_service
-        else:
-            self._graph_service = create_graph_service(
-                sketch_id=self.sketch_id,
-                enable_batching=True,
-            )
+        # Parsing/metadata/provider scans do not require graph storage. Resolve
+        # the checked SQL scope when graph access actually begins; no write can
+        # bypass create_graph_service's project/investigation admission.
+        self.__graph_service = graph_service
 
         # Params is filled synchronously by the constructor. This params is generally constructed of
         # vaultSecret references, not the key directly. The idea is that the real key values are resolved after calling
         # async_init(), right before the execution.
+
+    @property
+    def _graph_service(self) -> GraphService:
+        if self.__graph_service is None:
+            self.__graph_service = create_graph_service(
+                sketch_id=self.sketch_id, enable_batching=True
+            )
+        return self.__graph_service
+
+    @_graph_service.setter
+    def _graph_service(self, service: GraphService) -> None:
+        self.__graph_service = service
 
     async def async_init(self) -> None:
         self.ParamsModel = build_params_model(self.params_schema)
@@ -439,6 +449,9 @@ class Enricher(ABC):
 
             return processed
 
+        except PermissionError:
+            # Revocation/deletion is a failed job, not a successful empty scan.
+            raise
         except Exception as e:
             if self.name() != "enricher_orchestrator":
                 Logger.error(

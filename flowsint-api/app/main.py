@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (
     analysis,
     auth,
+    avl4_import,
     chat,
     custom_types,
     enricher_templates,
@@ -19,6 +20,7 @@ from app.api.routes import (
     sketches,
     types,
 )
+from app.security.platform import Avl4AuthMiddleware
 
 # Comma-separated list of allowed origins, e.g. "https://app.example.com,https://staging.example.com"
 # Falls back to localhost dev origin when unset. Never use "*" with allow_credentials=True.
@@ -29,7 +31,9 @@ origins = [
 ]
 
 
-app = FastAPI(ignore_trailing_slash=True, redirect_slashes=False)
+app = FastAPI(redirect_slashes=False)
+
+app.add_middleware(Avl4AuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +41,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-AVL-Auth-Guard"],
 )
 
 
@@ -46,6 +51,7 @@ async def health():
     return {"status": "ok"}
 
 
+app.include_router(avl4_import.router, tags=["avl4-import"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(sketches.router, prefix="/api/sketches", tags=["sketches"])
 app.include_router(

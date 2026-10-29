@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from reconspread import Crawler
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -13,6 +14,13 @@ from flowsint_types.website import Website
 @flowsint_enricher
 class WebsiteToLinks(Enricher):
     """From website to spread crawler that extracts domains and internal/external links."""
+
+    metadata = EnricherMetadata(
+        description="Crawls the target website with ReconSpread, including links outside its domain, and adds discovered link and domain relationships to the graph. Results depend on reachable pages and crawl limits.",
+        providers=("ReconSpread",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses a local crawling integration and contacts target pages directly; no provider API key is configured.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Website

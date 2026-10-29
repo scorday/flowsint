@@ -1,3 +1,6 @@
+import { LanguageSwitcher } from '@/components/language-switcher'
+import { useTranslation } from '@/i18n'
+import { isAvl4 } from '@/platform/runtime-config'
 import { Command } from '../command'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import InvestigationSelector from './investigation-selector'
@@ -35,6 +38,8 @@ import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import { usePermissions } from '@/hooks/use-can'
 
 export const TopNavbar = memo(() => {
+  const { t } = useTranslation()
+
   const { investigationId, id, type } = useParams({ strict: false })
   const toggleAnalysis = useLayoutStore((s) => s.toggleAnalysis)
   const isOpenAnalysis = useLayoutStore((s) => s.isOpenAnalysis)
@@ -42,7 +47,7 @@ export const TopNavbar = memo(() => {
   const { data: collaborators = [] } = useQuery<Collaborator[]>({
     queryKey: queryKeys.investigations.collaborators(investigationId!),
     queryFn: () => investigationService.getCollaborators(investigationId!),
-    enabled: !!investigationId
+    enabled: !isAvl4 && !!investigationId
   })
 
   const handleToggleAnalysis = useCallback(() => toggleAnalysis(), [toggleAnalysis])
@@ -73,6 +78,7 @@ export const TopNavbar = memo(() => {
         </div>
       </div>
       <div className="flex items-center gap-3">
+        <LanguageSwitcher />
         {investigationId && collaborators.length > 0 && (
           <>
             <AvatarGroup users={collaborators.map((c) => c.user)} size="sm" max={5} />
@@ -84,7 +90,7 @@ export const TopNavbar = memo(() => {
             <>
               <Switch checked={isOpenAnalysis} onCheckedChange={handleToggleAnalysis} id="notes" />
               <Label htmlFor="notes">
-                Toggle notes
+                {t('Toggle notes')}
                 <span className="text-[.7rem] -ml-1 opacity-60">({isMac ? '⌘' : 'ctrl'}L)</span>
               </Label>
             </>
@@ -104,6 +110,8 @@ export function InvestigationMenu({
   investigationId?: string
   sketchId: string
 }) {
+  const { t } = useTranslation()
+
   const { canEdit } = usePermissions()
   const toggleSettingsModal = useGraphSettingsStore((s) => s.toggleSettingsModal)
   const toggleKeyboardShortcutsModal = useGraphSettingsStore((s) => s.toggleKeyboardShortcutsModal)
@@ -146,15 +154,15 @@ export function InvestigationMenu({
     e.stopPropagation()
 
     const confirmed = await confirm({
-      title: 'Delete Sketch',
-      message: `Are you sure you want to delete this sketch ? This action cannot be undone.`
+      title: t('Delete Sketch'),
+      message: t('Are you sure you want to delete this sketch ? This action cannot be undone.')
     })
 
     if (confirmed) {
       toast.promise(deleteSketchMutation.mutateAsync(sketchId), {
-        loading: 'Deleting sketch...',
-        success: () => `Sketch has been deleted`,
-        error: 'Failed to delete sketch'
+        loading: t('Deleting sketch...'),
+        success: () => t('Sketch has been deleted'),
+        error: t('Failed to delete sketch')
       })
     }
   }
@@ -169,14 +177,14 @@ export function InvestigationMenu({
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start">
-        <DropdownMenuLabel>Settings</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('Settings')}</DropdownMenuLabel>
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={toggleSettingsModal}>
-            General
+            {t('General')}
             <DropdownMenuShortcut>⌘G</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={toggleKeyboardShortcutsModal}>
-            Keyboard shortcuts
+            {t('Keyboard shortcuts')}
             <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -198,7 +206,7 @@ export function InvestigationMenu({
             rel="noopener noreferrer"
             href="https://github.com/reconurge/flowsint/issues"
           >
-            Support
+            {t('Support')}
           </a>
         </DropdownMenuItem>
         <DropdownMenuItem disabled>API</DropdownMenuItem>
@@ -206,11 +214,11 @@ export function InvestigationMenu({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setImportModalOpen(true)}>
-              <Upload /> Import entities
+              <Upload /> {t(' Import entities')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete sketch
+              {t('Delete sketch')}
             </DropdownMenuItem>
           </>
         )}

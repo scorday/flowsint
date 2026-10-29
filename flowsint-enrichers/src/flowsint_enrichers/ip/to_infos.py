@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 import requests
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.ip import Ip
 
@@ -10,6 +11,13 @@ from flowsint_types.ip import Ip
 @flowsint_enricher
 class IpToInfosEnricher(Enricher):
     """[ip-api.com] Get information data for IP addresses."""
+
+    metadata = EnricherMetadata(
+        description="Queries the public ip-api.com JSON endpoint for an IP address and enriches the input with available latitude, longitude, country, city and ISP. IP geolocation is approximate.",
+        providers=("ip-api.com",),
+        api_key_requirement="not_required",
+        api_key_notes="Uses the public endpoint without a configured API key.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Ip

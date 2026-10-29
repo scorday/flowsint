@@ -1,0 +1,194 @@
+{
+  "$defs": {
+    "CardSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "card_type": {
+          "enum": [
+            "shared",
+            "project"
+          ],
+          "title": "Card Type",
+          "type": "string"
+        },
+        "card_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f]+$",
+          "title": "Card Id",
+          "type": "string"
+        },
+        "source_project_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x1f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Project Id"
+        },
+        "shared_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x1f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shared Id"
+        },
+        "title": {
+          "maxLength": 4096,
+          "title": "Title",
+          "type": "string"
+        },
+        "markdown": {
+          "maxLength": 524288,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        },
+        "monitoring_url": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Monitoring Url",
+          "type": "string"
+        },
+        "published_at": {
+          "format": "date-time",
+          "title": "Published At",
+          "type": "string"
+        },
+        "source_updated_at": {
+          "format": "date-time",
+          "title": "Source Updated At",
+          "type": "string"
+        },
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "card_type",
+        "card_id",
+        "title",
+        "markdown",
+        "monitoring_url",
+        "published_at",
+        "source_updated_at",
+        "captured_at"
+      ],
+      "title": "CardSnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "operation_id": {
+      "format": "uuid",
+      "title": "Operation Id",
+      "type": "string"
+    },
+    "actor_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[^\\x00-\\x1f]+$",
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "private_project_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Private Project Id"
+    },
+    "project_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[^\\x00-\\x1f]+$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "investigation_id": {
+      "format": "uuid",
+      "title": "Investigation Id",
+      "type": "string"
+    },
+    "sketch_id": {
+      "format": "uuid",
+      "title": "Sketch Id",
+      "type": "string"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/CardSnapshot"
+    },
+    "refresh": {
+      "default": false,
+      "title": "Refresh",
+      "type": "boolean"
+    },
+    "expected_snapshot_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Snapshot Hash"
+    }
+  },
+  "required": [
+    "operation_id",
+    "actor_id",
+    "project_id",
+    "investigation_id",
+    "sketch_id",
+    "snapshot"
+  ],
+  "title": "CardImportCommand",
+  "type": "object"
+}

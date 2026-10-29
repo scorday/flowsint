@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types import Username
@@ -15,6 +16,13 @@ false_positives = ["LeagueOfLegends"]
 @flowsint_enricher
 class MaigretEnricher(Enricher):
     """[MAIGRET] Scans usernames for associated social accounts using Maigret."""
+
+    metadata = EnricherMetadata(
+        description="Runs the local Maigret command-line tool to search public websites for the input username and converts its JSON report into social-account records and available profile details. A username match does not prove that accounts belong to the same person.",
+        providers=("Maigret",),
+        api_key_requirement="not_required",
+        api_key_notes="No API key is configured by this integration. The local Maigret executable and its supported target sites must be available.",
+    )
 
     # Define types as class attributes - base class handles schema generation automatically
     InputType = Username

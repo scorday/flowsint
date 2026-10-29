@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useState } from 'react'
 import { useGraphStore } from '@/stores/graph-store'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,8 @@ import { RadioGroupItem } from '@/components/ui/radio-group'
 import { type GraphNode } from '@/types'
 
 export function CreateRelationDialog() {
+  const { t } = useTranslation()
+
   const { id: sketchId } = useParams({ strict: false })
   const selectedNodes = useGraphStore((state) => state.selectedNodes || [])
   const addEdge = useGraphStore((state) => state.addEdge)
@@ -55,9 +58,9 @@ export function CreateRelationDialog() {
         return sketchService.addEdge(sketchId as string, JSON.stringify(newEdgeObject))
       })(),
       {
-        loading: 'Creating relation...',
-        success: 'Relation successfully added.',
-        error: 'Unexpected error during relation creation.'
+        loading: t('Creating relation...'),
+        success: t('Relation successfully added.'),
+        error: t('Unexpected error during relation creation.')
       }
     )
   }
@@ -68,14 +71,15 @@ export function CreateRelationDialog() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitPullRequestArrow className="h-4 w-4" />
-            New relationship
+            {t('New relationship')}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 w-full">
           {/* Selected Nodes Display */}
           <div className="space-y-2 w-full">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Selected Nodes ({selectedNodes.length})
+              {t('Selected Nodes (')}
+              {selectedNodes.length})
             </Label>
             <div className="flex w-full overflow-x-auto gap-2 min-w-0">
               {selectedNodes.map((node) => (
@@ -90,11 +94,11 @@ export function CreateRelationDialog() {
               htmlFor="relation-type"
               className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
             >
-              Relationship Type
+              {t('Relationship Type')}
             </Label>
             <Input
               id="relation-type"
-              placeholder="e.g., IS_RELATED_TO, WORKS_FOR, OWNS"
+              placeholder={t('e.g., IS_RELATED_TO, WORKS_FOR, OWNS')}
               value={relationType}
               onChange={(e) => setRelationType(e.target.value)}
               className="w-full h-9 text-sm"
@@ -105,7 +109,7 @@ export function CreateRelationDialog() {
           {/* Visual Preview (one-way with switch) */}
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Preview
+              {t('Preview')}
             </Label>
             {/* Switch control outside of the preview box */}
             <div className="flex justify-end">
@@ -115,11 +119,11 @@ export function CreateRelationDialog() {
                 size="sm"
                 className="border"
                 onClick={() => setIsReversed((v) => !v)}
-                aria-label="Switch direction"
-                title="Switch direction"
+                aria-label={t('Switch direction')}
+                title={t('Switch direction')}
               >
                 <ArrowLeftRight className="h-4 w-4 mr-1" />
-                <span>Switch direction</span>
+                <span>{t('Switch direction')}</span>
               </Button>
             </div>
             <div className="p-3 border rounded-md bg-muted/20">
@@ -160,10 +164,10 @@ export function CreateRelationDialog() {
               size="sm"
               onClick={() => setOpenAddRelationDialog(false)}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button type="submit" size="sm" disabled={!relationType.trim()}>
-              Create
+              {t('Create')}
             </Button>
           </DialogFooter>
         </form>

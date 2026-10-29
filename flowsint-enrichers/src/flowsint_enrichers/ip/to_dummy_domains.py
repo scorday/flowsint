@@ -2,6 +2,7 @@ import time
 from typing import List
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_enrichers.registry import flowsint_enricher
 from flowsint_types.domain import Domain
@@ -13,6 +14,12 @@ class IpToDummyDomainsEnricher(Enricher):
     """
     TEST TRANSFORM: Generate dummy domains for testing SSE incremental updates.
     """
+
+    metadata = EnricherMetadata(
+        description="Generates 20 fabricated domains per input IP address, with a one-second delay between results, to exercise streaming and graph updates. This is a synthetic test enricher and performs no real domain discovery.",
+        providers=(),
+        api_key_requirement="not_required",
+    )
 
     InputType = Ip
     OutputType = Domain

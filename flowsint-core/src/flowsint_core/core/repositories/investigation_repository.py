@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import selectinload
 
 from ..models import Investigation, InvestigationUserRole
+from ..project_scope import ActorID, owner_filter
 from ..types import Role
 from .base import BaseRepository
 
@@ -14,7 +15,7 @@ class InvestigationRepository(BaseRepository[Investigation]):
     model = Investigation
 
     def get_accessible_by_user(
-        self, user_id: UUID, allowed_roles: Optional[List[Role]] = None
+        self, user_id: ActorID, allowed_roles: Optional[List[Role]] = None
     ) -> List[Investigation]:
         inv_ids = self._get_accessible_investigation_ids(user_id, allowed_roles)
         if not inv_ids:
@@ -45,19 +46,19 @@ class InvestigationRepository(BaseRepository[Investigation]):
         )
 
     def get_by_id_and_owner(
-        self, investigation_id: UUID, owner_id: UUID
+        self, investigation_id: UUID, owner_id: ActorID
     ) -> Optional[Investigation]:
         return (
             self._db.query(Investigation)
             .filter(
                 Investigation.id == investigation_id,
-                Investigation.owner_id == owner_id,
+                owner_filter(Investigation, owner_id),
             )
             .first()
         )
 
     def get_user_role(
-        self, user_id: UUID, investigation_id: UUID
+        self, user_id: ActorID, investigation_id: UUID
     ) -> Optional[InvestigationUserRole]:
         return (
             self._db.query(InvestigationUserRole)
@@ -78,14 +79,14 @@ class InvestigationRepository(BaseRepository[Investigation]):
         )
 
     def update_user_role(
-        self, user_id: UUID, investigation_id: UUID, roles: List[Role]
+        self, user_id: ActorID, investigation_id: UUID, roles: List[Role]
     ) -> Optional[InvestigationUserRole]:
         entry = self.get_user_role(user_id, investigation_id)
         if entry:
             entry.roles = roles
         return entry
 
-    def remove_user_role(self, user_id: UUID, investigation_id: UUID) -> bool:
+    def remove_user_role(self, user_id: ActorID, investigation_id: UUID) -> bool:
         entry = self.get_user_role(user_id, investigation_id)
         if entry:
             self._db.delete(entry)

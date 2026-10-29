@@ -1,6 +1,7 @@
+import { useTranslation } from '@/i18n'
 import React, { memo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Trash2, Sparkles, XIcon, Rocket } from 'lucide-react'
+import { Trash2, Sparkles, XIcon, Rocket, Unlink } from 'lucide-react'
 import { useGraphStore } from '@/stores/graph-store'
 import { useConfirm } from '@/components/use-confirm-dialog'
 import { toast } from 'sonner'
@@ -16,15 +17,18 @@ import { TypeBadge } from '@/components/type-badge'
 import { useParams } from '@tanstack/react-router'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { usePermissions } from '@/hooks/use-can'
+import { useQueryClient } from '@tanstack/react-query'
 
 const SelectedItemsPanel = () => {
+  const { t } = useTranslation()
+
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
 
   return (
     <div className="w-full flex flex-col h-full">
       <div className="p-2 flex items-center justify-between border-b">
         <div className="ml-2 text-sm truncate text-ellipsis">
-          <span className="font-semibold">{selectedNodes.length}</span> selected items
+          <span className="font-semibold">{selectedNodes.length}</span> {t(' selected items')}
         </div>
         <ActionBar />
       </div>
@@ -38,13 +42,15 @@ const SelectedItemsPanel = () => {
 export default memo(SelectedItemsPanel)
 
 const SelectedNodeItem = memo(({ node }: { node: GraphNode; color: string }) => {
+  const { t } = useTranslation()
+
   return (
     <Badge
       variant="outline"
       className="flex w-full items-center justify-between text-left border border-border gap-1.5 text-xs p-2 py-1.5"
     >
       <span className="inline-flex items-center gap-2 truncate text-ellipsis">
-        <span className="truncate text-ellipsis">{node.nodeLabel || 'Unknown'}</span>
+        <span className="truncate text-ellipsis">{node.nodeLabel || t('Unknown')}</span>
       </span>
       <TypeBadge type={node?.nodeType} />
     </Badge>
@@ -52,6 +58,8 @@ const SelectedNodeItem = memo(({ node }: { node: GraphNode; color: string }) => 
 })
 
 export const SelectedList = () => {
+  const { t } = useTranslation()
+
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
   const colors = useNodesDisplaySettings((s) => s.colors)
   const displayItems = selectedNodes?.slice(0, 10) || []
@@ -68,7 +76,10 @@ export const SelectedList = () => {
           className="flex w-full items-center justify-between text-left border border-border gap-1.5 text-xs p-2 py-1.5"
         >
           <span className="flex items-center gap-2 truncate text-ellipsis">
-            <span className="truncate text-ellipsis">{remainingCount}+ other</span>
+            <span className="truncate text-ellipsis">
+              {remainingCount}
+              {t('+ other')}
+            </span>
           </span>
         </Badge>
       )}
@@ -77,8 +88,11 @@ export const SelectedList = () => {
 }
 
 const ActionBar = () => {
-  const { id: sketchId } = useParams({ strict: false })
-  const { canEdit } = usePermissions()
+  const { t } = useTranslation()
+
+  const { id: sketchId, investigationId } = useParams({ strict: false })
+  const { canEdit, canDelete } = usePermissions()
+  const queryClient = useQueryClient()
   const { confirm } = useConfirm()
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
   const removeNodes = useGraphStore((s) => s.removeNodes)
@@ -96,34 +110,52 @@ const ActionBar = () => {
   )
 
   // Delete node
-  const handleDeleteNodes = useCallback(async () => {
-    if (!selectedNodes.length || !sketchId) return
-    if (
-      !(await confirm({
-        title: `You are about to delete ${selectedNodes.length} node(s).`,
-        message: 'The action is irreversible.'
-      }))
-    )
-      return
+  const handleDeleteNodes = useCallback(
+    async (fromInvestigation = false) => {
+      if (!selectedNodes.length || !sketchId) return
+      if (
+        !(await confirm({
+          title: fromInvestigation
+            ? t('Delete selected objects from investigation?')
+            : t('Remove selected objects from sketch?'),
+          message: fromInvestigation
+            ? t(
+                'The selected objects and their relations will disappear from every sketch in this investigation.'
+              )
+            : t('The objects remain in the investigation and on other sketches.')
+        }))
+      )
+        return
 
-    toast.promise(
-      (async () => {
-        removeNodes(selectedNodes.map((n) => n.id))
-        clearSelectedNodes()
-        return sketchService.deleteNodes(
-          sketchId as string,
-          JSON.stringify({ nodeIds: selectedNodes.map((n) => n.id) })
-        )
-      })(),
-      {
-        loading: `Deleting ${selectedNodes.length} node(s)...`,
-        success: 'Nodes deleted successfully.',
-        error: 'Failed to delete selected nodes.'
-      }
-    )
-  }, [selectedNodes, confirm, removeNodes, clearSelectedNodes, sketchId])
+      toast.promise(
+        (async () => {
+          const ids = selectedNodes.map((n) => n.id)
+          if (fromInvestigation) await sketchService.deleteFromInvestigation(sketchId, ids, [])
+          else await sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: ids }))
+          removeNodes(ids)
+          clearSelectedNodes()
+          await queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
+        })(),
+        {
+          loading: t('Deleting {{v0}} node(s)...', { v0: selectedNodes.length }),
+          success: fromInvestigation ? t('Deleted from investigation.') : t('Removed from sketch.'),
+          error: t('Failed to delete selected nodes.')
+        }
+      )
+    },
+    [
+      selectedNodes,
+      confirm,
+      removeNodes,
+      clearSelectedNodes,
+      sketchId,
+      t,
+      queryClient,
+      investigationId
+    ]
+  )
 
-  const type = selectedNodes[0].nodeType
+  const type = selectedNodes[0]?.nodeType ?? ''
   const isSametype = (node: GraphNode) => node.nodeType === type
   const shareSameType = selectedNodes.every(isSametype)
   const values = !shareSameType ? [] : selectedNodes.map((node: GraphNode) => node.id)
@@ -146,9 +178,22 @@ const ActionBar = () => {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Ask AI</p>
+              <p>{t('Ask AI')}</p>
             </TooltipContent>
           </Tooltip>
+        )}
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-destructive"
+            disabled={!selectedNodes.length}
+            title={t('Delete from investigation')}
+            aria-label={t('Delete from investigation')}
+            onClick={() => handleDeleteNodes(true)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
         )}
         {canEdit && (
           <Tooltip>
@@ -159,9 +204,10 @@ const ActionBar = () => {
                   size="sm"
                   disabled={selectedNodes.length === 0}
                   className="h-6 w-6 p-0 relative text-destructive hover:text-destructive"
-                  onClick={handleDeleteNodes}
+                  aria-label={t('Remove from sketch')}
+                  onClick={() => handleDeleteNodes(false)}
                 >
-                  <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                  <Unlink className="h-3 w-3" strokeWidth={1.5} />
                   {selectedNodes.length > 0 && (
                     <span className="absolute -top-2 -right-2 z-50 bg-primary text-white text-[10px] rounded-full w-auto min-w-4.5 h-4.5 p-1 flex items-center justify-center">
                       {selectedNodes.length}
@@ -171,7 +217,7 @@ const ActionBar = () => {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Delete {selectedNodes.length} nodes</p>
+              <p>{t('Remove from sketch')}</p>
             </TooltipContent>
           </Tooltip>
         )}
@@ -188,9 +234,9 @@ const ActionBar = () => {
             </TooltipTrigger>
             <TooltipContent>
               {!shareSameType ? (
-                <p>All selected items are not the same type</p>
+                <p>{t('All selected items are not the same type')}</p>
               ) : (
-                <p>Launch enricher</p>
+                <p>{t('Launch enricher')}</p>
               )}
             </TooltipContent>
           </Tooltip>
@@ -210,7 +256,7 @@ const ActionBar = () => {
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Clear selection</p>
+            <p>{t('Clear selection')}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

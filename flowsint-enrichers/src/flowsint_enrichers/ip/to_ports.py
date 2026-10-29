@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from tools.network.naabu import NaabuTool
 
 from flowsint_core.core.enricher_base import Enricher
+from flowsint_core.core.enricher_metadata import EnricherMetadata
 from flowsint_core.core.logger import Logger
 from flowsint_core.core.vault import VaultProtocol
 from flowsint_enrichers.registry import flowsint_enricher
@@ -13,6 +14,13 @@ from flowsint_types.port import Port
 @flowsint_enricher
 class IpToPortsEnricher(Enricher):
     """[NAABU] Performs port scanning on IP addresses to discover open ports and services."""
+
+    metadata = EnricherMetadata(
+        description="Finds open ports using the ProjectDiscovery Naabu Docker tool and creates Port records with available service and version information. Passive mode uses provider data; active mode directly probes the target IP.",
+        providers=("ProjectDiscovery",),
+        api_key_requirement="conditional",
+        api_key_notes="PDCP_API_KEY is required for passive mode, which is the default. Active mode does not require this key. The parameter is optional in the schema because the requirement depends on the selected mode.",
+    )
 
     # Define types as class attributes
     InputType = Ip

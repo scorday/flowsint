@@ -4,11 +4,20 @@ import { persist } from 'zustand/middleware'
 type ViewType = 'graph' | 'table' | 'map' | 'relationships'
 type LayoutType = 'force' | 'hierarchy'
 type SelectionMode = 'lasso' | 'rectangle'
+type NeighborhoodRoot = { graphId?: string; nodeId: string } | null
 
 type GraphControlsStore = {
   view: ViewType
   isSelectorModeActive: boolean
   selectionMode: SelectionMode
+  highlightSelectionLinks: boolean
+  setHighlightSelectionLinks: (enabled: boolean) => void
+  hideRootLinks: boolean
+  setHideRootLinks: (enabled: boolean) => void
+  onlyRootNeighborhood: boolean
+  setOnlyRootNeighborhood: (enabled: boolean) => void
+  neighborhoodRoot: NeighborhoodRoot
+  setNeighborhoodRoot: (root: NeighborhoodRoot) => void
   currentLayoutType: LayoutType
   zoomToFit: () => void
   zoomIn: () => void
@@ -32,6 +41,22 @@ export const useGraphControls = create<GraphControlsStore>()(
       view: 'graph',
       isSelectorModeActive: false,
       selectionMode: 'lasso',
+      highlightSelectionLinks: false,
+      setHighlightSelectionLinks: (enabled) => set({ highlightSelectionLinks: enabled }),
+      hideRootLinks: false,
+      setHideRootLinks: (enabled) =>
+        set((state) => ({
+          hideRootLinks: enabled,
+          neighborhoodRoot: enabled || state.onlyRootNeighborhood ? state.neighborhoodRoot : null
+        })),
+      onlyRootNeighborhood: false,
+      setOnlyRootNeighborhood: (enabled) =>
+        set((state) => ({
+          onlyRootNeighborhood: enabled,
+          neighborhoodRoot: enabled || state.hideRootLinks ? state.neighborhoodRoot : null
+        })),
+      neighborhoodRoot: null,
+      setNeighborhoodRoot: (root) => set({ neighborhoodRoot: root }),
       currentLayoutType: 'force',
       zoomToFit: () => {},
       zoomIn: () => {},
@@ -53,7 +78,10 @@ export const useGraphControls = create<GraphControlsStore>()(
       partialize: (state) => ({
         view: state.view,
         currentLayoutType: state.currentLayoutType,
-        selectionMode: state.selectionMode
+        selectionMode: state.selectionMode,
+        highlightSelectionLinks: state.highlightSelectionLinks,
+        hideRootLinks: state.hideRootLinks,
+        onlyRootNeighborhood: state.onlyRootNeighborhood
       })
     }
   )

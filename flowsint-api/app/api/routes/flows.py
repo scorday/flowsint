@@ -16,10 +16,12 @@ from flowsint_core.core.services import (
     PermissionDeniedError,
     create_flow_service,
 )
+from flowsint_core.core.services.enricher_catalog_service import EnricherCatalogService
 from flowsint_core.core.services.type_registry_service import (
     create_type_registry_service,
 )
 from flowsint_core.core.types import FlowBranch, FlowEdge, FlowNode, FlowStep
+from flowsint_core.tasks.project import task_context_kwargs
 from flowsint_core.utils import extract_input_schema_flow
 from flowsint_enrichers import ENRICHER_REGISTRY, load_all_enrichers
 from flowsint_types import (
@@ -80,8 +82,18 @@ def get_flows(
 
 
 @router.get("/raw_materials")
-async def get_material_list():
+def get_material_list(
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
     enrichers = ENRICHER_REGISTRY.list_by_categories()
+    catalog = EnricherCatalogService(db)
+    visible_names = {
+        item["name"]
+        for item in catalog.visible_builtins(
+            [item for category_items in enrichers.values() for item in category_items]
+        )
+    }
     enricher_categories = {
         category: [
             {
@@ -91,6 +103,9 @@ async def get_material_list():
                 "module": enricher.get("module"),
                 "documentation": enricher.get("documentation"),
                 "description": enricher.get("description"),
+                "providers": enricher.get("providers", []),
+                "api_key_requirement": enricher.get("api_key_requirement", "unknown"),
+                "api_key_notes": enricher.get("api_key_notes"),
                 "inputs": enricher.get("inputs"),
                 "outputs": enricher.get("outputs"),
                 "type": "enricher",
@@ -100,8 +115,10 @@ async def get_material_list():
                 "icon": enricher.get("icon"),
             }
             for enricher in enricher_list
+            if enricher["name"] in visible_names
         ]
         for category, enricher_list in enrichers.items()
+        if any(enricher["name"] in visible_names for enricher in enricher_list)
     }
 
     object_inputs = [
@@ -131,9 +148,13 @@ async def get_material_list():
 
 
 @router.get("/input_type/{input_type}")
-async def get_material_by_input_type(input_type: str):
+def get_material_by_input_type(
+    input_type: str,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> Dict[str, Any]:
     enrichers = ENRICHER_REGISTRY.list_by_input_type(input_type)
-    return {"items": enrichers}
+    return {"items": EnricherCatalogService(db).visible_builtins(enrichers)}
 
 
 @router.post("/create", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
@@ -225,9 +246,7 @@ async def launch_flow(
         nodes = [FlowNode(**node) for node in flow.flow_schema["nodes"]]
         edges = [FlowEdge(**edge) for edge in flow.flow_schema["edges"]]
 
-        entities = [
-            entity.model_dump(mode="json", serialize_as_any=True) for entity in entities
-        ]
+        entities = [entity.task_dump() for entity in entities]
 
         sample_value = (
             entities[0].get("nodeLabel", "sample_value")
@@ -245,6 +264,7 @@ async def launch_flow(
                 payload.sketch_id,
                 str(current_user.id),
             ],
+            kwargs=task_context_kwargs(),
         )
         return {"id": task.id}
 

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,
     LargeBinary,
     String,
     Text,
@@ -24,6 +25,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
 from flowsint_core.core.enums import EventLevel
+from flowsint_core.core.project_scope import ProjectScoped
 from flowsint_core.core.types import Role
 
 
@@ -50,7 +52,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class Feedback(Base):
+class Feedback(ProjectScoped, Base):
     __tablename__ = "feedbacks"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
@@ -59,7 +61,7 @@ class Feedback(Base):
     owner_id = mapped_column(Uuid, ForeignKey("profiles.id"), nullable=True)
 
 
-class Investigation(Base):
+class Investigation(ProjectScoped, Base):
     __tablename__ = "investigations"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -89,7 +91,7 @@ class Investigation(Base):
     )
 
 
-class Log(Base):
+class Log(ProjectScoped, Base):
     __tablename__ = "logs"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -124,7 +126,7 @@ class Profile(Base):
     investigation_roles = relationship("InvestigationUserRole", back_populates="user")
 
 
-class Scan(Base):
+class Scan(ProjectScoped, Base):
     __tablename__ = "scans"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -147,7 +149,7 @@ class Scan(Base):
         return f"<Scan(id={self.id}, status={self.status})>"
 
 
-class Sketch(Base):
+class Sketch(ProjectScoped, Base):
     __tablename__ = "sketches"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -201,7 +203,7 @@ class SketchesProfiles(Base):
     )
 
 
-class Flow(Base):
+class Flow(ProjectScoped, Base):
     __tablename__ = "flows"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -218,7 +220,7 @@ class Flow(Base):
     )
 
 
-class Analysis(Base):
+class Analysis(ProjectScoped, Base):
     __tablename__ = "analyses"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -245,7 +247,7 @@ class Analysis(Base):
     )
 
 
-class Chat(Base):
+class Chat(ProjectScoped, Base):
     __tablename__ = "chats"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -271,7 +273,7 @@ class Chat(Base):
     )
 
 
-class ChatMessage(Base):
+class ChatMessage(ProjectScoped, Base):
     __tablename__ = "messages"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -288,17 +290,17 @@ class ChatMessage(Base):
     __table_args__ = (Index("idx_messages_chat_id", "chat_id"),)
 
 
-class Key(Base):
+class Key(ProjectScoped, Base):
     __tablename__ = "keys"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     name: Mapped[str] = mapped_column(String, nullable=False)  # ex: "shodan", "whocy"
 
-    owner_id: Mapped[uuid.UUID] = mapped_column(
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("profiles.id", onupdate="CASCADE", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
 
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
@@ -358,15 +360,15 @@ class InvestigationUserRole(Base):
     )
 
 
-class CustomType(Base):
+class CustomType(ProjectScoped, Base):
     __tablename__ = "custom_types"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    owner_id: Mapped[uuid.UUID] = mapped_column(
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("profiles.id", onupdate="CASCADE", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
     schema: Mapped[dict] = mapped_column(JSON, nullable=False)
     icon: Mapped[str] = mapped_column(String, nullable=True)
@@ -392,7 +394,22 @@ class CustomType(Base):
     )
 
 
-class EnricherTemplate(Base):
+class EnricherVisibility(Base):
+    """Instance-wide catalog policy; template sharing remains project-scoped."""
+
+    __tablename__ = "enricher_visibility_global"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    enricher_key: Mapped[str] = mapped_column(String, nullable=False)
+    is_visible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("enricher_key", name="uq_enricher_visibility_global"),
+    )
+
+
+class EnricherTemplate(ProjectScoped, Base):
     __tablename__ = "enricher_templates"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -402,10 +419,10 @@ class EnricherTemplate(Base):
     version: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     content: Mapped[dict] = mapped_column(JSON, nullable=False)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    owner_id: Mapped[uuid.UUID] = mapped_column(
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("profiles.id", onupdate="CASCADE", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at = mapped_column(
@@ -419,4 +436,46 @@ class EnricherTemplate(Base):
         Index("idx_enricher_templates_name", "name"),
         Index("idx_enricher_templates_category", "category"),
         Index("idx_enricher_templates_is_public", "is_public"),
+    )
+
+
+class Avl4Material(ProjectScoped, Base):
+    __tablename__ = "avl4_materials"
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    material_key: Mapped[str] = mapped_column(String(64), unique=True)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("investigations.id", ondelete="CASCADE")
+    )
+    sketch_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sketches.id", ondelete="CASCADE")
+    )
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    node_id: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class Avl4ImportOperation(ProjectScoped, Base):
+    __tablename__ = "avl4_import_operations"
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    operation_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    material_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("avl4_materials.id", ondelete="CASCADE")
+    )
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    __table_args__ = (
+        UniqueConstraint("project_id", "operation_id", name="uq_avl4_import_operation"),
     )

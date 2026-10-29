@@ -9,6 +9,7 @@ from app.api.routes import enrichers as enrichers_route
 from flowsint_core.core.auth import create_access_token
 from flowsint_core.core.models import (
     EnricherTemplate,
+    EnricherVisibility,
     Investigation,
     InvestigationUserRole,
     Profile,
@@ -81,7 +82,7 @@ def test_template_enricher_without_secrets_reports_no_params(client, db_session)
 def sent_task(monkeypatch):
     """Stub out Neo4j and the broker, capture what send_task was handed."""
     entity = MagicMock()
-    entity.model_dump.return_value = {"address": "8.8.8.8"}
+    entity.task_dump.return_value = {"address": "8.8.8.8", "_graph_uid": "canonical-ip"}
     graph_service = MagicMock()
     graph_service.get_nodes_by_ids_for_task.return_value = [entity]
     monkeypatch.setattr(
@@ -155,12 +156,26 @@ def test_launch_without_params_sends_an_empty_dict(client, db_session, sent_task
     assert sent_task["kwargs"] == {"params": {}}
 
 
+def test_hidden_enricher_remains_executable_for_existing_flows(
+    client, db_session, sent_task
+):
+    db_session.add(
+        EnricherVisibility(enricher_key="builtin:some_enricher", is_visible=False)
+    )
+    db_session.commit()
+
+    response, _ = _launch(client, db_session)
+
+    assert response.status_code == 200
+    assert sent_task["name"] == "run_enricher"
+
+
 def test_launch_keeps_the_positional_args_unchanged(client, db_session, sent_task):
     _, sketch_id = _launch(client, db_session, params={"k": "v"})
 
     enricher_name, entities, sent_sketch_id, owner_id = sent_task["args"]
     assert enricher_name == "some_enricher"
-    assert entities == [{"address": "8.8.8.8"}]
+    assert entities == [{"address": "8.8.8.8", "_graph_uid": "canonical-ip"}]
     assert sent_sketch_id == sketch_id
     assert uuid.UUID(owner_id)
 

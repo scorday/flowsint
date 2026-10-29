@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as LucideIcons from 'lucide-react'
 import type { SchemaField } from './field-row'
 
@@ -20,6 +21,8 @@ export function TypePreview({
   status,
   category
 }: TypePreviewProps) {
+  const { t } = useTranslation()
+
   const Icon = (LucideIcons as any)[icon] || LucideIcons.FileQuestion
   const validFields = fields.filter((f) => f.key.trim())
 
@@ -27,7 +30,7 @@ export function TypePreview({
     <div className="space-y-6">
       {/* Entity card preview */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-3">Entity card</p>
+        <p className="text-xs font-medium text-muted-foreground mb-3">{t('Entity card')}</p>
         <div className="border border-border/60 rounded-xl p-5 bg-card max-w-sm">
           <div className="flex items-start gap-3.5">
             <div
@@ -38,10 +41,10 @@ export function TypePreview({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h4 className="font-semibold text-sm truncate">{name || 'Untitled type'}</h4>
+                <h4 className="font-semibold text-sm truncate">{name || t('Untitled type')}</h4>
                 {status === 'draft' && (
                   <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground border border-border/60 rounded px-1.5 py-0.5">
-                    Draft
+                    {t('Draft')}
                   </span>
                 )}
               </div>
@@ -49,7 +52,7 @@ export function TypePreview({
                 <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">{category}</p>
               )}
               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                {description || 'No description'}
+                {description || t('No description')}
               </p>
             </div>
           </div>
@@ -67,7 +70,7 @@ export function TypePreview({
               ))}
               {validFields.length > 4 && (
                 <p className="text-[10px] text-muted-foreground/50">
-                  +{validFields.length - 4} more fields
+                  +{validFields.length - 4} {t(' more fields')}
                 </p>
               )}
             </div>
@@ -77,7 +80,7 @@ export function TypePreview({
 
       {/* Graph node preview */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-3">Graph node</p>
+        <p className="text-xs font-medium text-muted-foreground mb-3">{t('Graph node')}</p>
         <div className="flex items-center gap-3 p-4 border border-border/60 rounded-xl bg-card max-w-[200px]">
           <div
             className="rounded-full flex items-center justify-center shrink-0"
@@ -86,9 +89,9 @@ export function TypePreview({
             <Icon className="text-white" size={18} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium truncate">{name || 'Untitled'}</p>
+            <p className="text-xs font-medium truncate">{name || t('Untitled')}</p>
             <p className="text-[10px] text-muted-foreground">
-              {validFields.length} field{validFields.length !== 1 ? 's' : ''}
+              {t('counts.fields', { count: validFields.length })}
             </p>
           </div>
         </div>

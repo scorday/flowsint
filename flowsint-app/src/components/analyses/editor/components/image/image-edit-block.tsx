@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import * as React from 'react'
 import type { Editor } from '@tiptap/react'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,8 @@ interface ImageEditBlockProps {
 }
 
 export const ImageEditBlock: React.FC<ImageEditBlockProps> = ({ editor, close }) => {
+  const { t } = useTranslation()
+
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [link, setLink] = React.useState('')
 
@@ -55,7 +58,7 @@ export const ImageEditBlock: React.FC<ImageEditBlockProps> = ({ editor, close })
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-1">
-        <Label htmlFor="image-link">Attach an image link</Label>
+        <Label htmlFor="image-link">{t('Attach an image link')}</Label>
         <div className="flex">
           <Input
             id="image-link"
@@ -67,12 +70,12 @@ export const ImageEditBlock: React.FC<ImageEditBlockProps> = ({ editor, close })
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLink(e.target.value)}
           />
           <Button type="submit" className="ml-2">
-            Submit
+            {t('Submit')}
           </Button>
         </div>
       </div>
       <Button type="button" className="w-full" onClick={handleClick}>
-        Upload from your computer
+        {t('Upload from your computer')}
       </Button>
       <input
         type="file"

@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Info } from 'lucide-react'
 import Lasso from '../../selectors/lasso'
 import Rectangle from '../../selectors/rectangle'
@@ -17,13 +18,15 @@ export const GraphSelectorOverlay: React.FC<GraphSelectorOverlayProps> = ({
   graph2ScreenCoords,
   containerSize
 }) => {
+  const { t } = useTranslation()
+
   if (!isActive) return null
 
   return (
     <>
       <div className="absolute z-20 top-3 flex items-center gap-1 left-3 bg-primary/20 text-primary border border-primary/40 rounded-lg p-1 px-2 text-xs pointer-events-none">
         <Info className="h-3 w-3 " />
-        {selectionMode === 'lasso' ? 'Lasso' : 'Rectangle'} selection is active
+        {selectionMode === 'lasso' ? t('Lasso') : t('Rectangle')} {t(' selection is active')}
       </div>
       {selectionMode === 'lasso' ? (
         <Lasso

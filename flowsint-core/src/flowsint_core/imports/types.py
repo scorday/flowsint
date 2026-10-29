@@ -9,6 +9,8 @@ class EntityPreview:
     obj: Dict[str, Any]
     detected_type: str
     node_id: Optional[str] = None
+    presentation: Dict[str, Any] = field(default_factory=dict)
+    graph_uid: Optional[str] = None
 
 
 @dataclass
@@ -28,6 +30,7 @@ class Edge:
     from_id: str | None
     to_id: str | None
     label: str
+    properties: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

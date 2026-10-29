@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { LogOut, UserIcon } from 'lucide-react'
 import {
   DropdownMenu,
@@ -17,6 +18,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getDisplayName } from '@/lib/user-display'
 
 export function NavUser() {
+  const { t } = useTranslation()
+
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const displayName = getDisplayName(user)
@@ -51,21 +54,23 @@ export function NavUser() {
             </div>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuLabel className="text-xs font-light opacity-60">Preferences</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs font-light opacity-60">
+          {t('Preferences')}
+        </DropdownMenuLabel>
         <div className="flex text-sm items-center justify-between px-3">
-          Theme
+          {t('Theme')}
           <ModeToggle />
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link to="/dashboard/profile">
             <UserIcon />
-            Profile
+            {t('Profile')}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={logout}>
           <LogOut />
-          Log out
+          {t('Log out')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

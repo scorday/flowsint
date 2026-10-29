@@ -37,6 +37,7 @@ export type GraphNode = {
   nodeImage: string | null
   nodeFlag: flagColor | null
   nodeShape: NodeShape | null
+  nodeRole?: 'primary' | 'secondary' | null
   nodeMetadata: NodeMetadata
   x: number
   y: number
@@ -64,6 +65,7 @@ export type GraphNode = {
 }
 
 export type GraphEdge = {
+  properties?: Record<string, unknown>
   source: GraphNode['id']
   target: GraphNode['id']
   date?: string

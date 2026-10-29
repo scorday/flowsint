@@ -1,6 +1,7 @@
 import json
 from typing import Dict, List, Optional
 
+from flowsint_core.core.graph.identity import PRESENTATION
 from flowsint_core.core.graph.serializer import TypeResolver
 from flowsint_types import Individual
 
@@ -67,6 +68,7 @@ def parse_json(
                         to_obj=to_obj.obj,
                         to_id=to_obj.node_id,
                         label=label,
+                        properties=edge.get("properties", {}),
                     )
                 )
         return FileParseResult(
@@ -93,6 +95,10 @@ def _get_nodes(
                     node_id=node_id,
                     obj=preview.obj,
                     detected_type=preview.detected_type,
+                    presentation={k: node[k] for k in PRESENTATION if k in node},
+                    graph_uid=str(node_id)
+                    if node_id and "nodeProperties" in node
+                    else None,
                 )
             )
 
@@ -126,7 +132,10 @@ def _parse_node(
         # Type not recognized, fall back to generic
         return create_entity_preview(label)
 
-    if hasattr(DetectedType, "from_string"):
+    if isinstance(nodeDict.get("nodeProperties"), dict):
+        node = DetectedType.model_validate(nodeDict["nodeProperties"])
+        node = node.model_copy(update={"nodeLabel": label})
+    elif hasattr(DetectedType, "from_string"):
         node = DetectedType.from_string(label)
     else:
         # Default to Individual node type
@@ -156,6 +165,14 @@ def _get_edges(edges: List[Dict]) -> List[Dict]:
             "source": source,
             "target": target,
             "label": label if label else "IS_RELATED_TO",
+            "properties": {
+                **edge.get("properties", {}),
+                **{
+                    k: edge[k]
+                    for k in ("date", "caption", "type", "weight", "confidence_level")
+                    if k in edge
+                },
+            },
         }
         results.append(edge_obj)
 

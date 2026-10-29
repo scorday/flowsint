@@ -1,4 +1,5 @@
 from flowsint_types import Domain, Ip, get_type
+from flowsint_types.avl4_card import Avl4_Card
 from flowsint_types.registry import TYPE_REGISTRY
 
 
@@ -18,6 +19,7 @@ def test_get_by_capital_key():
 def test_get_by_lower_key():
     type = TYPE_REGISTRY.get_lowercase("domain")
     assert type is Domain
+    assert TYPE_REGISTRY.get_lowercase("avl4_card") is Avl4_Card
 
 
 def get_type_function():

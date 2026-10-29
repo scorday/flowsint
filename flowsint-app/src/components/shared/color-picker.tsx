@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -55,6 +56,8 @@ export function ColorPicker({
   triggerSize = 'md',
   align = 'start'
 }: ColorPickerProps) {
+  const { t } = useTranslation()
+
   const [open, setOpen] = useState(false)
   const [customColor, setCustomColor] = useState(value)
 
@@ -89,7 +92,7 @@ export function ColorPicker({
       </PopoverTrigger>
       <PopoverContent className="w-[280px] p-3" align={align}>
         <div className="space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">Color</p>
+          <p className="text-xs font-medium text-muted-foreground">{t('Color')}</p>
           <div className="grid grid-cols-10 gap-1.5">
             {PRESET_COLORS.map((color) => (
               <button

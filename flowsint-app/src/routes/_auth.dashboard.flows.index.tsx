@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,8 @@ export const Route = createFileRoute('/_auth/dashboard/flows/')({
 })
 
 function FlowPage() {
+  const { t, dateLocale } = useTranslation()
+
   const navigate = useNavigate()
   const {
     data: flows,
@@ -44,12 +47,12 @@ function FlowPage() {
     }, []) || []
 
   // Add "All" and "Uncategorized" to categories
-  const allCategories = ['All', ...categories, 'Uncategorized']
+  const allCategories = ['All', ...categories, t('Uncategorized')]
 
   return (
     <PageLayout
-      title="Flows"
-      description="Create and manage your flow flows."
+      title={t('Flows')}
+      description={t('Create and manage your flow flows.')}
       isLoading={isLoading}
       loadingComponent={
         <div className="p-2">
@@ -59,8 +62,8 @@ function FlowPage() {
       error={error}
       errorComponent={
         <ErrorState
-          title="Couldn't load flows"
-          description="Something went wrong while fetching data. Please try again."
+          title={t("Couldn't load flows")}
+          description={t('Something went wrong while fetching data. Please try again.')}
           error={error}
           onRetry={() => refetch()}
         />
@@ -69,7 +72,7 @@ function FlowPage() {
         <NewFlow>
           <Button size="sm" data-tour-id="create-flow">
             <PlusIcon className="w-4 h-4 mr-2" />
-            New flow
+            {t('New flow')}
           </Button>
         </NewFlow>
       }
@@ -80,15 +83,16 @@ function FlowPage() {
             <div className="rounded-full bg-muted/50 p-4 mb-4">
               <FileX className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No flow yet</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('No flow yet')}</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Get started by creating your first flow. You can use flows to process and manipulate
-              your data in powerful ways.
+              {t(
+                'Get started by creating your first flow. You can use flows to process and manipulate your data in powerful ways.'
+              )}
             </p>
             <NewFlow>
               <Button>
                 <PlusIcon className="w-4 h-4 mr-2" />
-                Create your first flow
+                {t('Create your first flow')}
               </Button>
             </NewFlow>
           </div>
@@ -116,7 +120,7 @@ function FlowPage() {
                     ?.filter((flow) =>
                       category === 'All'
                         ? true
-                        : category === 'Uncategorized'
+                        : category === t('Uncategorized')
                           ? categoriesOf(flow).length === 0
                           : categoriesOf(flow).includes(category)
                     )
@@ -129,12 +133,12 @@ function FlowPage() {
                         <CardHeader className="pb-2">
                           <div className="flex items-start justify-between">
                             <CardTitle className="text-lg font-medium group-hover:text-primary transition-colors">
-                              {flow.name || '(Unnamed flow)'}
+                              {flow.name || t('(Unnamed flow)')}
                             </CardTitle>
                             <FileCode2 className="w-4 h-4 text-muted-foreground" />
                           </div>
                           <CardDescription className="line-clamp-2 mt-1">
-                            {flow.description || 'No description provided'}
+                            {flow.description || t('No description provided')}
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -143,9 +147,7 @@ function FlowPage() {
                               <Clock className="w-4 h-4 mr-1" />
                               {formatDistanceToNow(
                                 new Date(flow.last_updated_at || flow.created_at),
-                                {
-                                  addSuffix: true
-                                }
+                                { locale: dateLocale, addSuffix: true }
                               )}
                             </div>
                             <div className="flex flex-wrap gap-2 justify-end">

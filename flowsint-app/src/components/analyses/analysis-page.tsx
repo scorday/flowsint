@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useParams } from '@tanstack/react-router'
 import type { Analysis } from '@/types'
 import { AnalysisEditor } from './analysis-editor'
@@ -14,6 +15,8 @@ export const AnalysisPage = ({
   isError: boolean
   refetch: () => void
 }) => {
+  const { t } = useTranslation()
+
   const { investigationId } = useParams({ strict: false }) as {
     investigationId: string
     id: string
@@ -28,7 +31,7 @@ export const AnalysisPage = ({
   }
 
   if (isError) {
-    return <div className="text-sm text-destructive">Error loading analysis.</div>
+    return <div className="text-sm text-destructive">{t('Error loading analysis.')}</div>
   }
 
   const handleAnalysisUpdate = () => {

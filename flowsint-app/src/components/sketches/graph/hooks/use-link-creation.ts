@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useGraphStore } from '@/stores/graph-store'
 import { sketchService } from '@/api/sketch-service'
@@ -18,6 +19,8 @@ const INITIAL_STATE: LinkCreationState = {
 }
 
 export const useLinkCreation = (sketchId?: string) => {
+  const { t } = useTranslation()
+
   const [state, setState] = useState<LinkCreationState>(INITIAL_STATE)
   const stateRef = useRef(state)
   useLayoutEffect(() => {
@@ -84,12 +87,12 @@ export const useLinkCreation = (sketchId?: string) => {
         target: edge.target
       }
       toast.promise(sketchService.addEdge(sketchId, JSON.stringify(edgeData)), {
-        loading: 'Creating relation...',
-        success: 'Relation added.',
-        error: 'Failed to create relation.'
+        loading: t('Creating relation...'),
+        success: t('Relation added.'),
+        error: t('Failed to create relation.')
       })
     },
-    [sketchId]
+    [sketchId, t]
   )
 
   // Called when edge context menu is dismissed without saving — remove from store

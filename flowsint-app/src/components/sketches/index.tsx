@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { useLoaderData } from '@tanstack/react-router'
 import { useEffect, memo, useState, lazy, Suspense } from 'react'
 import { useGraphStore } from '@/stores/graph-store'
@@ -23,18 +24,21 @@ import { usePermissions } from '@/hooks/use-can'
 const RelationshipsTable = lazy(() => import('@/components/table/relationships-view'))
 
 // Separate component for the drag overlay
-const DragOverlay = memo(({ isDragging }: { isDragging: boolean }) => (
-  <div
-    className={cn(
-      'absolute flex items-center justify-center inset-0 bg-background/80 backdrop-blur-sm gap-1',
-      'opacity-0 pointer-events-none transition-opacity duration-200',
-      isDragging && 'opacity-100 pointer-events-auto'
-    )}
-  >
-    <p className="font-medium">Drop here to add node</p>
-    <ArrowDownToLineIcon className="opacity-60" />
-  </div>
-))
+const DragOverlay = memo(({ isDragging }: { isDragging: boolean }) => {
+  const { t } = useTranslation()
+  return (
+    <div
+      className={cn(
+        'absolute flex items-center justify-center inset-0 bg-background/80 backdrop-blur-sm gap-1',
+        'opacity-0 pointer-events-none transition-opacity duration-200',
+        isDragging && 'opacity-100 pointer-events-auto'
+      )}
+    >
+      <p className="font-medium">{t('Drop here to add node')}</p>
+      <ArrowDownToLineIcon className="opacity-60" />
+    </div>
+  )
+})
 DragOverlay.displayName = 'DragOverlay'
 
 interface GraphPanelProps {
@@ -44,6 +48,8 @@ interface GraphPanelProps {
 }
 
 const GraphPanel = ({ graphData, isLoading }: GraphPanelProps) => {
+  const { t } = useTranslation()
+
   const { canCreate } = usePermissions()
   const handleOpenFormModal = useGraphStore((s) => s.handleOpenFormModal)
   const view = useGraphControls((s) => s.view)
@@ -65,11 +71,12 @@ const GraphPanel = ({ graphData, isLoading }: GraphPanelProps) => {
       const types = new Set(graphData.nds.map((n) => n.nodeType))
       // Read current filters via getState() rather than subscribing — this
       // effect shouldn't re-run just because filters changed.
+      const currentFilters = useGraphStore.getState().filters
       setFilters({
-        ...useGraphStore.getState().filters,
+        ...currentFilters,
         types: Array.from(types).map((t) => ({
           type: t,
-          checked: true
+          checked: currentFilters.types.find((filter) => filter.type === t)?.checked ?? true
         }))
       })
     }
@@ -93,7 +100,7 @@ const GraphPanel = ({ graphData, isLoading }: GraphPanelProps) => {
     e.preventDefault()
     setIsDraggingOver(false)
     if (isLoadingActionItems || !actionItems) {
-      toast.error('Sorry, an error occured. Please try again.')
+      toast.error(t('Sorry, an error occured. Please try again.'))
       return
     }
     const data = e.dataTransfer.getData('text/plain')
@@ -114,8 +121,12 @@ const GraphPanel = ({ graphData, isLoading }: GraphPanelProps) => {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-lg font-semibold text-destructive mb-2">Error loading graph</h2>
-          <p className="text-muted-foreground">Could not load graph data. Please try again.</p>
+          <h2 className="text-lg font-semibold text-destructive mb-2">
+            {t('Error loading graph')}
+          </h2>
+          <p className="text-muted-foreground">
+            {t('Could not load graph data. Please try again.')}
+          </p>
         </div>
       </div>
     )

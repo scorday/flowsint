@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,8 @@ export function ErrorState({
   onRetry,
   className
 }: ErrorStateProps) {
+  const { t } = useTranslation()
+
   const message = getErrorMessage(error)
   return (
     <div className={cn('w-full h-full bg-card flex items-center justify-center', className)}>
@@ -36,13 +39,13 @@ export function ErrorState({
           <AlertTriangle className="h-6 w-6 text-destructive" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          {description && <p className="text-xs opacity-70">{description}</p>}
+          <h3 className="text-sm font-semibold text-foreground">{t(title)}</h3>
+          {description && <p className="text-xs opacity-70">{t(description)}</p>}
         </div>
         {onRetry && (
           <Button size="sm" variant="outline" onClick={onRetry}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            Retry
+            {t('Retry')}
           </Button>
         )}
         {message && <p className="text-[11px] leading-relaxed opacity-60 break-words">{message}</p>}
