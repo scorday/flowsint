@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [flowsint-investigation-graph-20261029] - 2026-10-29 - staging
+
 ### Добавлено
 
 - Flowsint: общий граф сущностей и связей внутри расследования. Схемы показывают
