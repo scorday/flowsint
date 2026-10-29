@@ -77,6 +77,10 @@ class GraphRepositoryProtocol(Protocol):
         ...
 
     # Graph queries
+    def find_node_matches(
+        self, node_obj: GraphDict, sketch_id: str
+    ) -> List[GraphDict]: ...
+
     def get_investigation_graph(
         self, limit: int = 100000
     ) -> Dict[str, List[Dict[str, Any]]]: ...

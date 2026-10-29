@@ -469,6 +469,56 @@ class Neo4jGraphRepository:
             node["data"] = {**node["data"], **(node.pop("presentation", None) or {})}
         return nodes
 
+    def find_node_matches(self, node_obj: GraphDict, sketch_id: str) -> list[GraphDict]:
+        """Read-only suggestions in the checked investigation, never a name merge."""
+        self._params(sketch_id)
+        self._require_migrated()
+        kind = str(node_obj.get("nodeType", "")).lower()
+        _identifier(kind)
+        keys = identity_keys(node_obj)
+        check_identity_compatibility(keys)
+        name = (
+            str(
+                node_obj.get("nodeProperties.full_name")
+                or node_obj.get("nodeProperties.name")
+                or node_obj.get("nodeLabel")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
+        if len(name) < 3 or keys:
+            name = ""
+        if not keys and not name:
+            return []
+        rows = self._connection.query(
+            """MATCH (n:GraphEntity {scope_key: $scope, nodeType: $kind})
+            WHERE n.deleted_at IS NULL
+            WITH n, any(key IN $keys WHERE key IN coalesce(n.identity_keys, [])) AS exact
+            WHERE exact OR ($name <> '' AND (
+                toLower(coalesce(n.nodeLabel, '')) CONTAINS $name OR
+                toLower(coalesce(n['nodeProperties.full_name'], '')) CONTAINS $name OR
+                toLower(coalesce(n['nodeProperties.name'], '')) CONTAINS $name))
+            OPTIONAL MATCH (:GraphView {scope_key: $scope, sketch_id: $sketch})-[m:SHOWS]->(n)
+            RETURN n.uid AS id, labels(n) AS labels, properties(n) AS data,
+                CASE WHEN exact THEN 'exact' ELSE 'possible' END AS match,
+                m IS NOT NULL AS on_sketch
+            ORDER BY exact DESC, on_sketch DESC, n.nodeLabel, n.uid LIMIT 20""",
+            {
+                "scope": self.scope.key,
+                "sketch": sketch_id,
+                "kind": kind,
+                "keys": keys,
+                "name": name,
+            },
+        )
+        for row in rows:
+            if row["match"] == "exact":
+                check_identity_compatibility(
+                    sorted(set(keys) | set(row["data"].get("identity_keys", [])))
+                )
+        return rows
+
     def get_neighbors(self, node_id: str, sketch_id: str) -> dict[str, Any]:
         graph = self.get_sketch_graph(sketch_id)
         center = next(

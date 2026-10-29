@@ -235,6 +235,22 @@ class SketchService(BaseService):
         node.id = node_id
         return {"status": "node added", "node": node}
 
+    def find_node_matches(
+        self, sketch_id: UUID, user_id: ActorID, node: GraphNode
+    ) -> List[Dict[str, Any]]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+        resolver = (
+            self._type_registry.build_type_resolver(user_id)
+            if self._type_registry
+            else None
+        )
+        try:
+            return create_graph_service(
+                str(sketch_id), type_resolver=resolver
+            ).find_node_matches(node)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
     def add_relationship(
         self,
         sketch_id: UUID,

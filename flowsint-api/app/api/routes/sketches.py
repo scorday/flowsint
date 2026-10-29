@@ -271,6 +271,26 @@ def delete_investigation_elements(
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+@router.post("/{sketch_id}/nodes/matches")
+def find_node_matches(
+    sketch_id: UUID,
+    node: GraphNode,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    try:
+        matches: List[Dict[str, Any]] = create_sketch_service(db).find_node_matches(
+            sketch_id, current_user.id, node
+        )
+        return matches
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.post("/{sketch_id}/nodes/add")
 @update_sketch_timestamp
 def add_node(

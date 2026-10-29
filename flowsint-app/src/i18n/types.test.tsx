@@ -7,6 +7,7 @@ import { setLanguage, translateFor } from './index'
 import AddItemDialog from '@/components/sketches/add-item-dialog'
 import { useGraphStore } from '@/stores/graph-store'
 import type { ActionItem } from '@/lib/action-items'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.hoisted(() => {
   const values = new Map<string, string>()
@@ -20,6 +21,7 @@ vi.hoisted(() => {
 const fixtures = vi.hoisted(() => ({
   items: [] as ActionItem[],
   addNode: vi.fn(),
+  findMatches: vi.fn(),
   launch: vi.fn(),
   resolve: vi.fn()
 }))
@@ -28,7 +30,12 @@ vi.mock('@/hooks/use-action-items', () => ({
 }))
 vi.mock('@/hooks/use-icon', () => ({ useIcon: () => () => null }))
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ id: 'sketch-id' }) }))
-vi.mock('@/api/sketch-service', () => ({ sketchService: { addNode: fixtures.addNode } }))
+vi.mock('@/api/sketch-service', () => ({
+  sketchService: {
+    addNode: fixtures.addNode,
+    findNodeMatches: fixtures.findMatches
+  }
+}))
 vi.mock('@/api/enricher-service', () => ({ enricherService: { launch: fixtures.launch } }))
 vi.mock('@/api/social-account-service', () => ({
   socialAccountService: { resolve: fixtures.resolve }
@@ -51,6 +58,7 @@ const makeType = (type: string, description: string, count: number): ActionItem 
 })
 
 beforeEach(() => {
+  fixtures.findMatches.mockReset().mockResolvedValue([])
   setLanguage('ru')
   fixtures.items = [
     makeType('Phrase', 'Represents a phrase or text content.', 1),
@@ -71,6 +79,14 @@ beforeEach(() => {
   })
 })
 
+function renderDialog() {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AddItemDialog />
+    </QueryClientProvider>
+  )
+}
+
 afterEach(() => {
   cleanup()
   setLanguage('en')
@@ -88,7 +104,7 @@ it('provides matching catalogs with translated metadata and exact English fallba
 })
 
 it('translates API type cards and field counts and switches languages in place', () => {
-  render(<AddItemDialog />)
+  renderDialog()
   expect(screen.getByText('Фраза')).toBeTruthy()
   expect(screen.getByText('Фраза или текстовое содержимое.')).toBeTruthy()
   expect(screen.getByText('Местоположение')).toBeTruthy()
@@ -111,7 +127,7 @@ it('translates API type cards and field counts and switches languages in place',
 it.each(['фраза', 'текстовое', 'PHRASE'])(
   'searches translated names/descriptions and original identifiers for %s',
   async (query) => {
-    render(<AddItemDialog />)
+    renderDialog()
     fireEvent.change(screen.getByPlaceholderText('Поиск типов…'), { target: { value: query } })
     await waitFor(() => expect(screen.queryByText('Местоположение')).toBeNull())
     expect(screen.getByText('Фраза')).toBeTruthy()
@@ -119,7 +135,7 @@ it.each(['фраза', 'текстовое', 'PHRASE'])(
 )
 
 it('recomputes translated search results on language change without clearing the query', async () => {
-  render(<AddItemDialog />)
+  renderDialog()
   fireEvent.change(screen.getByPlaceholderText('Поиск типов…'), { target: { value: 'фраза' } })
   await waitFor(() => expect(screen.queryByText('Местоположение')).toBeNull())
   act(() => setLanguage('en'))
@@ -130,7 +146,7 @@ it('recomputes translated search results on language change without clearing the
 })
 
 it('opens the translated creation form with the original type and preserves entered data', async () => {
-  render(<AddItemDialog />)
+  renderDialog()
   fireEvent.click(screen.getByText('Фраза'))
   expect(await screen.findByRole('heading', { name: 'Добавить сущность: Фраза' })).toBeTruthy()
   expect(screen.getByText('Фраза или текстовое содержимое.')).toBeTruthy()
@@ -167,7 +183,7 @@ it.each([false, true])(
       nodesMapping: new Map(),
       edgesMapping: new Map()
     })
-    render(<AddItemDialog />)
+    renderDialog()
     fireEvent.click(screen.getByText('Аккаунт в соцсети'))
     fireEvent.change(await screen.findByLabelText('Ссылка на профиль'), {
       target: { value: 'https://vk.ru/alias' }

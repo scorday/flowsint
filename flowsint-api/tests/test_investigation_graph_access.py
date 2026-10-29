@@ -139,3 +139,47 @@ def test_view_cannot_move_between_investigations(client, db_session, graph):
     assert response.status_code == 400
     db_session.refresh(sketch)
     assert sketch.investigation_id == original_investigation
+
+
+@pytest.mark.parametrize("role, expected", [(Role.VIEWER, 403), (Role.EDITOR, 200)])
+def test_manual_match_check_requires_edit_access(
+    client, db_session, graph, role, expected
+):
+    headers, sketch = seed(db_session, role)
+    graph.find_node_matches.return_value = [
+        {"node": {"id": "existing"}, "match": "exact", "on_sketch": False}
+    ]
+    body = {
+        "id": "candidate",
+        "nodeType": "email",
+        "nodeLabel": "a@example.com",
+        "nodeProperties": {"email": "a@example.com"},
+        "nodeMetadata": {},
+    }
+    response = client.post(
+        f"/api/sketches/{sketch.id}/nodes/matches", headers=headers, json=body
+    )
+    assert response.status_code == expected
+    if expected == 200:
+        assert response.json()[0]["node"]["id"] == "existing"
+        graph.find_node_matches.assert_called_once()
+    else:
+        graph.find_node_matches.assert_not_called()
+    graph.create_node.assert_not_called()
+
+
+def test_manual_match_check_never_leaks_other_investigations(client, db_session, graph):
+    headers, _ = seed(db_session, Role.OWNER)
+    _, foreign = seed(db_session, Role.OWNER)
+    body = {
+        "id": "candidate",
+        "nodeType": "email",
+        "nodeLabel": "a@example.com",
+        "nodeProperties": {},
+        "nodeMetadata": {},
+    }
+    response = client.post(
+        f"/api/sketches/{foreign.id}/nodes/matches", headers=headers, json=body
+    )
+    assert response.status_code == 403
+    graph.find_node_matches.assert_not_called()

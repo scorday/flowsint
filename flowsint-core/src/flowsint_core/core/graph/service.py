@@ -161,6 +161,21 @@ class GraphService:
             nodes, type_resolver=self._type_resolver
         )
 
+    def find_node_matches(self, node: GraphNode) -> List[Dict[str, Any]]:
+        records = self.repository.find_node_matches(
+            GraphSerializer.graph_node_to_neo4j_dict(node), self.sketch_id
+        )
+        return [
+            {
+                "node": GraphSerializer.neo4j_dict_to_graph_node(
+                    record, type_resolver=self._type_resolver
+                ).model_dump(mode="json", serialize_as_any=True),
+                "match": record["match"],
+                "on_sketch": record["on_sketch"],
+            }
+            for record in records
+        ]
+
     def get_nodes_by_ids_for_task(self, node_ids: List[str]) -> List[FlowsintType]:
         nodes = self.get_nodes_by_ids(node_ids)
         return [GraphSerializer.graph_node_to_flowsint_type(node) for node in nodes]

@@ -17,6 +17,7 @@ import { type GraphNode, GraphEdge, type GraphViewerRef } from '@/types'
 import { useLinkCreation } from '../hooks/use-link-creation'
 import { useQuickAdd } from '../hooks/use-quick-add'
 import { QuickAddOverlay } from './quick-add-overlay'
+import { NodeMatchDialog } from '../../node-match-dialog'
 import { usePermissions } from '@/hooks/use-can'
 import { useLaunchEnricher } from '@/hooks/use-launch-enricher'
 import {
@@ -83,7 +84,7 @@ const GraphMain = () => {
     dismissNewEdge
   } = useLinkCreation(sketchId)
 
-  const { quickAdd, openQuickAdd, closeQuickAdd, setQuickAddText, submitQuickAdd } =
+  const { quickAdd, nodeMatch, openQuickAdd, closeQuickAdd, setQuickAddText, submitQuickAdd } =
     useQuickAdd(sketchId)
 
   const handleNodeClick = useCallback(
@@ -325,6 +326,7 @@ const GraphMain = () => {
         onSubmit={submitQuickAdd}
         onCancel={closeQuickAdd}
       />
+      <NodeMatchDialog controller={nodeMatch} />
       <PathPanel />
       {nodeMenu && selectedNodes.length === 0 && (
         <NodeContextMenu {...nodeMenu} onRequestParams={setPendingLaunch} />

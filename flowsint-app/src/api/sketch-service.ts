@@ -12,6 +12,12 @@ import type {
 import type { GraphNode } from '@/types/graph'
 import type { ActionItem } from '@/lib/action-items'
 
+export type NodeMatch = {
+  node: GraphNode
+  match: 'exact' | 'possible'
+  on_sketch: boolean
+}
+
 // `inline=true` asks the backend for the relationships-already-joined
 // shape (used by the flat table view) instead of the default {nds, rls}
 // graph slice — the response shape genuinely depends on that flag, hence
@@ -39,6 +45,11 @@ export const sketchService = {
     })
   },
   getGraphDataById,
+  findNodeMatches: async (sketchId: string, node: GraphNode): Promise<NodeMatch[]> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/nodes/matches`, {
+      method: 'POST',
+      body: JSON.stringify(node)
+    }),
   getInvestigationGraph: async (sketchId: string): Promise<SketchGraphData> =>
     fetchWithAuth(`/api/sketches/${sketchId}/investigation-graph`, { method: 'GET' }),
   attachSubgraph: async (

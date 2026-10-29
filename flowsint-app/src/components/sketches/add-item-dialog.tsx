@@ -15,7 +15,6 @@ import { SocialAccountForm } from '@/components/sketches/social-account-form'
 import { enricherService } from '@/api/enricher-service'
 import { Badge } from '@/components/ui/badge'
 import { useGraphStore } from '@/stores/graph-store'
-import { sketchService } from '@/api/sketch-service'
 import { useParams } from '@tanstack/react-router'
 import { useIcon } from '@/hooks/use-icon'
 import { useLayoutStore } from '@/stores/layout-store'
@@ -23,30 +22,27 @@ import { useActionItems } from '@/hooks/use-action-items'
 import { GraphNode } from '@/types'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { useGraphControls } from '@/stores/graph-controls-store'
+import { useManualNodeAdd } from './use-manual-node-add'
+import { NodeMatchDialog } from './node-match-dialog'
 
 export default function AddItemDialog() {
   const { t } = useTranslation()
 
   const handleOpenFormModal = useGraphStore((state) => state.handleOpenFormModal)
   const currentNodeType = useGraphStore((state) => state.currentNodeType)
-  const setCurrentNodeId = useGraphStore((state) => state.setCurrentNodeId)
   const relatedNodeToAdd = useGraphStore((state) => state.relatedNodeToAdd)
   const setRelatedNodeToAdd = useGraphStore((state) => state.setRelatedNodeToAdd)
   const openMainDialog = useGraphStore((state) => state.openMainDialog)
   const setOpenMainDialog = useGraphStore((state) => state.setOpenMainDialog)
   const openFormDialog = useGraphStore((state) => state.openFormDialog)
   const setOpenFormDialog = useGraphStore((state) => state.setOpenFormDialog)
-  const regenerateLayout = useGraphControls((s) => s.regenerateLayout)
-  const currentLayoutType = useGraphControls((s) => s.currentLayoutType)
-  const addNode = useGraphStore((state) => state.addNode)
-  const addEdge = useGraphStore((state) => state.addEdge)
-  const replaceNode = useGraphStore((state) => state.replaceNode)
   const setActiveTab = useLayoutStore((state) => state.setActiveTab)
   const setImportModalOpen = useGraphSettingsStore((s) => s.setImportModalOpen)
   const getViewportCenter = useGraphControls((s) => s.getViewportCenter)
 
   const { id: sketch_id } = useParams({ strict: false })
   const { actionItems, isLoading } = useActionItems(true)
+  const manualAdd = useManualNodeAdd(sketch_id)
 
   const [search, setSearch] = useState('')
 
@@ -96,8 +92,9 @@ export default function AddItemDialog() {
     const type = currentNodeType.type
     let label = data.nodeLabel || data[label_key as keyof typeof data]
 
-    // if no value, fallback to fist key
     if (!label) label = data[Object.keys(data)[0] as keyof typeof data]
+    if (typeof label === 'object') label = label?.value ?? label?.name ?? ''
+    label = String(label ?? '')
     // Get viewport center for positioning new node
     const center = getViewportCenter()
     const nodeX = center?.x ?? 0
@@ -121,72 +118,20 @@ export default function AddItemDialog() {
       nodeMetadata: {}
     }
 
-    if (addNode) {
-      addNode(nodeWithTempId)
-    }
-    // Optimistically add edge if we have a related node
-    let tempEdgeId: string | null = null
-    if (relatedNodeToAdd) {
-      const tempEdgePayload = {
-        type: 'custom',
-        label: `HAS_${nodeWithTempId.nodeType.toUpperCase()}`,
-        source: relatedNodeToAdd.id,
-        target: tempId
-      }
-      if (addEdge) {
-        const tempEdge = addEdge(tempEdgePayload)
-        tempEdgeId = tempEdge.id
-      }
-    }
-    // Set current node optimistically
-    if (setCurrentNodeId) {
-      setCurrentNodeId(nodeWithTempId.id)
-    }
-    setActiveTab('entities')
-    // Close dialogs immediately for better UX
-    setOpenMainDialog(false)
-    setOpenFormDialog(false)
-    // Show optimistic success message
-    const typeLabel = t(currentNodeType.label)
-    toast(t('New {{v0}} added to sketch.', { v0: typeLabel }), {
-      description: relatedNodeToAdd
-        ? t('A new {{v0}} "{{v1}}" was added to relation {{v2}}.', {
-            v0: typeLabel,
-            v1: label,
-            v2: relatedNodeToAdd.nodeLabel
-          })
-        : t('A new {{v0}} "{{v1}}" was added.', { v0: typeLabel, v1: label }),
-      action: {
-        label: t('Beautify layout'),
-        onClick: () => regenerateLayout(currentLayoutType)
-      }
-    })
-    // Make API calls in the background
-    try {
-      // Create the node via API to get the real database ID
-      const newNodeResponse = await sketchService.addNode(
-        sketch_id as string,
-        JSON.stringify(nodeWithTempId)
-      )
-      const newNode: GraphNode = newNodeResponse.node
-      if (newNode && replaceNode) {
-        replaceNode(tempId, newNode.id, newNode.nodeProperties)
-        if (relatedNodeToAdd && tempEdgeId) {
-          const relationPayload = {
-            source: relatedNodeToAdd.id,
-            target: newNode.id,
-            type: 'one-way',
-            label: `HAS_${nodeWithTempId.nodeType.toUpperCase()}`
-          }
-          // Make API call to persist the edge
-          await sketchService.addEdge(sketch_id as string, JSON.stringify(relationPayload))
-        }
+    await manualAdd.add(nodeWithTempId, {
+      relatedSourceId: relatedNodeToAdd?.id,
+      onAdded: (id) => {
+        setActiveTab('entities')
+        setOpenMainDialog(false)
+        setOpenFormDialog(false)
+        setRelatedNodeToAdd(null)
+        toast.success(t('Object is available on this sketch.'))
         if (loadFriends && type.toLowerCase() === 'socialaccount') {
           toast.promise(
             enricherService.launch(
               'socialaccount_to_vk_friends',
               JSON.stringify({
-                node_ids: [newNode.id],
+                node_ids: [id],
                 sketch_id,
                 params: { max_friends: '1000' }
               })
@@ -201,17 +146,7 @@ export default function AddItemDialog() {
           )
         }
       }
-    } catch (error) {
-      console.error(error)
-      toast.error(t('Failed to sync node with server. Please refresh.'))
-    }
-    // finally {
-    //   setTimeout(() => {
-    //     if (currentLayoutType && regenerateLayout) {
-    //       regenerateLayout(currentLayoutType)
-    //     }
-    //   }, 500)
-    // }
+    })
   }
 
   const renderActionCards = () => {
@@ -341,6 +276,7 @@ export default function AddItemDialog() {
           )}
         </DialogContent>
       </Dialog>
+      <NodeMatchDialog controller={manualAdd} />
     </>
   )
 }

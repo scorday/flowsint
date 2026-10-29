@@ -76,6 +76,86 @@ def vk(user_id=123, **extra):
     }
 
 
+def test_manual_matches_find_known_alias_across_views_without_writes(graph):
+    repo, connection = graph
+    uid = repo.create_node(
+        vk(**{"nodeProperties.vk_screen_name": "alice", "x": 17}), "view-a"
+    )
+    before = repo.get_investigation_graph()
+    matches = repo.find_node_matches(
+        {
+            "nodeType": "socialaccount",
+            "nodeLabel": "New label",
+            "nodeProperties.platform": "vk.com",
+            "nodeProperties.profile_url": "https://vk.ru/alice",
+        },
+        "view-b",
+    )
+    assert [(row["id"], row["match"], row["on_sketch"]) for row in matches] == [
+        (uid, "exact", False)
+    ]
+    assert repo.find_node_matches(vk(), "view-a")[0]["on_sketch"] is True
+    assert repo.get_investigation_graph() == before
+    # If another writer attaches between check and submit, server upsert remains canonical.
+    assert repo.create_node(vk(), "view-b") == uid
+    assert len(repo.get_investigation_graph()["nodes"]) == 1
+
+
+def test_manual_name_matches_are_only_suggestions_and_scoped(graph):
+    repo, connection = graph
+    person = {
+        "nodeType": "person",
+        "nodeLabel": "Alice Smith",
+        "nodeProperties.full_name": "Alice Smith",
+    }
+    first = repo.create_node(person, "view-a")
+    second = repo.create_node(person, "view-b")
+    other = Neo4jGraphRepository(
+        connection, scope=GraphScope(repo.scope.project_id, str(uuid4()), ("foreign",))
+    )
+    try:
+        other.create_node(person, "foreign")
+        matches = repo.find_node_matches(
+            {**person, "nodeLabel": "Alice", "nodeProperties.full_name": "Alice"},
+            "view-b",
+        )
+        assert {row["id"] for row in matches} == {first, second}
+        assert all(row["match"] == "possible" for row in matches)
+        assert matches[0]["on_sketch"] is True
+        repo.delete_from_investigation([first], [], "view-a")
+        assert [row["id"] for row in repo.find_node_matches(person, "view-b")] == [
+            second
+        ]
+        assert (
+            repo.find_node_matches({"nodeType": "person", "nodeLabel": "Al"}, "view-b")
+            == []
+        )
+    finally:
+        connection.execute_write(
+            "MATCH (n) WHERE n.scope_key = $scope DETACH DELETE n",
+            {"scope": other.scope.key},
+        )
+        connection.execute_write(
+            "MATCH (n:GraphScope {key: $scope}) DELETE n", {"scope": other.scope.key}
+        )
+
+
+def test_manual_matches_do_not_use_labels_as_exact_identity(graph):
+    repo, _ = graph
+    repo.create_node(vk(**{"nodeLabel": "Alice"}), "view-a")
+    assert repo.find_node_matches(vk(456, **{"nodeLabel": "Alice"}), "view-b") == []
+    assert (
+        repo.find_node_matches(
+            {"nodeType": "socialaccount", "nodeLabel": "Alice"}, "view-b"
+        )[0]["match"]
+        == "possible"
+    )
+    with pytest.raises(IdentityConflict):
+        repo.find_node_matches(
+            vk(456, **{"nodeProperties.profile_url": "https://vk.com/id123"}), "view-b"
+        )
+
+
 def test_explicit_maintenance_migrates_in_avl4_mode_while_request_access_stays_closed(
     graph, monkeypatch
 ):
