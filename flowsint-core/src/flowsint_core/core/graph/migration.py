@@ -15,13 +15,14 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
-from .connection import Neo4jConnection
+from .connection import GraphConnectionProtocol, Neo4jConnection
 from .identity import (
     PRESENTATION,
     GraphScope,
     check_identity_compatibility,
     identity_keys,
 )
+from .maintenance import MaintenanceGraphConnection
 from .references import remap_references, repair_sql_references, sql_reference_snapshot
 from .repository import Neo4jGraphRepository, _identifier
 from .schema import install_schema
@@ -226,7 +227,9 @@ def repair_restored_sql_references(
     }
 
 
-def apply_backup(connection: Neo4jConnection, backup: dict[str, Any]) -> dict[str, str]:
+def apply_backup(
+    connection: GraphConnectionProtocol, backup: dict[str, Any]
+) -> dict[str, str]:
     """Migrate one entire investigation atomically; refuse a stale backup."""
     scope = validate_snapshot(backup)
     repo = Neo4jGraphRepository(connection, scope=scope)
@@ -427,7 +430,7 @@ def main() -> int:
     scope = GraphScope(
         args.project, str(args.investigation), tuple(str(r[0]) for r in rows)
     )
-    connection = Neo4jConnection.get_instance()
+    connection = MaintenanceGraphConnection(Neo4jConnection.get_instance().get_driver())
     if args.restore_references:
         restored_backup = json.loads(args.backup.read_text())
         print(

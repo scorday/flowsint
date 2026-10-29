@@ -7,11 +7,58 @@ import pytest
 from alembic.script import ScriptDirectory
 
 from flowsint_core.avl4_import import bootstrap
+from flowsint_core.core.graph.connection import Neo4jConnection
+from flowsint_core.core.graph.maintenance import MaintenanceGraphConnection
 
 
 def test_readiness_accepts_the_deployed_migration_head():
     migrations = Path(__file__).resolve().parents[3] / "flowsint-api" / "alembic"
     assert bootstrap.SQL_REVISION == ScriptDirectory(str(migrations)).get_current_head()
+
+
+def test_operator_connection_works_without_weakening_avl4_request_admission(
+    monkeypatch,
+):
+    from flowsint_core.core.project_scope import project_scope
+
+    monkeypatch.setenv("FLOWSINT_AUTH_MODE", "avl4")
+    driver = MagicMock()
+    driver.session.return_value.__enter__.return_value.run.return_value.data.return_value = [
+        {"total": 1}
+    ]
+    with project_scope(None):
+        with pytest.raises(PermissionError, match="Verified project context"):
+            Neo4jConnection.get_instance().query("RETURN 1")
+        assert MaintenanceGraphConnection(driver).query("RETURN 1") == [{"total": 1}]
+
+
+def test_readiness_checks_schema_with_explicit_maintenance_connection(monkeypatch):
+    monkeypatch.setenv("FLOWSINT_AUTH_MODE", "avl4")
+    for key in (
+        "DATABASE_URL",
+        "NEO4J_URI_BOLT",
+        "NEO4J_USERNAME",
+        "NEO4J_PASSWORD",
+        "REDIS_URL",
+    ):
+        monkeypatch.setenv(key, "test-value")
+    engine, driver = MagicMock(), MagicMock()
+    engine.connect.return_value.__enter__.return_value.execute.return_value.scalar.return_value = bootstrap.SQL_REVISION
+    driver.__enter__.return_value = driver
+    driver.session.return_value.__enter__.return_value.run.return_value.single.side_effect = [
+        {"total": 1},
+        {"total": 0},
+        {"total": 0},
+    ]
+    with (
+        patch.object(bootstrap, "create_engine", return_value=engine),
+        patch.object(bootstrap.GraphDatabase, "driver", return_value=driver),
+        patch.object(bootstrap, "require_schema") as schema,
+        patch.object(bootstrap.Redis, "from_url"),
+        patch("avl4_auth.get_redis_client"),
+    ):
+        bootstrap.check_storage()
+    assert isinstance(schema.call_args.args[0], MaintenanceGraphConnection)
 
 
 def test_initialize_orders_migration_constraint_and_readiness(monkeypatch):

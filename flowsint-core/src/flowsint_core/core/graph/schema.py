@@ -1,6 +1,6 @@
 """Investigation graph schema. Installation is an explicit operator action."""
 
-from .connection import Neo4jConnection
+from .connection import GraphConnectionProtocol
 
 CONSTRAINTS = {
     "graph_scope_key": "FOR (n:GraphScope) REQUIRE n.key IS UNIQUE",
@@ -9,7 +9,7 @@ CONSTRAINTS = {
 }
 
 
-def install_schema(connection: Neo4jConnection) -> None:
+def install_schema(connection: GraphConnectionProtocol) -> None:
     for name, definition in CONSTRAINTS.items():
         connection.execute_write(f"CREATE CONSTRAINT {name} IF NOT EXISTS {definition}")
     connection.execute_write(
@@ -17,7 +17,7 @@ def install_schema(connection: Neo4jConnection) -> None:
     )
 
 
-def require_schema(connection: Neo4jConnection) -> None:
+def require_schema(connection: GraphConnectionProtocol) -> None:
     rows = connection.query(
         "SHOW CONSTRAINTS YIELD name, labelsOrTypes, properties, type RETURN name, labelsOrTypes, properties, type"
     )

@@ -32,7 +32,7 @@ CI Python job поднимает отдельную Neo4j и включает li
 
 | Проверка | Результат |
 | --- | --- |
-| flowsint-core | 478 passed, включая временную Neo4j, без пропусков |
+| flowsint-core | 481 passed, включая временную Neo4j, без пропусков |
 | flowsint-api | 83 passed |
 | flowsint-types | 83 passed |
 | flowsint-enrichers | 188 passed |
@@ -104,3 +104,5 @@ SQL-копия восстановлена в отдельный файл. `--res
 межоконная доставка realtime-событий в эту работу не входит. Пределы размера
 графа, архивные tombstones удалённых SQL-схем и правила обработки нескольких
 прежних раскладок перечислены в runbook.
+
+Дополнительная проверка перед staging: явный MaintenanceGraphConnection для bootstrap/операторной миграции работает без пользовательского контекста; обычный Neo4jConnection в AVL4-режиме по-прежнему отклоняет запрос без проверенного проекта. Core — 481 passed, API — 83 passed.

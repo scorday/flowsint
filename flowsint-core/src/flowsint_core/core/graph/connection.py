@@ -7,7 +7,7 @@ connection pooling and transaction management.
 
 import os
 from threading import Lock
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Protocol, TypeVar
 
 from dotenv import load_dotenv
 from neo4j import Driver, GraphDatabase
@@ -17,6 +17,16 @@ from ..project_scope import revalidate_worker_scope
 load_dotenv()
 
 T = TypeVar("T")
+
+
+class GraphConnectionProtocol(Protocol):
+    def query(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]: ...
+    def execute_write(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]: ...
+    def run_transaction(self, operation: Callable[[Any], T]) -> T: ...
 
 
 class Neo4jConnection:
@@ -96,7 +106,7 @@ class Neo4jConnection:
         return self._driver
 
     def query(
-        self, query: str, parameters: Dict[str, Any] = None
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Execute a single query.
@@ -115,14 +125,14 @@ class Neo4jConnection:
             return result.data()
 
     @staticmethod
-    def _clean_parameters(parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def _clean_parameters(parameters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Remove None keys from parameters dict to avoid Neo4j errors."""
         if not parameters:
             return {}
         return {k: v for k, v in parameters.items() if k is not None}
 
     def execute_write(
-        self, query: str, parameters: Dict[str, Any] = None
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Execute a write query within a write transaction.

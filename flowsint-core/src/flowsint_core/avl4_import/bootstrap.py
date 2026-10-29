@@ -10,7 +10,7 @@ from neo4j import GraphDatabase
 from redis import Redis
 from sqlalchemy import create_engine, text
 
-from flowsint_core.core.graph.connection import Neo4jConnection
+from flowsint_core.core.graph.maintenance import MaintenanceGraphConnection
 from flowsint_core.core.graph.schema import install_schema, require_schema
 
 SQL_REVISION = "a6b7c8d9e0f1"
@@ -69,7 +69,7 @@ def check_storage() -> None:
             AND NOT n:GraphView AND NOT n:GraphEntity RETURN count(n) AS total""").single()
         if not old_graph or old_graph["total"]:
             raise RuntimeError("Investigation graph migration is not complete")
-    require_schema(Neo4jConnection.get_instance())
+        require_schema(MaintenanceGraphConnection(driver))
     with Redis.from_url(
         os.environ["REDIS_URL"], socket_timeout=3, socket_connect_timeout=3
     ) as broker:
@@ -93,7 +93,7 @@ def initialize() -> None:
         session.run(CONSTRAINT).consume()
         session.run(MIGRATE_CARD_TYPE).consume()
         session.run(DROP_LEGACY_CONSTRAINT).consume()
-    install_schema(Neo4jConnection.get_instance())
+        install_schema(MaintenanceGraphConnection(driver))
     check_storage()
 
 

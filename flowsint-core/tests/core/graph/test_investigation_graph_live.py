@@ -76,6 +76,34 @@ def vk(user_id=123, **extra):
     }
 
 
+def test_explicit_maintenance_migrates_in_avl4_mode_while_request_access_stays_closed(
+    graph, monkeypatch
+):
+    from flowsint_core.core.graph.connection import Neo4jConnection
+    from flowsint_core.core.graph.maintenance import MaintenanceGraphConnection
+    from flowsint_core.core.project_scope import project_scope
+
+    repo, connection = graph
+    old = connection.execute_write(
+        "CREATE (n:socialaccount) SET n = $props RETURN elementId(n) AS id",
+        {"props": {**vk(), "sketch_id": "view-a"}},
+    )[0]["id"]
+    monkeypatch.setenv("FLOWSINT_AUTH_MODE", "avl4")
+    try:
+        with project_scope(None):
+            with pytest.raises(PermissionError, match="Verified project context"):
+                Neo4jConnection.get_instance().query("RETURN 1")
+            operator = MaintenanceGraphConnection(connection.driver)
+            archive = snapshot(operator, repo.scope)
+            mapping = apply_backup(operator, archive)
+            assert repo.get_sketch_graph("view-a")["nodes"][0]["id"] == mapping[old]
+    finally:
+        connection.execute_write(
+            "MATCH (n) WHERE elementId(n) = $id AND NOT n:GraphEntity DETACH DELETE n",
+            {"id": old},
+        )
+
+
 def test_task_json_and_model_copy_keep_unknown_person_identity_across_enrichers(graph):
     import json
 

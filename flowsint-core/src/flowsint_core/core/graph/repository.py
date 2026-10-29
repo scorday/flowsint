@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 from uuid import uuid4
 
-from .connection import Neo4jConnection
+from .connection import GraphConnectionProtocol, Neo4jConnection
 from .identity import (
     RESERVED,
     GraphScope,
@@ -50,7 +50,10 @@ def _identifier(value: Any) -> str:
 
 class Neo4jGraphRepository:
     def __init__(
-        self, neo4j_connection: Neo4jConnection | None = None, *, scope: GraphScope
+        self,
+        neo4j_connection: GraphConnectionProtocol | None = None,
+        *,
+        scope: GraphScope,
     ):
         self._connection = neo4j_connection or Neo4jConnection.get_instance()
         self.scope = scope

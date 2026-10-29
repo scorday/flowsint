@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [flowsint-investigation-graph-20261029] - 2026-10-29 - staging
+## [flowsint-investigation-graph-20261029-r2] - 2026-10-29 - staging
 
 ### Добавлено
 
@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   обработка старой очереди, резервные копии SQL/Neo4j и явная миграция каждого
   расследования. Автоматической миграции нет. Порядок применения, повтора SQL-фазы
   и восстановления ссылок после native restore: `docs/investigation-graph.md`.
+
+## [flowsint-investigation-graph-20261029] - 2026-10-29 - staging
+
+### Действия администратора
+
+- Предварительное применение отменено до изменения графа: одноразовая команда не прошла допуск UID/проектного контекста. Прежние API/worker возобновлены, проверенные SQL/Neo4j backup сохранены. Исправления оператора и readiness входят в повторный выпуск `flowsint-investigation-graph-20261029-r2`.
 
 ## [flowsint-vk-friend-graph-20261028] - 2026-10-28 - staging
 
