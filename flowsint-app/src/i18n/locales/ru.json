@@ -192,6 +192,7 @@
   "Analyze the reputation of an email address (scam, social, etc.).": "Анализ репутации адреса электронной почты.",
   "Analyzing file...": "Анализ файла…",
   "API key": "API-ключ",
+  "API key required": "Требуется API-ключ",
   "API key added successfully!": "API-ключ добавлен!",
   "API key deleted successfully!": "API-ключ удалён!",
   "API key notes": "Пояснения к API-ключу",

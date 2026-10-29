@@ -40,15 +40,14 @@ def chat_key_exists(
     current_user: Profile = Depends(get_current_user),
 ):
     """
-    A simple util route to know if any ai chat key exists in the vault for this user
+    Whether the configured provider has a Vault or server-side API key.
     """
     service = create_key_service(db)
     try:
         key_exists = service.chat_key_exist(current_user.id)
-        return KeyExists(exists=key_exists)
-    except NotFoundError as e:
-        print(e)
-        return KeyExists(exists=False)
+        return KeyExists(exists=key_exists, key_name=service.chat_key_name())
+    except NotFoundError:
+        return KeyExists(exists=False, key_name=service.chat_key_name())
 
 
 @router.get("/{id}", response_model=KeyRead)

@@ -1,53 +1,32 @@
-import os
 from typing import Optional
 
+from .config import get_llm_settings
 from .protocol import LLMProvider
-
-_SUPPORTED_PROVIDERS = ("mistral", "openai")
-
-_DEFAULT_API_KEY_ENV = {
-    "mistral": "MISTRAL_API_KEY",
-    "openai": "OPENAI_API_KEY",
-}
 
 
 def create_llm_provider(
     provider: Optional[str] = None,
     api_key: Optional[str] = None,
     model: Optional[str] = None,
+    base_url: Optional[str] = None,
 ) -> LLMProvider:
-    provider = provider or os.environ.get("LLM_PROVIDER", "mistral")
-
-    if provider not in _SUPPORTED_PROVIDERS:
+    settings = get_llm_settings(provider=provider, model=model, base_url=base_url)
+    api_key = api_key or settings.environment_api_key()
+    if not api_key:
         raise ValueError(
-            f"Unknown LLM provider '{provider}'. "
-            f"Supported: {', '.join(_SUPPORTED_PROVIDERS)}"
+            f"API key not configured. Add {settings.api_key_name} to the Vault "
+            "or configure it on the server."
         )
 
-    if not api_key:
-        env_var = _DEFAULT_API_KEY_ENV[provider]
-        api_key = os.environ.get(env_var)
-        if not api_key:
-            raise ValueError(
-                f"API key not configured. Set {env_var} environment variable "
-                f"or pass api_key argument."
-            )
-
-    model_env = os.environ.get("LLM_MODEL")
-
     kwargs: dict = {"api_key": api_key}
-    if model or model_env:
-        kwargs["model"] = model or model_env
+    if settings.model:
+        kwargs["model"] = settings.model
 
-    if provider == "mistral":
+    if settings.provider == "mistral":
         from .providers.mistral import MistralProvider
 
         return MistralProvider(**kwargs)
 
-    if provider == "openai":
-        from .providers.openai import OpenAIProvider
+    from .providers.openai import OpenAIProvider
 
-        return OpenAIProvider(**kwargs)
-
-    # Unreachable due to the check above, but satisfies type checkers
-    raise ValueError(f"Unknown provider: {provider}")
+    return OpenAIProvider(**kwargs, base_url=settings.base_url)

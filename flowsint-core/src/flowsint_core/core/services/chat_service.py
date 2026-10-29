@@ -3,7 +3,6 @@ Chat service for managing chats and messages with AI integration.
 """
 
 import json
-import os
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -12,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..llm import ChatMessage as LLMChatMessage
 from ..llm import LLMProvider, MessageRole, create_llm_provider
+from ..llm.config import get_llm_settings
 from ..models import Chat, ChatMessage
 from ..project_scope import ActorID
 from ..repositories import ChatRepository
@@ -196,10 +196,9 @@ class ChatService(BaseService):
         return messages
 
     def get_llm_provider(self, owner_id: ActorID) -> LLMProvider:
-        provider_name = os.environ.get("LLM_PROVIDER", "mistral")
-        vault_key = f"{provider_name.upper()}_API_KEY"
-        api_key = self._vault_service.get_secret(owner_id, vault_key)
-        return create_llm_provider(provider=provider_name, api_key=api_key)
+        settings = get_llm_settings()
+        api_key = self._vault_service.get_secret(owner_id, settings.api_key_name)
+        return create_llm_provider(provider=settings.provider, api_key=api_key)
 
     async def stream_response(
         self,

@@ -49,9 +49,52 @@ PDCP_API_KEY # ProjectDiscovery Cloud Platform [ASNMAP], [NAABU] etc
 HIBP_API_KEY # HaveIBeenPwned API key [HIBP]
 ETHERSCAN_API_KEY # Etherscan crypto API key [ETHERSCAN]
 # for Flo, AI assistant
-MISTRAL_API_KEY
-# but other providers will be supported soon (ChatGPT, etc.)
+MISTRAL_API_KEY # default provider
+ROUTERAI_API_KEY # when LLM_PROVIDER=router-ai
+OPENAI_API_KEY # when LLM_PROVIDER=openai
 ```
+
+## AI assistant provider
+
+The chat assistant and AI template generator share server-side LLM settings.
+The environment template and AVL4 staging configuration select RouterAI with
+DeepSeek V4.1 Flash. Without `LLM_PROVIDER`, the library defaults to Mistral
+(`mistral-small-latest`). Add the selected provider's key to the current
+project/user Vault; the chat shows the required key name.
+
+For [RouterAI](https://routerai.ru/docs/guides), configure the API service:
+
+```bash
+LLM_PROVIDER=router-ai
+LLM_MODEL=deepseek/deepseek-v4.1-flash
+```
+
+Add the RouterAI key to the Vault as `ROUTERAI_API_KEY`. RouterAI uses
+`https://routerai.ru/api/v1` and the OpenAI-compatible Chat Completions protocol,
+including streaming. To use GPT-6 Luna instead, set
+`LLM_MODEL=openai/gpt-6-luna`; use the exact model ID from the
+[provider catalog](https://routerai.ru/models). Model selection is server-wide.
+
+For another OpenAI-compatible service, configure:
+
+```bash
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://provider.example/api/v1
+LLM_MODEL=provider-model-id
+```
+
+This uses `OPENAI_API_KEY` in the Vault. Override its name with
+`LLM_API_KEY_NAME` if needed. `OPENAI_BASE_URL` is also supported when
+`LLM_BASE_URL` is unset. Direct OpenAI keeps its existing `gpt-4o-mini` default;
+set `LLM_MODEL` explicitly for third-party endpoints. RouterAI requires an
+explicit model ID.
+
+If the Vault has no key, the server may supply `LLM_API_KEY` or the environment
+variable matching the configured Vault key name. A shared server key enables
+the assistant for all otherwise authorized users/projects. Vault keys take
+precedence. Keep credentials server-side; never put them in frontend settings.
+Restart/redeploy the API service after changing server settings. These examples
+do not change a running deployment.
 
 There are also some other tools that could need a bunch of other API keys like [Subfinder](https://github.com/projectdiscovery/subfinder). Configuring them is not possible for now, but will be soon.
 

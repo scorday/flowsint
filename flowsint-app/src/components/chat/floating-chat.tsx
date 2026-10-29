@@ -38,7 +38,7 @@ function FloatingChat() {
     currentChatId
   } = useChat()
 
-  const { exists: isChatActive } = useIsChatActive()
+  const { exists: isChatActive, keyName } = useIsChatActive()
 
   const isStreaming = status === 'streaming' || status === 'submitted'
 
@@ -246,7 +246,7 @@ function FloatingChat() {
               </Card>
             ) : (
               <Card className="overflow-hidden backdrop-blur! bg-background/90 rounded-2xl gap-0 py-0 h-full">
-                <ChatInactive onClose={closeChat} />
+                <ChatInactive onClose={closeChat} keyName={keyName} />
               </Card>
             )}
           </ResizableChat>

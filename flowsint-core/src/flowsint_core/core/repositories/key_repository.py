@@ -9,8 +9,6 @@ from ..models import Key
 from ..project_scope import ActorID, owner_filter
 from .base import BaseRepository
 
-CHAT_KEY_NAMES = ["MISTRAL_API_KEY"]
-
 
 class KeyRepository(BaseRepository[Key]):
     model = Key
@@ -33,7 +31,9 @@ class KeyRepository(BaseRepository[Key]):
             .first()
         )
 
-    def chat_key_exist(self, owner_id: ActorID) -> bool:
+    def chat_key_exist(
+        self, owner_id: ActorID, key_name: str = "MISTRAL_API_KEY"
+    ) -> bool:
         return self._db.query(
-            exists().where(owner_filter(Key, owner_id), Key.name.in_(CHAT_KEY_NAMES))
+            exists().where(owner_filter(Key, owner_id), Key.name == key_name)
         ).scalar()

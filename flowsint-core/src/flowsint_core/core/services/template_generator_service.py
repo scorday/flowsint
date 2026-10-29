@@ -5,7 +5,6 @@ Uses an LLM to generate valid enricher template YAML from a free-text prompt.
 """
 
 import json
-import os
 import re
 from typing import Any, Dict, Optional
 
@@ -14,7 +13,8 @@ from sqlalchemy.orm import Session
 
 from flowsint_core.templates.types import Template
 
-from ..llm import ChatMessage, MessageRole, create_llm_provider
+from ..llm import ChatMessage, LLMProvider, MessageRole, create_llm_provider
+from ..llm.config import get_llm_settings
 from ..project_scope import ActorID
 from .base import BaseService
 from .exceptions import ValidationError
@@ -159,11 +159,10 @@ class TemplateGeneratorService(BaseService):
         super().__init__(db=db)
         self._vault_service = vault_service
 
-    def _get_llm_provider(self, owner_id: ActorID):
-        provider_name = os.environ.get("LLM_PROVIDER", "mistral")
-        vault_key = f"{provider_name.upper()}_API_KEY"
-        api_key = self._vault_service.get_secret(owner_id, vault_key)
-        return create_llm_provider(provider=provider_name, api_key=api_key)
+    def _get_llm_provider(self, owner_id: ActorID) -> LLMProvider:
+        settings = get_llm_settings()
+        api_key = self._vault_service.get_secret(owner_id, settings.api_key_name)
+        return create_llm_provider(provider=settings.provider, api_key=api_key)
 
     def _build_type_context(
         self,

@@ -20,3 +20,4 @@ class KeyRead(ORMBase):
 
 class KeyExists(BaseModel):
     exists: bool
+    key_name: str = "MISTRAL_API_KEY"

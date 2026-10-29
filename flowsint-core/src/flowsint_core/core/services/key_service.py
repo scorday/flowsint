@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from ..llm.config import get_llm_settings
 from ..models import Key
 from ..project_scope import ActorID
 from ..repositories import KeyRepository
@@ -56,7 +57,13 @@ class keyService(BaseService):
         return self._vault_service.get_secret(user_id, name_or_id)
 
     def chat_key_exist(self, user_id: ActorID) -> bool:
-        return self._key_repo.chat_key_exist(user_id)
+        settings = get_llm_settings()
+        return bool(settings.environment_api_key()) or self._key_repo.chat_key_exist(
+            user_id, settings.api_key_name
+        )
+
+    def chat_key_name(self) -> str:
+        return get_llm_settings().api_key_name
 
 
 def create_key_service(db: Session) -> keyService:

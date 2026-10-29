@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 interface ActiveChatState {
   exists: boolean
+  key_name: string
 }
 
 export const useIsChatActive = () => {
@@ -13,6 +14,7 @@ export const useIsChatActive = () => {
   })
   return {
     exists: status?.exists,
+    keyName: status?.key_name,
     isLoading
   }
 }

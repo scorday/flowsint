@@ -1,4 +1,12 @@
-from typing import AsyncIterator, List
+from typing import TYPE_CHECKING, AsyncIterator, List
+
+if TYPE_CHECKING:
+    from mistralai.models import (
+        AssistantMessage,
+        SystemMessage,
+        ToolMessage,
+        UserMessage,
+    )
 
 from ..types import ChatMessage, MessageRole
 
@@ -16,15 +24,20 @@ class MistralProvider:
         self._client = Mistral(api_key=api_key)
         self._model = model
 
-    def _build_messages(self, messages: List[ChatMessage]):
+    def _build_messages(
+        self, messages: List[ChatMessage]
+    ) -> list["SystemMessage | UserMessage | AssistantMessage | ToolMessage"]:
         from mistralai.models import AssistantMessage, SystemMessage, UserMessage
 
-        type_map = {
-            MessageRole.SYSTEM: SystemMessage,
-            MessageRole.USER: UserMessage,
-            MessageRole.ASSISTANT: AssistantMessage,
-        }
-        return [type_map[m.role](content=m.content) for m in messages]
+        result: list[SystemMessage | UserMessage | AssistantMessage | ToolMessage] = []
+        for message in messages:
+            if message.role == MessageRole.SYSTEM:
+                result.append(SystemMessage(content=message.content))
+            elif message.role == MessageRole.USER:
+                result.append(UserMessage(content=message.content))
+            else:
+                result.append(AssistantMessage(content=message.content))
+        return result
 
     async def stream(self, messages: List[ChatMessage]) -> AsyncIterator[str]:
         sdk_messages = self._build_messages(messages)
@@ -44,4 +57,7 @@ class MistralProvider:
             model=self._model, messages=sdk_messages
         )
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if not isinstance(content, str):
+            raise ValueError("The LLM returned no text response.")
+        return content
