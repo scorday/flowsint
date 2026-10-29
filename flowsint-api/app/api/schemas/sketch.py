@@ -2,17 +2,19 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, Field
 
 from .base import ORMBase
 
 
 class SketchCreate(BaseModel):
     title: str
-    description: str
+    description: str = ""
     owner_id: Optional[UUID4] = None
     investigation_id: UUID4
     status: Optional[str] = "active"
+    node_ids: list[str] = Field(default_factory=list, max_length=10000)
+    edge_ids: list[str] = Field(default_factory=list, max_length=20000)
 
 
 class SketchRead(ORMBase):

@@ -5,6 +5,7 @@ This module provides utilities for serializing complex Python objects
 into Neo4j-compatible primitive types, following the Single Responsibility Principle.
 """
 
+import json
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel, ValidationError
@@ -12,6 +13,7 @@ from pydantic import BaseModel, ValidationError
 from flowsint_core.utils import flatten, unflatten
 from flowsint_types import FlowsintType
 
+from .identity import RESERVED
 from .types import GraphEdge, GraphNode, NodeMetadata
 
 # Callable that resolves a type name to a FlowsintType subclass (or None).
@@ -109,6 +111,8 @@ class GraphSerializer:
         nodeLabel = str(node_dict.get("nodeLabel", node_dict.get("label", "")))
         node_properties = node_dict.get("nodeProperties", {})
         node_metadata = node_dict.get("nodeMetadata", {})
+        if node_dict.get("graph_history"):
+            node_metadata["observations"] = json.loads(node_dict["graph_history"])
 
         node_properties.pop(
             "nodeLabel", None
@@ -117,6 +121,7 @@ class GraphSerializer:
         entity = GraphSerializer.parse_flowsint_type(
             node_properties, node_type, type_resolver=type_resolver
         )
+        entity._graph_uid = node_id
         return GraphNode(
             id=node_id,
             nodeLabel=nodeLabel,
@@ -141,7 +146,7 @@ class GraphSerializer:
             "square" if node_type in ["document", "image", "bankaccount"] else "circle"
         )
         graph_node = GraphNode(
-            id="",
+            id=entity._graph_uid or "",
             nodeColor=None,
             nodeIcon=None,
             nodeImage=None,
@@ -188,6 +193,16 @@ class GraphSerializer:
             source=str(edge_dict.get("source")),
             target=str(edge_dict.get("target")),
             label=str(edge_dict.get("type")),
+            properties={
+                k: v
+                for k, v in edge_dict.get("data", {}).items()
+                if k not in RESERVED | {"graph_edge_key"}
+            },
+            **{
+                k: v
+                for k, v in edge_dict.get("data", {}).items()
+                if k in {"date", "caption", "type", "weight", "confidence_level"}
+            },
         )
 
     @staticmethod
@@ -217,6 +232,22 @@ class GraphSerializer:
             "to_type": to_type,
             "to_label": to_obj.nodeLabel,
             "rel_label": label,
+            "from_id": from_obj._graph_uid
+            if isinstance(from_obj, FlowsintType)
+            else from_obj.id,
+            "to_id": to_obj._graph_uid
+            if isinstance(to_obj, FlowsintType)
+            else to_obj.id,
+            "from_properties": (
+                GraphSerializer.flowsint_type_to_neo4j_dict(from_obj)
+                if isinstance(from_obj, FlowsintType)
+                else GraphSerializer.graph_node_to_neo4j_dict(from_obj)
+            ),
+            "to_properties": (
+                GraphSerializer.flowsint_type_to_neo4j_dict(to_obj)
+                if isinstance(to_obj, FlowsintType)
+                else GraphSerializer.graph_node_to_neo4j_dict(to_obj)
+            ),
         }
 
     @staticmethod

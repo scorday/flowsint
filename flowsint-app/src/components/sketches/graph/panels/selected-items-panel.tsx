@@ -1,7 +1,7 @@
 import { useTranslation } from '@/i18n'
 import React, { memo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Trash2, Sparkles, XIcon, Rocket } from 'lucide-react'
+import { Trash2, Sparkles, XIcon, Rocket, Unlink } from 'lucide-react'
 import { useGraphStore } from '@/stores/graph-store'
 import { useConfirm } from '@/components/use-confirm-dialog'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { TypeBadge } from '@/components/type-badge'
 import { useParams } from '@tanstack/react-router'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { usePermissions } from '@/hooks/use-can'
+import { useQueryClient } from '@tanstack/react-query'
 
 const SelectedItemsPanel = () => {
   const { t } = useTranslation()
@@ -89,8 +90,9 @@ export const SelectedList = () => {
 const ActionBar = () => {
   const { t } = useTranslation()
 
-  const { id: sketchId } = useParams({ strict: false })
-  const { canEdit } = usePermissions()
+  const { id: sketchId, investigationId } = useParams({ strict: false })
+  const { canEdit, canDelete } = usePermissions()
+  const queryClient = useQueryClient()
   const { confirm } = useConfirm()
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
   const removeNodes = useGraphStore((s) => s.removeNodes)
@@ -108,34 +110,52 @@ const ActionBar = () => {
   )
 
   // Delete node
-  const handleDeleteNodes = useCallback(async () => {
-    if (!selectedNodes.length || !sketchId) return
-    if (
-      !(await confirm({
-        title: t('You are about to delete {{v0}} node(s).', { v0: selectedNodes.length }),
-        message: t('The action is irreversible.')
-      }))
-    )
-      return
+  const handleDeleteNodes = useCallback(
+    async (fromInvestigation = false) => {
+      if (!selectedNodes.length || !sketchId) return
+      if (
+        !(await confirm({
+          title: fromInvestigation
+            ? t('Delete selected objects from investigation?')
+            : t('Remove selected objects from sketch?'),
+          message: fromInvestigation
+            ? t(
+                'The selected objects and their relations will disappear from every sketch in this investigation.'
+              )
+            : t('The objects remain in the investigation and on other sketches.')
+        }))
+      )
+        return
 
-    toast.promise(
-      (async () => {
-        removeNodes(selectedNodes.map((n) => n.id))
-        clearSelectedNodes()
-        return sketchService.deleteNodes(
-          sketchId as string,
-          JSON.stringify({ nodeIds: selectedNodes.map((n) => n.id) })
-        )
-      })(),
-      {
-        loading: t('Deleting {{v0}} node(s)...', { v0: selectedNodes.length }),
-        success: t('Nodes deleted successfully.'),
-        error: t('Failed to delete selected nodes.')
-      }
-    )
-  }, [selectedNodes, confirm, removeNodes, clearSelectedNodes, sketchId, t])
+      toast.promise(
+        (async () => {
+          const ids = selectedNodes.map((n) => n.id)
+          if (fromInvestigation) await sketchService.deleteFromInvestigation(sketchId, ids, [])
+          else await sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: ids }))
+          removeNodes(ids)
+          clearSelectedNodes()
+          await queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
+        })(),
+        {
+          loading: t('Deleting {{v0}} node(s)...', { v0: selectedNodes.length }),
+          success: fromInvestigation ? t('Deleted from investigation.') : t('Removed from sketch.'),
+          error: t('Failed to delete selected nodes.')
+        }
+      )
+    },
+    [
+      selectedNodes,
+      confirm,
+      removeNodes,
+      clearSelectedNodes,
+      sketchId,
+      t,
+      queryClient,
+      investigationId
+    ]
+  )
 
-  const type = selectedNodes[0].nodeType
+  const type = selectedNodes[0]?.nodeType ?? ''
   const isSametype = (node: GraphNode) => node.nodeType === type
   const shareSameType = selectedNodes.every(isSametype)
   const values = !shareSameType ? [] : selectedNodes.map((node: GraphNode) => node.id)
@@ -162,6 +182,19 @@ const ActionBar = () => {
             </TooltipContent>
           </Tooltip>
         )}
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-destructive"
+            disabled={!selectedNodes.length}
+            title={t('Delete from investigation')}
+            aria-label={t('Delete from investigation')}
+            onClick={() => handleDeleteNodes(true)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
         {canEdit && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -171,9 +204,10 @@ const ActionBar = () => {
                   size="sm"
                   disabled={selectedNodes.length === 0}
                   className="h-6 w-6 p-0 relative text-destructive hover:text-destructive"
-                  onClick={handleDeleteNodes}
+                  aria-label={t('Remove from sketch')}
+                  onClick={() => handleDeleteNodes(false)}
                 >
-                  <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                  <Unlink className="h-3 w-3" strokeWidth={1.5} />
                   {selectedNodes.length > 0 && (
                     <span className="absolute -top-2 -right-2 z-50 bg-primary text-white text-[10px] rounded-full w-auto min-w-4.5 h-4.5 p-1 flex items-center justify-center">
                       {selectedNodes.length}
@@ -183,10 +217,7 @@ const ActionBar = () => {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>
-                {t('Delete ')}
-                {selectedNodes.length} {t(' nodes')}
-              </p>
+              <p>{t('Remove from sketch')}</p>
             </TooltipContent>
           </Tooltip>
         )}

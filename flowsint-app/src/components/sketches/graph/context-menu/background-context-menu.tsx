@@ -150,24 +150,22 @@ export default function BackgroundContextMenu({
     if (!selectedNodes.length || !sketchId) return
     if (
       !(await confirm({
-        title: t('You are about to delete {{v0}} node(s).', { v0: selectedNodes.length }),
-        message: t('The action is irreversible.')
+        title: t('Remove selected objects from sketch?'),
+        message: t('The objects remain in the investigation and on other sketches.')
       }))
     )
       return
 
     toast.promise(
       (async () => {
-        removeNodes(selectedNodes.map((n) => n.id))
+        const ids = selectedNodes.map((n) => n.id)
+        await sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: ids }))
+        removeNodes(ids)
         clearSelectedNodes()
-        return sketchService.deleteNodes(
-          sketchId as string,
-          JSON.stringify({ nodeIds: selectedNodes.map((n) => n.id) })
-        )
       })(),
       {
         loading: t('Deleting {{v0}} node(s)...', { v0: selectedNodes.length }),
-        success: t('Nodes deleted successfully.'),
+        success: t('Removed from sketch.'),
         error: t('Failed to delete selected nodes.')
       }
     )
@@ -207,14 +205,14 @@ export default function BackgroundContextMenu({
                         className="h-6 p-0 hover:bg-muted opacity-70 hover:opacity-100 text-destructive hover:text-destructive"
                         onClick={handleDeleteNodes}
                       >
-                        <Trash2 className="h-3 w-3" strokeWidth={1.5} /> {t(' Delete')}{' '}
+                        <Trash2 className="h-3 w-3" strokeWidth={1.5} /> {t('Remove from sketch')}{' '}
                         {selectedNodeIds.length}
                       </Button>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>
-                      {t('Delete ')}
+                      {t('Remove from sketch')}
                       {selectedNodeIds.length} {t(' node(s)')}
                     </p>
                   </TooltipContent>

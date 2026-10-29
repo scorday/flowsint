@@ -39,6 +39,26 @@ export const sketchService = {
     })
   },
   getGraphDataById,
+  getInvestigationGraph: async (sketchId: string): Promise<SketchGraphData> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/investigation-graph`, { method: 'GET' }),
+  attachSubgraph: async (
+    sketchId: string,
+    nodeIds: string[],
+    edgeIds: string[]
+  ): Promise<unknown> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/subgraph`, {
+      method: 'POST',
+      body: JSON.stringify({ node_ids: nodeIds, edge_ids: edgeIds })
+    }),
+  deleteFromInvestigation: async (
+    sketchId: string,
+    nodeIds: string[],
+    edgeIds: string[]
+  ): Promise<unknown> =>
+    fetchWithAuth(`/api/sketches/${sketchId}/investigation-elements`, {
+      method: 'DELETE',
+      body: JSON.stringify({ node_ids: nodeIds, edge_ids: edgeIds })
+    }),
   // Backend returns the created sketch on success, or an { error } payload
   // instead of a 4xx/5xx status on failure — callers branch on `id`.
   create: async (body: BodyInit): Promise<Sketch | { error: string }> => {

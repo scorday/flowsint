@@ -5,10 +5,11 @@ This module provides a service layer for import operations,
 handling file parsing, entity conversion, and batch creation.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from flowsint_core.core.graph import GraphSerializer, GraphService
+from flowsint_core.core.graph.identity import PRESENTATION
 from flowsint_core.core.graph.serializer import TypeResolver
 from flowsint_types import FlowsintType
 
@@ -23,6 +24,8 @@ class EntityMapping:
     data: Dict[str, Any]
     include: bool = True
     node_id: Optional[str] = None
+    presentation: Dict[str, Any] = field(default_factory=dict)
+    graph_uid: Optional[str] = None
 
 
 @dataclass
@@ -124,6 +127,12 @@ class ImportService:
         # Batch create nodes
         try:
             nodes = GraphSerializer.serialize_flowsint_types(pydantic_nodes)
+            for node, presentation in zip(
+                nodes, conversion_result["presentations"], strict=True
+            ):
+                node.update(
+                    {k: v for k, v in presentation.items() if k in PRESENTATION}
+                )
             nodes_result = self._graph_service.batch_create_nodes(nodes=nodes)
             nodes_created = nodes_result["nodes_created"]
             node_element_ids = nodes_result.get("node_ids", [])
@@ -165,6 +174,7 @@ class ImportService:
         pydantic_nodes: List[FlowsintType] = []
         nodes_mapping_indices: Dict[str, int] = {}
         errors: List[str] = []
+        presentations: List[Dict[str, Any]] = []
 
         for idx, mapping in enumerate(entities):
             entity_data = mapping.data.copy()
@@ -176,6 +186,9 @@ class ImportService:
                     type_resolver=self._type_resolver,
                 )
                 pydantic_nodes.append(pydantic_obj)
+                pydantic_obj._graph_uid = mapping.graph_uid
+                pydantic_obj.nodeLabel = mapping.nodeLabel
+                presentations.append(mapping.presentation)
 
                 if mapping.node_id:
                     nodes_mapping_indices[mapping.node_id] = len(pydantic_nodes) - 1
@@ -189,6 +202,7 @@ class ImportService:
             "nodes": pydantic_nodes,
             "mapping_indices": nodes_mapping_indices,
             "errors": errors,
+            "presentations": presentations,
         }
 
     def _create_edges(
@@ -228,6 +242,7 @@ class ImportService:
                     "from_element_id": node_element_ids[from_idx],
                     "to_element_id": node_element_ids[to_idx],
                     "rel_label": edge.get("label", "RELATED_TO"),
+                    "properties": edge.get("properties", {}),
                 }
             )
 

@@ -194,6 +194,9 @@ async def test_details_enriches_each_input_identity_for_same_aircraft(mock_api):
 async def test_details_repeated_lookup_keeps_original_graph_identity(mock_api):
     mock_api(lambda request: httpx.Response(200, json=registry_record()))
     repository = MagicMock()
+    repository.create_node.side_effect = lambda *, node_obj, sketch_id: (
+        node_obj.get("id") or f"{node_obj['nodeType']}:{node_obj['nodeLabel']}"
+    )
     graph = GraphService(sketch_id="s", repository=repository)
     original = Aircraft(identifier="G-EUUU", notes="Keep my notes")
     graph.create_node_from_flowsint_type(original)
@@ -244,6 +247,9 @@ async def test_position_links_original_aircraft_and_preserves_metadata(
 ):
     requests = mock_api(lambda request: httpx.Response(200, json=envelope(record())))
     repository = MagicMock()
+    repository.create_node.side_effect = lambda *, node_obj, sketch_id: (
+        node_obj.get("id") or f"{node_obj['nodeType']}:{node_obj['nodeLabel']}"
+    )
     graph = GraphService(sketch_id="s", repository=repository)
     original = Aircraft(
         identifier=identifier,
@@ -596,6 +602,9 @@ async def test_retry_after_http_date_and_safe_error_messages():
 
 def test_graph_serialization_preserves_details_and_distinct_observations():
     repository = MagicMock()
+    repository.create_node.side_effect = lambda *, node_obj, sketch_id: (
+        node_obj.get("id") or f"{node_obj['nodeType']}:{node_obj['nodeLabel']}"
+    )
     graph = GraphService(sketch_id="s", repository=repository)
     job = AircraftToPositionEnricher(graph_service=graph)
     positions = job.positions(envelope(record()), "https://api.adsb.lol/v2/hex/400942")

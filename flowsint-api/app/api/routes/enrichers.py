@@ -130,9 +130,7 @@ async def launch_enricher(
         entities = graph_service.get_nodes_by_ids_for_task(payload.node_ids)
 
         # Send deserialized nodes
-        entities = [
-            entity.model_dump(mode="json", serialize_as_any=True) for entity in entities
-        ]
+        entities = [entity.task_dump() for entity in entities]
         if not entities:
             raise HTTPException(
                 status_code=404, detail="No entities found with provided IDs"

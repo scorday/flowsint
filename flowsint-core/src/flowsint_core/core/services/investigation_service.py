@@ -8,7 +8,6 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from ..graph import create_graph_service
 from ..models import Investigation, InvestigationUserRole, Sketch
 from ..project_scope import ActorID, current_scope
 from ..repositories import (
@@ -130,17 +129,24 @@ class InvestigationService(BaseService):
         sketches = self._sketch_repo.get_by_investigation(investigation_id)
         analyses = self._analysis_repo.get_by_investigation(investigation_id)
 
-        # Delete all nodes and relationships for each sketch in Neo4j
-        for sketch in sketches:
-            try:
-                graph_service = create_graph_service(
-                    sketch_id=str(sketch.id),
-                    enable_batching=False,
+        # Hidden entities also belong to the investigation. Removing its views
+        # alone would leave canonical data behind.
+        from ..graph.identity import GraphScope
+        from ..graph.repository import Neo4jGraphRepository
+
+        try:
+            repository = Neo4jGraphRepository(
+                scope=GraphScope(
+                    investigation.project_id,
+                    str(investigation_id),
+                    tuple(str(s.id) for s in sketches),
                 )
-                graph_service.delete_all_sketch_nodes()
-            except Exception as e:
-                print(f"Neo4j cleanup error for sketch {sketch.id}: {e}")
-                raise DatabaseError("Failed to clean up graph data")
+            )
+            repository.delete_investigation_graph(
+                str(sketches[0].id) if sketches else ""
+            )
+        except Exception as exc:
+            raise DatabaseError("Failed to clean up investigation graph") from exc
 
         for sketch in sketches:
             self._sketch_repo.delete(sketch)

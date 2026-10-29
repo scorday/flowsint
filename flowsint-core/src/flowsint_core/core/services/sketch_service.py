@@ -60,12 +60,17 @@ class SketchService(BaseService):
         """Get a sketch by ID with permission check."""
         return self._get_sketch_with_permission(sketch_id, user_id, ["read"])
 
+    def get_for_update(self, sketch_id: UUID, user_id: ActorID) -> Sketch:
+        return self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+
     def create(
         self,
         title: str,
         description: Optional[str],
         investigation_id: UUID,
         owner_id: ActorID,
+        node_ids: Optional[List[str]] = None,
+        edge_ids: Optional[List[str]] = None,
     ) -> Sketch:
         if not investigation_id:
             raise ValidationError("Investigation not found")
@@ -74,12 +79,34 @@ class SketchService(BaseService):
 
         sketch = Sketch(
             title=title,
-            description=description,
+            description=description or "",
             investigation_id=investigation_id,
             owner_id=owner_id,
         )
         self._sketch_repo.add(sketch)
-        self._commit()
+        graph = None
+        attached = False
+        try:
+            if node_ids or edge_ids:
+                self._flush()
+                graph = create_graph_service(
+                    str(sketch.id), enable_batching=False, db=self.db
+                )
+                graph.attach_subgraph(node_ids or [], edge_ids or [])
+                attached = True
+            self._commit()
+        except Exception as exc:
+            self._rollback()
+            if attached and graph is not None:
+                try:
+                    graph.delete_all_sketch_nodes()
+                except Exception as cleanup_error:
+                    raise DatabaseError(
+                        "Sketch creation failed; graph view cleanup is required"
+                    ) from cleanup_error
+            if isinstance(exc, ValueError):
+                raise ValidationError(str(exc)) from exc
+            raise
         self._refresh(sketch)
         return sketch
 
@@ -87,6 +114,11 @@ class SketchService(BaseService):
         self, sketch_id: UUID, user_id: ActorID, updates: Dict[str, Any]
     ) -> Sketch:
         sketch = self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+
+        if updates.get("investigation_id") not in (None, sketch.investigation_id):
+            raise ValidationError(
+                "A graph view cannot be moved to another investigation"
+            )
 
         for key, value in updates.items():
             if hasattr(sketch, key):
@@ -112,6 +144,48 @@ class SketchService(BaseService):
         self._commit()
 
     # --- Graph operations ---
+
+    def investigation_graph(self, sketch_id: UUID, user_id: ActorID) -> Dict[str, Any]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["read"])
+        resolver = (
+            self._type_registry.build_type_resolver(user_id)
+            if self._type_registry
+            else None
+        )
+        graph = create_graph_service(
+            str(sketch_id), type_resolver=resolver
+        ).get_investigation_graph()
+        data = graph.model_dump(mode="json", serialize_as_any=True)
+        return {"nds": data["nodes"], "rls": data["edges"]}
+
+    def attach_subgraph(
+        self,
+        sketch_id: UUID,
+        user_id: ActorID,
+        node_ids: List[str],
+        edge_ids: List[str],
+    ) -> Dict[str, str]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["update"])
+        try:
+            create_graph_service(str(sketch_id), enable_batching=False).attach_subgraph(
+                node_ids, edge_ids
+            )
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        return {"status": "subgraph attached"}
+
+    def delete_from_investigation(
+        self,
+        sketch_id: UUID,
+        user_id: ActorID,
+        node_ids: List[str],
+        edge_ids: List[str],
+    ) -> Dict[str, str]:
+        self._get_sketch_with_permission(sketch_id, user_id, ["delete"])
+        create_graph_service(
+            str(sketch_id), enable_batching=False
+        ).delete_from_investigation(node_ids, edge_ids)
+        return {"status": "deleted from investigation"}
 
     # format="inline" returns a flat list of {source, edge, target} dicts
     # instead of the default {nds, rls}-shaped graph — same distinction the
@@ -309,8 +383,8 @@ class SketchService(BaseService):
 
         node_type = node_data.get("type", "Node")
         properties = {
-            "type": node_type.lower(),
-            "label": node_data.get("label", "Merged Node"),
+            "nodeType": node_type.lower(),
+            "nodeLabel": node_data.get("label", "Merged Node"),
         }
         flattened_data = flatten(node_data)
         properties.update(flattened_data)
@@ -386,7 +460,10 @@ class SketchService(BaseService):
                     "title": sketch.title,
                     "description": sketch.description,
                 },
-                "nodes": [node.model_dump(mode="json") for node in graph_data.nodes],
+                "nodes": [
+                    node.model_dump(mode="json", serialize_as_any=True)
+                    for node in graph_data.nodes
+                ],
                 "edges": [edge.model_dump(mode="json") for edge in graph_data.edges],
             }
         else:

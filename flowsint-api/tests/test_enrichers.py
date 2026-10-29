@@ -82,7 +82,7 @@ def test_template_enricher_without_secrets_reports_no_params(client, db_session)
 def sent_task(monkeypatch):
     """Stub out Neo4j and the broker, capture what send_task was handed."""
     entity = MagicMock()
-    entity.model_dump.return_value = {"address": "8.8.8.8"}
+    entity.task_dump.return_value = {"address": "8.8.8.8", "_graph_uid": "canonical-ip"}
     graph_service = MagicMock()
     graph_service.get_nodes_by_ids_for_task.return_value = [entity]
     monkeypatch.setattr(
@@ -175,7 +175,7 @@ def test_launch_keeps_the_positional_args_unchanged(client, db_session, sent_tas
 
     enricher_name, entities, sent_sketch_id, owner_id = sent_task["args"]
     assert enricher_name == "some_enricher"
-    assert entities == [{"address": "8.8.8.8"}]
+    assert entities == [{"address": "8.8.8.8", "_graph_uid": "canonical-ip"}]
     assert sent_sketch_id == sketch_id
     assert uuid.UUID(owner_id)
 

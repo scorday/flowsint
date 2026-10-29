@@ -315,6 +315,10 @@ def to_json_serializable(obj: Any) -> Any:
     except (TypeError, ValueError):
         # Handle common cases
         if isinstance(obj, BaseModel):
+            from flowsint_types import FlowsintType
+
+            if isinstance(obj, FlowsintType):
+                return obj.task_dump()
             # Use mode='json' to ensure all Pydantic types are properly serialized
             return (
                 obj.model_dump(mode="json")

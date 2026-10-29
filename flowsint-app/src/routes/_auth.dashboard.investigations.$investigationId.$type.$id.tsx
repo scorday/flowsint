@@ -39,7 +39,8 @@ const GraphPageContent = () => {
     queryFn: () => services[type](id),
     enabled: ['graph', 'analysis'].includes(type),
     // refetchInterval: 5000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
     initialData: sketch
   })
 

@@ -207,57 +207,70 @@ def test_project_members_can_import_without_local_users(setup_import):
 
 
 def test_projection_requires_constraint_and_uses_id_not_title(setup_import):
-    service, _, inv, sketch = setup_import
+    from unittest.mock import patch
+
+    from flowsint_core.core.graph.identity import GraphScope
+
+    _, _, inv, sketch = setup_import
     connection = MagicMock()
-    connection.query.return_value = [{"total": 0}]
+    connection.query.return_value = []
     projection = Neo4jMaterialProjection(connection)
     material = Avl4Material(
         material_key="a" * 64,
+        investigation_id=inv,
         sketch_id=sketch,
         project_id="project-a",
         snapshot=command(inv, sketch).snapshot.model_dump(mode="json"),
         snapshot_hash="b" * 64,
         revision=1,
     )
-    with pytest.raises(RuntimeError, match="constraint"):
+    with pytest.raises(RuntimeError, match="schema"):
         projection.project(material)
-    connection.execute_write.assert_not_called()
-    connection.query.return_value = [{"total": 1}]
-    connection.execute_write.return_value = [{"id": "node"}]
-    assert projection.project(material) == "node"
-    query, params = connection.execute_write.call_args.args
-    assert "avl4_import_key: $key" in query
-    assert "MERGE (n:avl4_card" in query
-    assert "nodeLabel:" not in query
-    assert params["props"]["nodeLabel"] == "Same title"
-    assert params["props"]["nodeType"] == "avl4_card"
-    parsed = GraphSerializer.neo4j_dict_to_graph_node(
-        {
-            "id": "node",
-            "data": {
-                **params["props"],
-                "nodeMetadata.created_at": "2026-10-16T00:00:00Z",
-            },
-        }
-    )
-    assert parsed.nodeProperties.card_id == "card-a"
-    assert parsed.nodeType == "avl4_card"
-    assert (
-        GraphSerializer.flowsint_type_to_neo4j_dict(parsed.nodeProperties)["nodeType"]
-        == "avl4_card"
-    )
-    assert parsed.nodeLabel == "Same title"
+    connection.run_transaction.assert_not_called()
+    with (
+        patch(
+            "flowsint_core.avl4_import.graph.resolve_graph_scope",
+            return_value=GraphScope("project-a", str(inv)),
+        ),
+        patch("flowsint_core.avl4_import.graph.require_schema"),
+        patch("flowsint_core.avl4_import.graph.Neo4jGraphRepository") as repository,
+    ):
+        repository.return_value.project_material.return_value = "node"
+        assert projection.project(material) == "node"
+        repository.assert_called_once_with(
+            connection, scope=GraphScope("project-a", str(inv))
+        )
+        props, view = repository.return_value.project_material.call_args.args
+        assert view == str(sketch)
+        assert props["avl4_import_key"] != material.material_key
+        parsed = GraphSerializer.neo4j_dict_to_graph_node({"id": "node", "data": props})
+        assert parsed.nodeProperties.card_id == "card-a"
+        assert parsed.nodeLabel == "Same title"
+        assert parsed.nodeType == "avl4_card"
 
 
 def test_generic_graph_writes_cannot_forge_or_edit_imports():
+    from unittest.mock import patch
+
+    from flowsint_core.core.graph.identity import GraphScope
+
     connection = MagicMock()
-    graph = Neo4jGraphRepository(connection)
+    with patch("flowsint_core.core.graph.repository.require_schema"):
+        graph = Neo4jGraphRepository(
+            connection, scope=GraphScope("project", "investigation")
+        )
     with pytest.raises(ValueError):
         graph.create_node({"nodeType": "avl4_card", "nodeLabel": "fake"}, "sketch")
-    graph.update_node("node", {"title": "edit", "avl4_import_key": "forged"}, "sketch")
-    query, params = connection.query.call_args.args
-    assert "NOT n:avl4_card" in query
-    assert "avl4_import_key" not in params["props"]
+    tx = MagicMock()
+    tx.run.return_value.single.return_value = {"total": 0}
+    connection.run_transaction.side_effect = lambda operation: operation(tx)
+    with patch.object(
+        graph, "_find", return_value={"uid": "node", "nodeType": "avl4_card"}
+    ):
+        with pytest.raises(ValueError, match="card import"):
+            graph.update_node(
+                "node", {"nodeLabel": "edit", "avl4_import_key": "forged"}, "sketch"
+            )
 
 
 def test_revocation_after_durable_intent_prevents_graph_write(

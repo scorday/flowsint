@@ -7,7 +7,7 @@ connection pooling and transaction management.
 
 import os
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from dotenv import load_dotenv
 from neo4j import Driver, GraphDatabase
@@ -15,6 +15,8 @@ from neo4j import Driver, GraphDatabase
 from ..project_scope import revalidate_worker_scope
 
 load_dotenv()
+
+T = TypeVar("T")
 
 
 class Neo4jConnection:
@@ -168,6 +170,12 @@ class Neo4jConnection:
 
         with self._driver.session() as session:
             return session.execute_write(_execute_batch)
+
+    def run_transaction(self, operation: Callable[[Any], T]) -> T:
+        """Run identity resolution and graph writes atomically, with retries."""
+        revalidate_worker_scope()
+        with self._driver.session() as session:
+            return session.execute_write(operation)
 
     def close(self) -> None:
         """Close the driver connection."""

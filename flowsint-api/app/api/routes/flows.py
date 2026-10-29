@@ -246,9 +246,7 @@ async def launch_flow(
         nodes = [FlowNode(**node) for node in flow.flow_schema["nodes"]]
         edges = [FlowEdge(**edge) for edge in flow.flow_schema["edges"]]
 
-        entities = [
-            entity.model_dump(mode="json", serialize_as_any=True) for entity in entities
-        ]
+        entities = [entity.task_dump() for entity in entities]
 
         sample_value = (
             entities[0].get("nodeLabel", "sample_value")

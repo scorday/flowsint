@@ -77,6 +77,20 @@ class GraphRepositoryProtocol(Protocol):
         ...
 
     # Graph queries
+    def get_investigation_graph(
+        self, limit: int = 100000
+    ) -> Dict[str, List[Dict[str, Any]]]: ...
+
+    def attach_subgraph(
+        self, node_ids: List[str], edge_ids: List[str], sketch_id: str
+    ) -> None: ...
+
+    def delete_from_investigation(
+        self, node_ids: List[str], edge_ids: List[str], sketch_id: str
+    ) -> None: ...
+
+    def delete_investigation_graph(self, sketch_id: str) -> None: ...
+
     def get_sketch_graph(
         self, sketch_id: str, limit: int = 100000
     ) -> Dict[str, List[Dict[str, Any]]]:

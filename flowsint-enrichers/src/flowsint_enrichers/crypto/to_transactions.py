@@ -192,51 +192,27 @@ class CryptoWalletAddressToTransactions(Enricher):
 
         for transactions in results:
             for tx in transactions:
-                # Create or update both wallet nodes
-                self.create_node(tx.source)
-                self.create_node(tx.target.address)
-                # Create transaction as an edge between wallets (keeping complex query for transaction properties)
-                tx_query = """
-                MATCH (source:cryptowallet {wallet: $source})
-                MATCH (target:cryptowallet {wallet: $target})
-                MERGE (source)-[tx:TRANSACTION {hash: $hash}]->(target)
-                SET tx.value = $value,
-                    tx.timestamp = $timestamp,
-                    tx.block_number = $block_number,
-                    tx.block_hash = $block_hash,
-                    tx.nonce = $nonce,
-                    tx.transaction_index = $transaction_index,
-                    tx.gas = $gas,
-                    tx.gas_price = $gas_price,
-                    tx.gas_used = $gas_used,
-                    tx.cumulative_gas_used = $cumulative_gas_used,
-                    tx.input = $input,
-                    tx.contract_address = $contract_address,
-                    tx.sketch_id = $sketch_id,
-                    tx.label = $hash,
-                    tx.caption = $hash,
-                    tx.type = "transaction"
-                """
-                self._graph_service.query(
-                    tx_query,
-                    {
-                        "hash": tx.hash,
-                        "source": tx.source.address,
-                        "target": tx.target.address,
-                        "value": tx.value,
-                        "timestamp": tx.timestamp,
-                        "block_number": tx.block_number,
-                        "block_hash": tx.block_hash,
-                        "nonce": tx.nonce,
-                        "transaction_index": tx.transaction_index,
-                        "gas": tx.gas,
-                        "gas_price": tx.gas_price,
-                        "gas_used": tx.gas_used,
-                        "cumulative_gas_used": tx.cumulative_gas_used,
-                        "input": tx.input,
-                        "contract_address": tx.contract_address,
-                        "sketch_id": self.sketch_id,
-                    },
+                if tx.target is None:
+                    continue
+                source = self._graph_service.create_node_from_flowsint_type(tx.source)
+                target = self._graph_service.create_node_from_flowsint_type(tx.target)
+                properties = tx.model_dump(
+                    mode="json",
+                    exclude={"source", "target", "nodeLabel"},
+                    exclude_none=True,
+                )
+                properties.update(
+                    {"event_key": tx.hash, "caption": tx.hash, "type": "transaction"}
+                )
+                self._graph_service.batch_create_edges_by_element_id(
+                    [
+                        {
+                            "from_element_id": source,
+                            "to_element_id": target,
+                            "rel_label": "TRANSACTION",
+                            "properties": properties,
+                        }
+                    ]
                 )
 
                 timestamp_str = (

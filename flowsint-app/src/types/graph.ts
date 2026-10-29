@@ -64,6 +64,7 @@ export type GraphNode = {
 }
 
 export type GraphEdge = {
+  properties?: Record<string, unknown>
   source: GraphNode['id']
   target: GraphNode['id']
   date?: string

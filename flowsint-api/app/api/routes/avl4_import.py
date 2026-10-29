@@ -60,8 +60,8 @@ async def verified_command(request: Request) -> CardImportCommand:
         raise HTTPException(422, "INVALID_CARD_IMPORT") from None
 
 
-def get_import_graph() -> Neo4jMaterialProjection:
-    return Neo4jMaterialProjection()
+def get_import_graph(db: Session = Depends(get_db)) -> Neo4jMaterialProjection:
+    return Neo4jMaterialProjection(db=db)
 
 
 def apply_command(

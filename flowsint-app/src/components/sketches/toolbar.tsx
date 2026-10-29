@@ -43,6 +43,8 @@ import { useParams } from '@tanstack/react-router'
 import { exportToPNG } from './graph/utils/export-to-png'
 import { PathFinder } from './graph/actions/path-finder'
 import { NeighborhoodRootStatus } from './neighborhood-root-controls'
+import { InvestigationObjects } from './investigation-objects'
+import NewSketch from './new-sketch'
 
 // Tooltip wrapper component to avoid repetition
 export const ToolbarButton = memo(function ToolbarButton({
@@ -130,6 +132,7 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
   const selectionMode = useGraphControls((s) => s.selectionMode)
   const setSelectionMode = useGraphControls((s) => s.setSelectionMode)
   const selectedNodes = useGraphStore((s) => s.selectedNodes)
+  const edges = useGraphStore((s) => s.edges)
   const currentNodeId = useGraphStore((s) => s.currentNodeId)
   const highlightSelectionLinks = useGraphControls((s) => s.highlightSelectionLinks)
   const setHighlightSelectionLinks = useGraphControls((s) => s.setHighlightSelectionLinks)
@@ -421,6 +424,25 @@ export const Toolbar = memo(function Toolbar({ isLoading }: { isLoading: boolean
 
       {/* Top right: Status, Export, Reload */}
       <FloatingBar className="top-3 right-3">
+        {canEdit && <InvestigationObjects />}
+        {canEdit && selectedNodes.length > 0 && (
+          <NewSketch
+            selection={{
+              nodeIds: selectedNodes.map((n) => n.id),
+              edgeIds: edges
+                .filter(
+                  (e) =>
+                    selectedNodes.some((n) => n.id === e.source) &&
+                    selectedNodes.some((n) => n.id === e.target)
+                )
+                .map((e) => e.id)
+            }}
+          >
+            <Button variant="ghost" size="sm" className="h-7">
+              {t('Sketch from selection')}
+            </Button>
+          </NewSketch>
+        )}
         <SaveStatusIndicator />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

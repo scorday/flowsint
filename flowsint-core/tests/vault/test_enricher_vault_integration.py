@@ -74,6 +74,7 @@ def sketch_id():
 def enricher(mock_vault, sketch_id):
     """Create a MockEnricher instance with vault."""
     return MockEnricher(
+        graph_service=Mock(),
         sketch_id=sketch_id,
         scan_id="scan_123",
         vault=mock_vault,
@@ -116,6 +117,7 @@ class TestResolveParams:
 
         # Create enricher with vault ID in params
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=mock_vault,
@@ -152,6 +154,7 @@ class TestResolveParams:
 
         # Create enricher with vault ID in params
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=mock_vault,
@@ -200,6 +203,7 @@ class TestResolveParams:
     async def test_resolve_non_vault_param_from_params(self, mock_vault, sketch_id):
         """Test that non-vault params are taken from params."""
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=mock_vault,
@@ -226,6 +230,7 @@ class TestResolveParams:
     def test_resolve_params_no_vault_instance(self, sketch_id):
         """Test that resolve_params works without vault (uses defaults for optional params)."""
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=None,  # No vault
@@ -269,6 +274,7 @@ class TestGetSecret:
         mock_vault.get_secret.return_value = "test-api-key"
 
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=mock_vault,
@@ -292,6 +298,7 @@ class TestGetSecret:
         mock_vault.get_secret.return_value = "test-api-key"
 
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=mock_vault,
@@ -333,6 +340,7 @@ class TestAsyncInit:
     async def test_async_init_always_runs_resolve_params(self, sketch_id, mock_vault):
         """Test that async_init runs resolve_params even with empty params."""
         enricher = MockEnricher(
+            graph_service=Mock(),
             sketch_id=sketch_id,
             scan_id="scan_123",
             vault=mock_vault,
@@ -394,6 +402,7 @@ class TestEnricherExecuteWithVault:
                 return [f"{item}_{api_key}" for item in data]
 
         enricher = SecretUsingEnricher(
+            graph_service=Mock(),
             sketch_id=str(uuid.uuid4()),
             scan_id="scan_123",
             vault=mock_vault,

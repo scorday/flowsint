@@ -257,6 +257,9 @@ async def test_history_execute_reads_gzip_and_preserves_graph_metadata(mock_hist
         )
     )
     repository = MagicMock()
+    repository.create_node.side_effect = lambda *, node_obj, sketch_id: (
+        node_obj.get("id") or f"{node_obj['nodeType']}:{node_obj['nodeLabel']}"
+    )
     instance = job(positions_per_flight="2")
     instance._graph_service = GraphService(sketch_id="s", repository=repository)
     [flight] = await instance.execute(["405455"])
@@ -346,6 +349,9 @@ async def test_history_preserves_input_aircraft_identity_and_metadata(
         notes="Keep my notes",
     )
     repository = MagicMock()
+    repository.create_node.side_effect = lambda *, node_obj, sketch_id: (
+        node_obj.get("id") or f"{node_obj['nodeType']}:{node_obj['nodeLabel']}"
+    )
     graph = GraphService(sketch_id="s", repository=repository)
     graph.create_node_from_flowsint_type(original)
     instance = job()

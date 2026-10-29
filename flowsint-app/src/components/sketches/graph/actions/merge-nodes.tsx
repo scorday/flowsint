@@ -61,7 +61,12 @@ export function MergeDialog() {
       oldNodes: entitiesToMerge,
       newNode: {
         id: preview.id,
-        data: preview.data
+        data: {
+          label: preview.nodeLabel,
+          type: preview.nodeType,
+          nodeProperties: preview.nodeProperties,
+          nodeMetadata: preview.nodeMetadata
+        }
       }
     })
     return toast.promise(

@@ -53,6 +53,7 @@ class GraphEdge(BaseModel):
     type: Optional[str] = None
     weight: Optional[float] = None
     confidence_level: Optional[Union[float, str]] = None
+    properties: Dict[str, Any] = Field(default_factory=dict)
 
 
 class GraphData(BaseModel):

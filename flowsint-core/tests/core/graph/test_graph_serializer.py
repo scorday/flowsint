@@ -85,7 +85,8 @@ def test_deserializer():
     )
     output = GraphSerializer.neo4j_dict_to_graph_node(node)
 
-    assert output == graph_node
+    assert output.model_dump() == graph_node.model_dump()
+    assert output.nodeProperties._graph_uid == "id"
 
 
 def test_serialize_from_flowsint_type():
@@ -255,7 +256,10 @@ class TestGraphEdgeToGraphDict:
         from_obj = Domain(domain="source.com")
         to_obj = Domain(domain="target.com")
         result = GraphSerializer.graph_edge_to_neo4j_dict(from_obj, to_obj, "LINKS_TO")
-        assert result == {
+        assert {
+            k: result[k]
+            for k in ("from_type", "from_label", "to_type", "to_label", "rel_label")
+        } == {
             "from_type": "domain",
             "from_label": "source.com",
             "to_type": "domain",
@@ -279,7 +283,10 @@ class TestGraphEdgeToGraphDict:
             nodeMetadata=NodeMetadata(),
         )
         result = GraphSerializer.graph_edge_to_neo4j_dict(from_obj, to_obj, "RESOLVES")
-        assert result == {
+        assert {
+            k: result[k]
+            for k in ("from_type", "from_label", "to_type", "to_label", "rel_label")
+        } == {
             "from_type": "ip",
             "from_label": "source",
             "to_type": "domain",
@@ -297,7 +304,10 @@ class TestGraphEdgeToGraphDict:
             nodeMetadata=NodeMetadata(),
         )
         result = GraphSerializer.graph_edge_to_neo4j_dict(from_obj, to_obj, "HOSTS")
-        assert result == {
+        assert {
+            k: result[k]
+            for k in ("from_type", "from_label", "to_type", "to_label", "rel_label")
+        } == {
             "from_type": "domain",
             "from_label": "source.com",
             "to_type": "ip",

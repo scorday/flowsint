@@ -308,7 +308,7 @@ StatusCodeBadge.displayName = 'StatusCodeBadge'
 const DetailsPanel = memo(() => {
   const { t, language } = useTranslation()
 
-  const { id: sketchId } = useParams({ strict: false })
+  const { id: sketchId, investigationId } = useParams({ strict: false })
   const { canEdit } = usePermissions()
   const nodesLength = useGraphStore((s) => s.nodesLength)
   const node = useGraphStore((s) => s.getCurrentNode())
@@ -375,7 +375,7 @@ const DetailsPanel = memo(() => {
         updateNode(node.id, variables.body.updates)
         if (sketchId) {
           queryClient.invalidateQueries({ queryKey: queryKeys.sketches.detail(sketchId) })
-          queryClient.invalidateQueries({ queryKey: queryKeys.sketches.graph(sketchId, sketchId) })
+          queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
         }
       } else {
         toast.error(t('Failed to update'))
@@ -505,7 +505,10 @@ const DetailsPanel = memo(() => {
   }
 
   const propertiesFields = Object.entries(formData.nodeProperties)
-  const metadataFields = Object.entries(formData.nodeMetadata).filter(([key]) => key !== 'notes')
+  const observations = formData.nodeMetadata.observations
+  const metadataFields = Object.entries(formData.nodeMetadata).filter(
+    ([key]) => !['notes', 'observations'].includes(key)
+  )
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -675,6 +678,24 @@ const DetailsPanel = memo(() => {
             </div>
           </CollapsibleSection>
 
+          {Array.isArray(observations) && observations.length > 0 && (
+            <CollapsibleSection label={t('Previous observations')} defaultOpen={false}>
+              <div className="space-y-2 px-6 py-3 text-xs">
+                {observations.map((observation: Record<string, unknown>, index: number) => (
+                  <div key={index} className="rounded border p-2 space-y-1">
+                    <p className="font-medium break-words">{String(observation.field ?? '')}</p>
+                    <p className="break-words">
+                      {formatValue(observation.previous)} → {formatValue(observation.value)}
+                    </p>
+                    <p className="text-muted-foreground break-words">
+                      {String(observation.source ?? '')} ·{' '}
+                      {formatDate(observation.observed_at, language)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
           {metadataFields.length > 0 && (
             <CollapsibleSection label={t('Metadata')} defaultOpen={false}>
               {metadataFields.map(([key, value]) => (

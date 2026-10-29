@@ -415,6 +415,8 @@ export function ImportPreview({
           include: true,
           nodeLabel: entity.obj.nodeLabel,
           node_id: entity?.node_id?.toString(),
+          presentation: entity.presentation,
+          graph_uid: entity.graph_uid,
           data
         })
       })

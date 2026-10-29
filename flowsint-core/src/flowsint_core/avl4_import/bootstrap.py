@@ -10,6 +10,9 @@ from neo4j import GraphDatabase
 from redis import Redis
 from sqlalchemy import create_engine, text
 
+from flowsint_core.core.graph.connection import Neo4jConnection
+from flowsint_core.core.graph.schema import install_schema, require_schema
+
 SQL_REVISION = "a6b7c8d9e0f1"
 
 CONSTRAINT = """CREATE CONSTRAINT avl4_card_identity IF NOT EXISTS
@@ -59,6 +62,14 @@ def check_storage() -> None:
         legacy = session.run("MATCH (n:avl4material) RETURN count(n) AS total").single()
         if not legacy or legacy["total"]:
             raise RuntimeError("Flowsint card type migration is not complete")
+        # The previous release retained tombstones after deleting SQL sketches.
+        # Such orphaned history has no remaining SQL owner and must not be
+        # guessed into another investigation or prevent startup forever.
+        old_graph = session.run("""MATCH (n) WHERE n.sketch_id IS NOT NULL AND n.deleted_at IS NULL
+            AND NOT n:GraphView AND NOT n:GraphEntity RETURN count(n) AS total""").single()
+        if not old_graph or old_graph["total"]:
+            raise RuntimeError("Investigation graph migration is not complete")
+    require_schema(Neo4jConnection.get_instance())
     with Redis.from_url(
         os.environ["REDIS_URL"], socket_timeout=3, socket_connect_timeout=3
     ) as broker:
@@ -82,6 +93,7 @@ def initialize() -> None:
         session.run(CONSTRAINT).consume()
         session.run(MIGRATE_CARD_TYPE).consume()
         session.run(DROP_LEGACY_CONSTRAINT).consume()
+    install_schema(Neo4jConnection.get_instance())
     check_storage()
 
 

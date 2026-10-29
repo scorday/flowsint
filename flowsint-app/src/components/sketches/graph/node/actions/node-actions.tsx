@@ -22,6 +22,7 @@ import { GraphNode } from '@/types'
 import { useGraphSettingsStore } from '@/stores/graph-settings-store'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-can'
+import { useQueryClient } from '@tanstack/react-query'
 
 const flagColors = {
   red: 'text-red-400 fill-red-200',
@@ -37,8 +38,9 @@ const NodeActions = memo(
   ({ node, setMenu }: { node: GraphNode; setMenu?: (menu: any | null) => void }) => {
     const { t } = useTranslation()
 
-    const { id: sketchId } = useParams({ strict: false })
-    const { canEdit } = usePermissions()
+    const { id: sketchId, investigationId } = useParams({ strict: false })
+    const { canEdit, canDelete } = usePermissions()
+    const queryClient = useQueryClient()
     const { confirm } = useConfirm()
     const setOpenMainDialog = useGraphStore((state) => state.setOpenMainDialog)
     const setRelatedNodeToAdd = useGraphStore((state) => state.setRelatedNodeToAdd)
@@ -70,23 +72,29 @@ const NodeActions = memo(
       [node, toggleNodeSelection, openChat, setMenu]
     )
 
-    const handleDeleteNode = async () => {
+    const handleDeleteNode = async (global: boolean) => {
       if (!node.id || !sketchId) return
       if (
         !(await confirm({
-          title: t('You are about to delete this node ?'),
-          message: t('The action is irreversible.')
+          title: global ? t('Delete from investigation?') : t('Remove from sketch?'),
+          message: global
+            ? t(
+                'The object and its relations will disappear from every sketch in this investigation.'
+              )
+            : t('The object remains in the investigation and on other sketches.')
         }))
       )
         return
       toast.promise(
         (async () => {
+          if (global) await sketchService.deleteFromInvestigation(sketchId, [node.id], [])
+          else await sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: [node.id] }))
           removeNodes([node.id])
-          return sketchService.deleteNodes(sketchId, JSON.stringify({ nodeIds: [node.id] }))
+          await queryClient.invalidateQueries({ queryKey: ['investigations', investigationId] })
         })(),
         {
           loading: t('Deleting {{v0}}...', { v0: String(node.nodeProperties.label) }),
-          success: t('Node deleted successfully.'),
+          success: global ? t('Deleted from investigation.') : t('Removed from sketch.'),
           error: t('Failed to delete node.')
         }
       )
@@ -157,12 +165,21 @@ const NodeActions = memo(
           </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={handleDeleteNode}
+            onClick={() => handleDeleteNode(false)}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="h-3.5 w-3.5 mr-2" />
-            {t('Delete')}
+            {t('Remove from sketch')}
           </DropdownMenuItem>
+          {canDelete && (
+            <DropdownMenuItem
+              onClick={() => handleDeleteNode(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              {t('Delete from investigation')}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     )

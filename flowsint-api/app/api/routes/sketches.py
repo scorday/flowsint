@@ -51,6 +51,11 @@ class NodeDeleteInput(BaseModel):
     nodeIds: List[str]
 
 
+class SubgraphInput(BaseModel):
+    node_ids: list[str] = Field(default_factory=list, max_length=10000)
+    edge_ids: list[str] = Field(default_factory=list, max_length=20000)
+
+
 class RelationshipDeleteInput(BaseModel):
     relationshipIds: List[str]
 
@@ -100,6 +105,8 @@ class EntityMappingInput(BaseModel):
     nodeLabel: str
     node_id: Optional[str] = None
     data: Dict[str, Any]
+    presentation: Dict[str, Any] = Field(default_factory=dict)
+    graph_uid: Optional[str] = Field(default=None, max_length=512)
 
 
 class ImportExecuteResponse(BaseModel):
@@ -125,6 +132,8 @@ def create_sketch(
             description=sketch_data.get("description"),
             investigation_id=sketch_data.get("investigation_id"),
             owner_id=current_user.id,
+            node_ids=data.node_ids,
+            edge_ids=data.edge_ids,
         )
     except ValidationError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -171,6 +180,8 @@ def update_sketch(
         raise HTTPException(status_code=404, detail="Sketch not found")
     except PermissionDeniedError:
         raise HTTPException(status_code=403, detail="Forbidden")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.delete("/{id}", status_code=204)
@@ -203,6 +214,59 @@ async def get_sketch_nodes(
         return service.get_graph(UUID(sketch_id), current_user.id, format)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Graph not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@router.get("/{sketch_id}/investigation-graph")
+def investigation_graph(
+    sketch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+):
+    service = create_sketch_service(db)
+    try:
+        return service.investigation_graph(sketch_id, current_user.id)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@router.post("/{sketch_id}/subgraph")
+def attach_subgraph(
+    sketch_id: UUID,
+    data: SubgraphInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+):
+    service = create_sketch_service(db)
+    try:
+        return service.attach_subgraph(
+            sketch_id, current_user.id, data.node_ids, data.edge_ids
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
+    except PermissionDeniedError:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/{sketch_id}/investigation-elements")
+def delete_investigation_elements(
+    sketch_id: UUID,
+    data: SubgraphInput,
+    db: Session = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+):
+    service = create_sketch_service(db)
+    try:
+        return service.delete_from_investigation(
+            sketch_id, current_user.id, data.node_ids, data.edge_ids
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Sketch not found")
     except PermissionDeniedError:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -474,7 +538,7 @@ async def execute_import(
 
     service = create_sketch_service(db)
     try:
-        service.get_by_id(UUID(sketch_id), current_user.id)
+        service.get_for_update(UUID(sketch_id), current_user.id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Sketch not found")
     except PermissionDeniedError:
@@ -498,6 +562,8 @@ async def execute_import(
             entity_type=m.entity_type,
             nodeLabel=m.nodeLabel,
             data=m.data,
+            presentation=m.presentation,
+            graph_uid=m.graph_uid,
             include=m.include,
             node_id=m.node_id,
         )

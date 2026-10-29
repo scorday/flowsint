@@ -26,9 +26,10 @@ interface FormValues {
 
 interface NewSketchProps {
   children: ReactNode
+  selection?: { nodeIds: string[]; edgeIds: string[] }
 }
 
-export default function NewSketch({ children }: NewSketchProps) {
+export default function NewSketch({ children, selection }: NewSketchProps) {
   const { t } = useTranslation()
 
   const [open, setOpen] = useState(false)
@@ -61,6 +62,9 @@ export default function NewSketch({ children }: NewSketchProps) {
           queryClient.invalidateQueries({
             queryKey: queryKeys.investigations.sketches(investigationId)
           })
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.sketches.dashboard(investigationId)
+          })
         }
         if (sketchId) setOpen(false)
       } else {
@@ -81,7 +85,9 @@ export default function NewSketch({ children }: NewSketchProps) {
     try {
       const payload = {
         ...data,
-        investigation_id: investigationId
+        investigation_id: investigationId,
+        node_ids: selection?.nodeIds ?? [],
+        edge_ids: selection?.edgeIds ?? []
       }
       await createSketchMutation.mutateAsync(JSON.stringify(payload))
     } catch (error) {
@@ -137,13 +143,17 @@ export default function NewSketch({ children }: NewSketchProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <span role="button">{children}</span>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{t('New sketch')}</DialogTitle>
-          <DialogDescription>{t('Create a new blank sketch.')}</DialogDescription>
+          <DialogDescription>
+            {selection
+              ? t(
+                  'The selected objects will be shown on a new sketch. Their data remains shared across the investigation.'
+                )
+              : t('Create a new blank sketch.')}
+          </DialogDescription>
         </DialogHeader>
         {formContent}
       </DialogContent>
