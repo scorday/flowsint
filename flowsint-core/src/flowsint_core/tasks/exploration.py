@@ -47,7 +47,15 @@ def _actor(actor: str) -> ActorID:
 @celery.task(
     name="search_investigation", base=ExplorationTask, time_limit=0, soft_time_limit=0
 )
-def search_investigation(*, result_id: str, sketch_id: str, actor: str) -> None:
+def search_investigation(
+    *,
+    result_id: str,
+    sketch_id: str,
+    actor: str,
+    avl4_context: dict[str, str | None] | None = None,
+) -> None:
+    # Celery validates the producer signature before Avl4ProjectTask consumes
+    # and verifies this context at the worker boundary.
     result = ExplorationResults(result_id)
     try:
         with SessionLocal() as db:
@@ -87,7 +95,13 @@ def search_investigation(*, result_id: str, sketch_id: str, actor: str) -> None:
     name="apply_exploration", base=ExplorationTask, time_limit=0, soft_time_limit=0
 )
 def apply_exploration(
-    *, result_id: str, sketch_id: str, actor: str, action: str, title: str = ""
+    *,
+    result_id: str,
+    sketch_id: str,
+    actor: str,
+    action: str,
+    title: str = "",
+    avl4_context: dict[str, str | None] | None = None,
 ) -> None:
     result = ExplorationResults(result_id)
     with SessionLocal() as db:

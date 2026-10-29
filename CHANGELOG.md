@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [flowsint-search-pagination-20261029-r3] - 2026-10-29 - staging
+
+### Исправлено
+
+- В режиме AVL4 фоновые задачи поиска и создания схемы принимают служебный контекст проекта при проверке аргументов Celery. Поиск больше не завершается ошибкой до постановки в очередь; проверки пользователя и проекта на worker сохранены. Обновить API и worker; UI, настройки и данные не меняются.
+
 ## [flowsint-search-pagination-20261029-r2] - 2026-10-29 - staging
 
 > Применено: 2026-10-29T18:32:03+03:00 (МСК; manifest.applied_at, healthy и итоговая проверка данных/HTTPS).
