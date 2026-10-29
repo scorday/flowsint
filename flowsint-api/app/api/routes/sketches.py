@@ -12,7 +12,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -80,6 +80,16 @@ class RelationshipDeleteInput(BaseModel):
 class NodeEditInput(BaseModel):
     nodeId: str
     updates: Dict[str, Any]
+
+    @field_validator("updates")
+    @classmethod
+    def validate_node_role(cls, updates: Dict[str, Any]) -> Dict[str, Any]:
+        if "nodeRole" in updates and updates["nodeRole"] not in (
+            "primary",
+            "secondary",
+        ):
+            raise ValueError("nodeRole must be primary or secondary")
+        return updates
 
 
 class RelationshipEditInput(BaseModel):

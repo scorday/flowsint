@@ -72,6 +72,7 @@ def test_serializer():
         "nodeImage": "nodeImage",
         "nodeIcon": "nodeIcon",
         "nodeShape": "circle",
+        "nodeRole": "primary",
         "x": 100.0,
         "y": 100.0,
         "nodeProperties.domain": "domain.com",

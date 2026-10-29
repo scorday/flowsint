@@ -148,8 +148,10 @@ class Neo4jGraphRepository:
             """MATCH (n:GraphEntity {scope_key: $scope, uid: $uid})
             MATCH (v:GraphView {scope_key: $scope, sketch_id: $sketch})
             MERGE (v)-[m:SHOWS]->(n)
-            ON CREATE SET m += $presentation
-            ON MATCH SET m.migration_layouts = coalesce(m.migration_layouts, []) + coalesce($presentation.migration_layouts, [])""",
+            ON CREATE SET m += $presentation, m.nodeRole = coalesce($presentation.nodeRole, 'primary')
+            ON MATCH SET m.migration_layouts = coalesce(m.migration_layouts, []) + coalesce($presentation.migration_layouts, []),
+                m.nodeRole = CASE WHEN $presentation.nodeRole = 'primary' THEN 'primary'
+                    ELSE coalesce(m.nodeRole, 'primary') END""",
             self._params(sketch_id, uid=uid, presentation=presentation or {}),
         ).consume()
 
@@ -940,7 +942,9 @@ class Neo4jGraphRepository:
             old=old_id,
         ).data()
         for view in views:
-            self._show(tx, view["sketch"], target_id, view["presentation"])
+            presentation = view["presentation"]
+            presentation.setdefault("nodeRole", "primary")
+            self._show(tx, view["sketch"], target_id, presentation)
         edges = tx.run(
             """MATCH (a:GraphEntity {scope_key: $scope})-[r]->(b:GraphEntity {scope_key: $scope})
             WHERE r.scope_key = $scope AND (a.uid = $old OR b.uid = $old)

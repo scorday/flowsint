@@ -142,6 +142,7 @@ class GraphSerializer:
             nodeIcon=node_dict.get("nodeIcon"),
             nodeFlag=node_dict.get("nodeFlag"),
             nodeShape=node_dict.get("nodeShape"),
+            nodeRole=node_dict.get("nodeRole") or "primary",
             x=node_dict.get("x"),
             y=node_dict.get("y"),
             nodeProperties=entity,

@@ -76,6 +76,35 @@ def vk(user_id=123, **extra):
     }
 
 
+def test_roles_are_per_view_and_enrichment_preserves_manual_and_legacy_roles(graph):
+    repo, connection = graph
+    primary = repo.create_node(vk(801, nodeRole="primary"), "view-a")
+    secondary = repo.create_node(vk(802, nodeRole="secondary"), "view-a")
+    legacy = repo.create_node(vk(803), "view-a")
+    connection.execute_write(
+        "MATCH (:GraphView {scope_key: $scope, sketch_id: 'view-a'})-[m:SHOWS]->"
+        "(:GraphEntity {uid: $id}) REMOVE m.nodeRole",
+        {"scope": repo.scope.key, "id": legacy},
+    )
+    for uid, number in [(primary, 801), (secondary, 802), (legacy, 803)]:
+        repo.create_node(vk(number, id=uid, nodeRole="secondary"), "view-a")
+    roles = {
+        n["id"]: n["data"]["nodeRole"] for n in repo.get_sketch_graph("view-a")["nodes"]
+    }
+    assert roles == {primary: "primary", secondary: "secondary", legacy: "primary"}
+    repo.attach_subgraph([secondary], [], "view-b")
+    assert repo.get_sketch_graph("view-b")["nodes"][0]["data"]["nodeRole"] == "primary"
+    repo.update_node(secondary, {"nodeRole": "primary"}, "view-a")
+    repo.create_node(vk(802, id=secondary, nodeRole="secondary"), "view-a")
+    assert all(
+        n["data"]["nodeRole"] == "primary"
+        for n in repo.get_sketch_graph("view-a")["nodes"]
+    )
+    assert all(
+        "nodeRole" not in n["data"] for n in repo.get_investigation_graph()["nodes"]
+    )
+
+
 def exploration_chain(repo, length=5):
     ids = [
         repo.create_node(vk(1000 + i), "view-a" if i < 2 else "view-b")

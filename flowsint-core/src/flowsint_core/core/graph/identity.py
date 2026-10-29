@@ -15,7 +15,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 PRESENTATION = frozenset(
-    {"x", "y", "nodeSize", "nodeColor", "nodeIcon", "nodeFlag", "nodeShape"}
+    {"x", "y", "nodeSize", "nodeColor", "nodeIcon", "nodeFlag", "nodeShape", "nodeRole"}
 )
 RESERVED = frozenset(
     {
@@ -175,6 +175,8 @@ def split_properties(
     properties: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Separate canonical data from display overrides, ignoring supplied scope."""
+    if properties.get("nodeRole") not in (None, "primary", "secondary"):
+        raise ValueError("nodeRole must be primary or secondary")
     entity = {
         k: v
         for k, v in properties.items()

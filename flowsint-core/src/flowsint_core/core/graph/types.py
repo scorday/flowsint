@@ -5,12 +5,13 @@ This module contains Pydantic models for graph nodes, edges, and related data st
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 # from flowsint_types import FlowsintType
 from pydantic import BaseModel, Field
 
 GraphDict = Dict[str, Any]
+NodeRole = Literal["primary", "secondary"]
 
 
 class NodeMetadata(BaseModel):
@@ -35,6 +36,7 @@ class GraphNode(BaseModel):
     nodeImage: Optional[str] = None
     nodeFlag: Optional[str] = None
     nodeShape: Optional[str] = None
+    nodeRole: NodeRole = "primary"
 
     nodeMetadata: NodeMetadata
     nodeProperties: Any

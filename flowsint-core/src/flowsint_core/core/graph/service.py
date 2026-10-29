@@ -96,6 +96,7 @@ class GraphService:
             )
 
         neo4j_node_dict: GraphDict = GraphSerializer.graph_node_to_neo4j_dict(node_obj)
+        neo4j_node_dict["nodeRole"] = "primary"
 
         return self._repository.create_node(
             node_obj=neo4j_node_dict, sketch_id=self._sketch_id
@@ -120,6 +121,7 @@ class GraphService:
         neo4j_node_dict: GraphDict = GraphSerializer.flowsint_type_to_neo4j_dict(
             node_obj
         )
+        neo4j_node_dict["nodeRole"] = "secondary"
 
         uid = self._repository.create_node(
             node_obj=neo4j_node_dict, sketch_id=self._sketch_id

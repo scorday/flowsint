@@ -39,6 +39,45 @@ def seed(db, role):
     }, sketch
 
 
+def test_viewer_cannot_promote_node(client, db_session, graph):
+    headers, sketch = seed(db_session, Role.VIEWER)
+    response = client.put(
+        f"/api/sketches/{sketch.id}/nodes/edit",
+        json={"nodeId": "object", "updates": {"nodeRole": "primary"}},
+        headers=headers,
+    )
+    assert response.status_code == 403
+    graph.update_node.assert_not_called()
+
+
+def test_editor_can_promote_node_with_existing_update_permission(
+    client, db_session, graph
+):
+    headers, sketch = seed(db_session, Role.EDITOR)
+    graph.update_node.return_value = "object"
+    response = client.put(
+        f"/api/sketches/{sketch.id}/nodes/edit",
+        json={"nodeId": "object", "updates": {"nodeRole": "primary"}},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    graph.update_node.assert_called_once_with(
+        element_id="object", updates={"nodeRole": "primary"}
+    )
+
+
+@pytest.mark.parametrize("role", ["unknown", None, [], {}])
+def test_invalid_membership_role_is_rejected(client, db_session, graph, role):
+    headers, sketch = seed(db_session, Role.EDITOR)
+    response = client.put(
+        f"/api/sketches/{sketch.id}/nodes/edit",
+        json={"nodeId": "object", "updates": {"nodeRole": role}},
+        headers=headers,
+    )
+    assert response.status_code == 422
+    graph.update_node.assert_not_called()
+
+
 @pytest.fixture
 def graph(monkeypatch):
     service = MagicMock()

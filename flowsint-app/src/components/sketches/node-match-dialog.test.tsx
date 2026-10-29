@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   add: vi.fn(),
   attach: vi.fn(),
   edge: vi.fn(),
+  update: vi.fn(),
   select: vi.fn(),
   refresh: vi.fn(),
   added: vi.fn(),
@@ -29,7 +30,8 @@ vi.mock('@/api/sketch-service', () => ({
     findNodeMatches: mocks.find,
     addNode: mocks.add,
     attachSubgraph: mocks.attach,
-    addEdge: mocks.edge
+    addEdge: mocks.edge,
+    updateNode: mocks.update
   }
 }))
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ investigationId: 'case' }) }))
@@ -133,6 +135,21 @@ describe('Manual object matching', () => {
     open()
     fireEvent.click(await screen.findByRole('button', { name: 'Use existing object: Alice Smith' }))
     await waitFor(() => expect(mocks.select).toHaveBeenCalledWith('canonical'))
+    expect(mocks.attach).not.toHaveBeenCalled()
+    expect(mocks.add).not.toHaveBeenCalled()
+  })
+
+  it('promotes a secondary match explicitly reused on the current sketch', async () => {
+    mocks.find.mockResolvedValue([
+      { node: { ...existing, nodeRole: 'secondary' }, match: 'exact', on_sketch: true }
+    ])
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: 'Use existing object: Alice Smith' }))
+    await waitFor(() => expect(mocks.select).toHaveBeenCalledWith('canonical'))
+    expect(mocks.update).toHaveBeenCalledWith(
+      'view-b',
+      JSON.stringify({ nodeId: 'canonical', updates: { nodeRole: 'primary' } })
+    )
     expect(mocks.attach).not.toHaveBeenCalled()
     expect(mocks.add).not.toHaveBeenCalled()
   })

@@ -1459,5 +1459,9 @@
   "Creating the sketch with all selected results. This may take a while.": "Creating the sketch with all selected results. This may take a while.",
   "Search did not complete. Run it again; partial results cannot be added to a sketch.": "Search did not complete. Run it again; partial results cannot be added to a sketch.",
   "Search cancelled. Partial results cannot be added to a sketch.": "Search cancelled. Partial results cannot be added to a sketch.",
-  "No recent search progress. You can cancel and retry.": "No recent search progress. You can cancel and retry."
+  "No recent search progress. You can cancel and retry.": "No recent search progress. You can cancel and retry.",
+  "Primary objects": "Primary objects",
+  "Secondary objects": "Secondary objects",
+  "Make primary": "Make primary",
+  "Could not make the object primary.": "Could not make the object primary."
 }

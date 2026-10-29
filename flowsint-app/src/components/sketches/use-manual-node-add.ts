@@ -43,9 +43,14 @@ export function useManualNodeAdd(sketchId?: string) {
     const { sketchId } = request
     let id: string
     if (existing) {
-      // Never overwrite shared attributes or the current sketch's presentation.
+      // Reuse shared attributes and layout; explicit manual reuse makes it primary.
       if (!existing.on_sketch) {
         await sketchService.attachSubgraph(sketchId, [existing.node.id], [])
+      } else if (existing.node.nodeRole === 'secondary') {
+        await sketchService.updateNode(
+          sketchId,
+          JSON.stringify({ nodeId: existing.node.id, updates: { nodeRole: 'primary' } })
+        )
       }
       id = existing.node.id
     } else {
